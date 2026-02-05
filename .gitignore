@@ -1,25 +1,47 @@
+# Dependencies
 node_modules/
-dist/
+.pnpm-store/
+
+# Environment
 .env
-.env.*
-*.local
+.env.local
+.env.*.local
+
+# Build outputs
+dist/
+build/
+.next/
+out/
+
+# Database
+*.db
+*.db-journal
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
 .DS_Store
+Thumbs.db
 
-# Secrets & credentials
-*.pem
+# Secrets (NEVER commit)
 *.key
-*.p12
-*.pfx
-credentials.json
-client_secret*.json
-auth-profiles.json
-*_secret*
-*_token*
+*.pem
+private_keys/
 
-# OpenClaw private data
-openclaw.json
-MEMORY.md
-SOUL.md
-USER.md
-memory/
-.openclaw/
+# Plugin config (contains private keys)
+.arena-keys.json
+
+# Testing
+coverage/
+
+# Misc
+.turbo/
