@@ -1,0 +1,71 @@
+#!/bin/bash
+# Pre-commit hook: block sensitive data from being committed
+
+PATTERNS=(
+  'sk-ant-'
+  'sk-or-'
+  'github_pat_'
+  'gho_'
+  'ghp_'
+  'ANTHROPIC_API_KEY'
+  'GEMINI_API_KEY'
+  'keychain:'
+  'find-generic-password'
+  'add-generic-password'
+  'BEGIN.*PRIVATE KEY'
+  'api[_-]?key.*=.*[A-Za-z0-9]{20}'
+  'password.*=.*[^\*]'
+  'secret.*=.*[A-Za-z0-9]{10}'
+  'token.*=.*[A-Za-z0-9]{20}'
+  'nulldsk0'
+  'devstufftbh'
+  '@gmail\.com'
+  '@proton\.me'
+)
+
+STAGED=$(git diff --cached --name-only)
+
+if [ -z "$STAGED" ]; then
+  exit 0
+fi
+
+# Skip scanning the hook itself (contains pattern definitions, not secrets)
+SKIP_FILES=(".githooks/pre-commit")
+
+FOUND=0
+for file in $STAGED; do
+  if [ ! -f "$file" ]; then
+    continue
+  fi
+  
+  # Skip whitelisted files
+  SKIP=0
+  for skip in "${SKIP_FILES[@]}"; do
+    if [ "$file" = "$skip" ]; then
+      SKIP=1
+      break
+    fi
+  done
+  if [ $SKIP -eq 1 ]; then
+    continue
+  fi
+  
+  for pattern in "${PATTERNS[@]}"; do
+    MATCH=$(git diff --cached "$file" | grep -iE "^\+" | grep -iE "$pattern" 2>/dev/null)
+    if [ -n "$MATCH" ]; then
+      echo "🚨 BLOCKED: Potential secret found in $file"
+      echo "   Pattern: $pattern"
+      echo "   Match: $MATCH"
+      FOUND=1
+    fi
+  done
+done
+
+if [ $FOUND -eq 1 ]; then
+  echo ""
+  echo "❌ Commit blocked! Remove sensitive data before committing."
+  echo "   Use 'git commit --no-verify' to bypass (NOT recommended)."
+  exit 1
+fi
+
+exit 0

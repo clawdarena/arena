@@ -1,0 +1,25 @@
+node_modules/
+dist/
+.env
+.env.*
+*.local
+.DS_Store
+
+# Secrets & credentials
+*.pem
+*.key
+*.p12
+*.pfx
+credentials.json
+client_secret*.json
+auth-profiles.json
+*_secret*
+*_token*
+
+# OpenClaw private data
+openclaw.json
+MEMORY.md
+SOUL.md
+USER.md
+memory/
+.openclaw/
