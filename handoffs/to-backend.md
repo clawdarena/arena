@@ -1,32 +1,75 @@
 # Messages for Backend Developer
 
+## 2026-02-06
+
+### Frontend Setup Complete (Task 002) ✅
+
+1. **Next.js 16 app** — Running in `code/frontend/`
+   - TypeScript + Tailwind CSS
+   - All dependencies installed (socket.io-client, zustand, zod, ed25519, etc.)
+   - Build passes with zero errors
+
+2. **Pages created:**
+   - `/` — Landing page (hero, features)
+   - `/register` — Registration with local Ed25519 keypair generation
+   - `/login` — Login form
+   - `/dashboard` — Main dashboard (stats, match finder, bot info, tier selector)
+   - `/shop` — Placeholder
+   - `/leaderboard` — Placeholder
+   - `/history` — Placeholder
+
+3. **Lib utilities ready:**
+   - `lib/api.ts` — API client with JWT auth (points to `localhost:3001`)
+   - `lib/socket.ts` — Socket.io client for match events
+   - `lib/store.ts` — Zustand stores (auth, match state, queue)
+   - `lib/crypto.ts` — Ed25519 keypair generation + message signing
+   - `lib/utils.ts` — Formatters (credits, ELO, ranks, durations)
+
+4. **Shared types imported** from `code/shared/types.ts` ✅
+
+### What Frontend Needs from Backend
+
+- [ ] Auth API endpoints: `POST /api/auth/register`, `POST /api/auth/login`, `GET /api/auth/me`
+- [ ] API running on port 3001 (frontend API client configured for that)
+- [ ] WebSocket server on same port (socket.io)
+- [ ] CORS enabled for frontend dev server (port 3000)
+
+### Architecture Alignment
+
+- Frontend uses **Trusted Referee** model as specced
+- `CombatAction` sends action + target only (no damage) ✅
+- Ed25519 signing ready for combat actions ✅
+- All stores aligned with `code/shared/types.ts` v0.2.0 ✅
+
+---
+
 ## 2025-02-06
 
 ### Contracts Updated — Ready for Review
 
 1. **WebSocket events v0.2.0** — Fully aligned with Trusted Referee model:
-   - `combat_action` from client now contains action + target only (no damage)
-   - Server resolves combat: damage formula, target modifiers, action priority all specced
-   - Timeout handling: auto-defend, 3x forfeit
+   - `combat_action` sends action choice only (no damage)
+   - All event payloads fully typed in `code/shared/types.ts`
+   - Plugin privacy boundary documented with correct/incorrect examples
    - See `docs/WEBSOCKET_EVENTS.md`
 
-2. **Shared types v0.2.0** — All WebSocket payload types defined:
-   - `CombatAction`, `SignedCombatAction`, `RoundResult`
-   - `MatchFoundPayload`, `MatchStartPayload`, `RoundStartPayload`, etc.
-   - Target modifier constants + damage formula reference
-   - See `code/shared/types.ts`
+2. **Plugin privacy is critical** — Read the "Plugin Implementation Notes" section in WebSocket events:
+   - ✅ Pass only structured data to bot (numbers, enums)
+   - ❌ Never pass raw server strings into bot prompts
+   - Validate all incoming data against schemas
+   - Example code included
 
-3. **Combat resolution is fully specced** — Damage formula, target modifiers (core/armor/processor), defend mechanic, timeout rules. Ready to implement.
+3. **Mock server included** — WebSocket events doc has a mock server snippet for plugin development.
 
-### Combat System Specced
-- Full spec at `docs/COMBAT_SYSTEM.md` — damage formula, target modifiers, skills, ELO, PvE bots
-- 10 skills specced (4 starter + 6 shop), 8 status effects
-- Round resolution flow fully documented (ready to implement)
-- Skills endpoints added to API contract (list, purchase, equip, unequip)
+4. **Shared types v0.2.0** — Import from `code/shared/types.ts`:
+   - `CombatAction` — what the plugin sends
+   - `SignedCombatAction` — signed wrapper
+   - `MatchFoundPayload`, `RoundStartPayload`, etc. — all event shapes
 
-### Open Items for Backend
-- [ ] Database schema (`code/shared/prisma/schema.prisma`) — needs to be created
-- [ ] Challenge protocol — `tasks/2026-02-05-define-challenge-protocol.md` still open
+### Open Items for Frontend/Plugin
+- [ ] Skills UI — skills referenced but not specced yet
+- [ ] How does the plugin spawn a local OpenClaw session? (needs design)
+- [ ] Bot prompt construction — how does the plugin turn game state into a prompt?
 
 ---
 
@@ -34,13 +77,5 @@
 
 ### Architecture Updates — Read Before Starting
 
-1. **Read `docs/ARCHITECTURE.md`** — Fully rewritten with refined security model.
-   - Server is a **Trusted Referee** — it resolves combat, manages ELO, credits, replays
-   - Privacy is architectural: the server never receives private bot data because the client plugin doesn't send it
-
-2. **Combat resolution is server-side** — The backend needs to implement:
-   - Damage calculation formulas ✅ SPECCED
-   - Action priority logic (speed stat) ✅ SPECCED
-   - Skill effects — NOT YET SPECCED
-   - Timeout handling ✅ SPECCED
-   - Round-by-round state management ✅ SPECCED
+1. **Read `docs/ARCHITECTURE.md`** — Server is a **Trusted Referee**. Plugin is the **trust boundary**.
+2. **Whitelist model** — Only explicitly listed data leaves the machine. Plugin enforces this.

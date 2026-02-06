@@ -92,46 +92,55 @@
 
 ---
 
-## 2025-02-06 — Day 2 (continued): Combat System & Skills
+## 2026-02-06 — Day 3: Frontend Setup (Task 002)
 
 ### What Was Done
 
-**1. Full Combat System Spec (`docs/COMBAT_SYSTEM.md`)**
-- Complete round resolution flow (tick effects → forced actions → priority → skills → attacks → results → win check)
-- Damage formula with examples
-- Target system: core (safe), armor (debuff), processor (stun chance)
-- Action priority by speed + seeded tiebreaker
-- Simultaneous resolution (both actions happen even if one bot dies)
-- ELO system with K=32, tier floors, entry fees, rewards (10% platform rake)
-- PvE bot specs (5 difficulty levels with fixed strategies)
+**1. Next.js 16 App Created**
+- Initialized with TypeScript + Tailwind CSS
+- All dependencies installed: socket.io-client, zustand, zod, @noble/ed25519, lucide-react, react-hook-form
+- Build passes with zero TypeScript errors
 
-**2. Skills System Fully Specced**
-- 4 starter skills (power_strike, shield_wall, overclock, scan)
-- 6 shop skills across rare/epic/legendary (fireball, iron_fortress, emp_blast, regenerate, berserker, mirror_coat)
-- 8 status effects with durations and behaviors
-- Skill resolution rules (skills before attacks, cooldown mechanics, forced defend on cooldown violation)
-- Status effect resolution order per round
+**2. Core Library Files**
+- `lib/api.ts` — API client with JWT auth headers, points to backend at port 3001
+- `lib/socket.ts` — Socket.io client with auto-reconnect, auth token passing
+- `lib/store.ts` — Zustand stores:
+  - `useAuthStore` — User auth state, token management, logout
+  - `useMatchStore` — Match phases (idle → queuing → found → fighting → result), round history
+  - `useQueueStore` — Queue state with timer
+- `lib/crypto.ts` — Ed25519 keypair generation (v3 API), message signing, local key storage
+- `lib/utils.ts` — Credit formatting, ELO rank calculation, duration formatting
 
-**3. API Contract Updated**
-- Added skills endpoints: list, purchase, equip, unequip
-- Match detail response updated with full replay format (targets, timing, effects)
+**3. Pages Created**
+- `/` — Landing page with hero section, feature cards (Privacy, Combat, Credits)
+- `/register` — Registration form with local Ed25519 keypair generation, welcome bonus callout
+- `/login` — Login form with username
+- `/dashboard` — Full dashboard with:
+  - Profile card (username, rank, ELO, wins/losses/win rate)
+  - Credits card with buy link
+  - Peak ELO card
+  - Match finder with tier selector (Bronze through Legend)
+  - Bot stats display (HP/ATK/DEF/SPD)
+- `/shop` — Placeholder (ready for Task 024)
+- `/leaderboard` — Placeholder (ready for backend leaderboard API)
+- `/history` — Placeholder (ready for backend match history API)
 
-**4. Shared Types Updated**
-- Added Skill, EquippedSkill, SkillId, StatusEffect types
-- Bot type updated with skills array
-- All types aligned with combat system spec
+**4. Architecture Alignment**
+- Frontend uses Trusted Referee model ✅
+- CombatAction sends action + target only (no damage) ✅
+- Ed25519 signing ready for combat actions ✅
+- All stores typed with `code/shared/types.ts` v0.2.0 ✅
+- API client configured for backend at localhost:3001 ✅
 
-### All Three Original Tasks: COMPLETE ✅
-1. ✅ WebSocket events aligned with Trusted Referee model
-2. ✅ Combat resolution fully specced (damage, skills, ELO, PvE)
-3. ✅ API contract aligned and expanded
+### Task Status
+- **Task 002 (Frontend Setup):** ✅ COMPLETE → Moved to tasks/done/
 
-### What's Still Open
+### What's Next for Frontend
+- **Task 004:** Auth UI integration (needs backend auth API first)
+- **Task 010:** Plugin setup (can start in parallel)
+- **Task 005:** Dashboard polish (after auth works end-to-end)
 
-**🟠 High Priority:**
-1. **Challenge Protocol** (`tasks/2026-02-05-define-challenge-protocol.md`) — Still open, no spec
-2. **Database Schema** — `code/shared/prisma/schema.prisma` needs to be created
-3. **Task 000: Lock Contracts** — All specs are done, both sides need to review and agree
-
-**🟡 Medium:**
-4. **Backend/Frontend split kickoff** — Tasks 001 + 002 ready once contracts are locked
+### What Frontend Needs from Backend
+- Auth API endpoints running on port 3001
+- CORS enabled for localhost:3000
+- WebSocket server on same port
