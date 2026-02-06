@@ -21,6 +21,7 @@ export function Navbar() {
 
   const navLinks = [
     { href: '/dashboard', label: 'Dashboard' },
+    { href: '/bot', label: 'My Bot' },
     { href: '/pve', label: 'PvE' },
     { href: '/gauntlet', label: 'Gauntlet' },
     { href: '/shop', label: 'Shop' },

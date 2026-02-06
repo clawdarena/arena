@@ -74,6 +74,51 @@ botRoutes.get('/:bot_id', authMiddleware, async (c) => {
 })
 
 // ============================================================
+// PATCH /api/bots/:bot_id — Update bot identity
+// ============================================================
+
+const updateBotSchema = z.object({
+  name: z.string().min(2).max(30).regex(/^[a-zA-Z0-9_\- ]+$/, 'Letters, numbers, spaces, hyphens, underscores').optional(),
+  avatar: z.string().min(1).max(8).optional(),   // Emoji (1-2 chars) or preset ID
+  tagline: z.string().max(60).optional(),         // Short battle tagline
+})
+
+botRoutes.patch('/:bot_id', authMiddleware, validate(updateBotSchema), async (c) => {
+  const { userId } = getAuthUser(c)
+  const botId = c.req.param('bot_id')
+  const updates = getParsedBody<z.infer<typeof updateBotSchema>>(c)
+
+  const bot = await prisma.bot.findFirst({ where: { id: botId, user_id: userId } })
+  if (!bot) {
+    return c.json({ error: 'Bot not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  // Filter out undefined values
+  const data: Record<string, unknown> = {}
+  if (updates.name !== undefined) data.name = updates.name
+  if (updates.avatar !== undefined) data.avatar = updates.avatar
+  if (updates.tagline !== undefined) data.tagline = updates.tagline
+
+  if (Object.keys(data).length === 0) {
+    return c.json({ error: 'No fields to update', code: 'NO_CHANGES' }, 400)
+  }
+
+  const updated = await prisma.bot.update({
+    where: { id: botId },
+    data,
+  })
+
+  return c.json({
+    bot: {
+      id: updated.id,
+      name: updated.name,
+      avatar: updated.avatar,
+      tagline: updated.tagline,
+    },
+  })
+})
+
+// ============================================================
 // POST /api/bots/equip
 // ============================================================
 

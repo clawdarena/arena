@@ -39,3 +39,9 @@ export const apiPost = <T>(endpoint: string, body: unknown) =>
     method: 'POST',
     body: JSON.stringify(body),
   })
+
+export const apiPatch = <T>(endpoint: string, body: unknown) =>
+  api<T>(endpoint, {
+    method: 'PATCH',
+    body: JSON.stringify(body),
+  })
