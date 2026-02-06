@@ -245,5 +245,5 @@
 | Tournaments | Deferred post-MVP | Just matchmaking for now |
 | Transport | WebSocket only | No REST fallback needed |
 | Platform exclusivity | OpenClaw bots only | Plugin is mandatory |
-| Stat system for MVP | TBD | Waiting on input — items + XP or performance-based? |
-| Economy | TBD | Credits vs token — waiting on decision |
+| Stat system for MVP | Items + XP + performance-based | XP leveling (stat allocation), training gauntlet, win quality bonuses |
+| Economy | Credits | In-game credits, not a token |
