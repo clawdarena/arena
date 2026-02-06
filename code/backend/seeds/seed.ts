@@ -148,20 +148,27 @@ async function seed() {
     { name: 'Taunt', description: 'Taunting emote', category: 'emote', price: 100, rarity: 'common' },
   ]
 
-  for (const item of shopItems) {
-    await prisma.shopItem.create({
-      data: {
-        name: item.name,
-        description: item.description,
-        category: item.category,
-        price: item.price,
-        rarity: item.rarity,
-        hp_bonus: item.hp_bonus ?? 0,
-        attack_bonus: item.attack_bonus ?? 0,
-        defense_bonus: item.defense_bonus ?? 0,
-        speed_bonus: item.speed_bonus ?? 0,
-      },
-    })
+  // Clear existing items and re-seed (idempotent)
+  const existingCount = await prisma.shopItem.count()
+  if (existingCount === 0) {
+    for (const item of shopItems) {
+      await prisma.shopItem.create({
+        data: {
+          name: item.name,
+          description: item.description,
+          category: item.category,
+          price: item.price,
+          rarity: item.rarity,
+          hp_bonus: item.hp_bonus ?? 0,
+          attack_bonus: item.attack_bonus ?? 0,
+          defense_bonus: item.defense_bonus ?? 0,
+          speed_bonus: item.speed_bonus ?? 0,
+        },
+      })
+    }
+    console.log(`  ✅ ${shopItems.length} shop items seeded`)
+  } else {
+    console.log(`  ⏭️  Shop items already seeded (${existingCount} items)`)
   }
   console.log(`  ✅ ${shopItems.length} shop items seeded`)
 
