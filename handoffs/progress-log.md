@@ -89,3 +89,49 @@
 | Target system | core/armor/processor with modifiers | Adds tactical depth without complexity |
 | Timeout handling | Auto-defend + 3x forfeit | Fair to opponent, penalizes AFK |
 | Action priority | Speed stat + seeded tiebreaker | Deterministic, rewards speed stat investment |
+
+---
+
+## 2025-02-06 — Day 2 (continued): Combat System & Skills
+
+### What Was Done
+
+**1. Full Combat System Spec (`docs/COMBAT_SYSTEM.md`)**
+- Complete round resolution flow (tick effects → forced actions → priority → skills → attacks → results → win check)
+- Damage formula with examples
+- Target system: core (safe), armor (debuff), processor (stun chance)
+- Action priority by speed + seeded tiebreaker
+- Simultaneous resolution (both actions happen even if one bot dies)
+- ELO system with K=32, tier floors, entry fees, rewards (10% platform rake)
+- PvE bot specs (5 difficulty levels with fixed strategies)
+
+**2. Skills System Fully Specced**
+- 4 starter skills (power_strike, shield_wall, overclock, scan)
+- 6 shop skills across rare/epic/legendary (fireball, iron_fortress, emp_blast, regenerate, berserker, mirror_coat)
+- 8 status effects with durations and behaviors
+- Skill resolution rules (skills before attacks, cooldown mechanics, forced defend on cooldown violation)
+- Status effect resolution order per round
+
+**3. API Contract Updated**
+- Added skills endpoints: list, purchase, equip, unequip
+- Match detail response updated with full replay format (targets, timing, effects)
+
+**4. Shared Types Updated**
+- Added Skill, EquippedSkill, SkillId, StatusEffect types
+- Bot type updated with skills array
+- All types aligned with combat system spec
+
+### All Three Original Tasks: COMPLETE ✅
+1. ✅ WebSocket events aligned with Trusted Referee model
+2. ✅ Combat resolution fully specced (damage, skills, ELO, PvE)
+3. ✅ API contract aligned and expanded
+
+### What's Still Open
+
+**🟠 High Priority:**
+1. **Challenge Protocol** (`tasks/2026-02-05-define-challenge-protocol.md`) — Still open, no spec
+2. **Database Schema** — `code/shared/prisma/schema.prisma` needs to be created
+3. **Task 000: Lock Contracts** — All specs are done, both sides need to review and agree
+
+**🟡 Medium:**
+4. **Backend/Frontend split kickoff** — Tasks 001 + 002 ready once contracts are locked

@@ -257,6 +257,125 @@ Content-Type: application/json
 
 ---
 
+## Skills
+
+### List Available Skills
+
+```http
+GET /api/skills
+Authorization: Bearer <token> (optional for browsing)
+
+Query Parameters:
+  ?owned=true          (filter to owned skills only)
+  &equipped=true       (filter to equipped skills only)
+```
+
+**Response:** `200 OK`
+```json
+{
+  "skills": [
+    {
+      "id": "fireball",
+      "name": "Fireball",
+      "description": "Deal 20 flat damage. Apply burning (3 dmg/round for 2 rounds).",
+      "rarity": "rare",
+      "price": 300,
+      "cooldown": 4,
+      "target": "opponent",
+      "owned": false
+    }
+  ]
+}
+```
+
+---
+
+### Purchase Skill
+
+```http
+POST /api/skills/purchase
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "skill_id": "fireball"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "skill": { /* skill object */ },
+  "new_balance": 1500
+}
+```
+
+**Errors:**
+- `400` - Insufficient credits
+- `404` - Skill not found
+- `409` - Already owned
+
+---
+
+### Equip Skill on Bot
+
+```http
+POST /api/bots/equip-skill
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "bot_id": "uuid",
+  "skill_id": "fireball",
+  "slot": 1  // 1 or 2
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "bot": {
+    "id": "uuid",
+    "skills": [
+      { "slot": 1, "skill_id": "fireball" },
+      { "slot": 2, "skill_id": "shield_wall" }
+    ]
+  }
+}
+```
+
+**Errors:**
+- `404` - Bot or skill not found
+- `403` - Skill not owned
+- `400` - Invalid slot (must be 1 or 2)
+
+---
+
+### Unequip Skill
+
+```http
+POST /api/bots/unequip-skill
+Authorization: Bearer <token>
+Content-Type: application/json
+
+{
+  "bot_id": "uuid",
+  "slot": 1
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "bot": { /* updated bot with skills array */ }
+}
+```
+
+---
+
 ## Matchmaking
 
 ### Join Queue
@@ -350,7 +469,7 @@ Query Parameters:
       "duration_seconds": 180,
       "credits_won": 90,
       "match_type": "ranked_bronze",
-      "events": [ /* round-by-round actions */ ]
+      "replay": [ /* round-by-round results (RoundResult[]) */ ]
     }
   ],
   "total": 42,
@@ -377,15 +496,22 @@ Authorization: Bearer <token> (optional for public replays)
   "winner_id": "uuid",
   "rounds_fought": 7,
   "duration_seconds": 180,
-  "events": [
+  "replay": [
     {
       "round": 1,
       "bot1_action": "attack",
+      "bot1_target": "core",
       "bot2_action": "defend",
+      "bot2_target": null,
       "bot1_damage_dealt": 15,
       "bot2_damage_dealt": 0,
       "bot1_hp": 100,
-      "bot2_hp": 85
+      "bot2_hp": 85,
+      "bot1_response_ms": 3200,
+      "bot2_response_ms": 2800,
+      "bot1_timed_out": false,
+      "bot2_timed_out": false,
+      "effects_applied": []
     }
   ]
 }

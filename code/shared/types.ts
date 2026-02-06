@@ -30,7 +30,8 @@ export interface Bot {
   base_defense: number
   base_speed: number
   skin_id: string | null
-  accessories: string[]
+  accessories: string[]    // max 3
+  skills: EquippedSkill[]  // max 2 slots
   created_at: string
 }
 
@@ -48,6 +49,52 @@ export interface ShopItem {
   limited_edition: boolean
   stock_remaining: number | null
 }
+
+// ============================================================
+// Skills
+// ============================================================
+
+export type SkillTarget = 'opponent' | 'self'
+
+export interface Skill {
+  id: string
+  name: string
+  description: string
+  rarity: 'common' | 'rare' | 'epic' | 'legendary'
+  price: number
+  cooldown: number         // rounds before reuse
+  target: SkillTarget
+}
+
+export interface EquippedSkill {
+  slot: 1 | 2
+  skill_id: string
+  cooldown_remaining: number  // 0 = ready
+}
+
+/** All available skills in the game */
+export type SkillId =
+  | 'power_strike'
+  | 'shield_wall'
+  | 'overclock'
+  | 'scan'
+  | 'fireball'
+  | 'iron_fortress'
+  | 'emp_blast'
+  | 'regenerate'
+  | 'berserker'
+  | 'mirror_coat'
+
+/** Status effects that can be applied during combat */
+export type StatusEffect =
+  | 'burning'          // 3 dmg/round for 2 rounds
+  | 'stunned'          // Auto-defend for 1 round
+  | 'armor_broken'     // -2 defense for 1 round
+  | 'overclock'        // +5 attack, +5 speed for 2 rounds
+  | 'iron_fortress'    // +10 defense, can't attack for 3 rounds
+  | 'regenerating'     // +8 HP/round for 3 rounds
+  | 'berserker'        // +15 attack, -5 defense for 3 rounds
+  | 'mirror_coat'      // Reflect 50% damage for 2 rounds
 
 // ============================================================
 // Combat Types (Trusted Referee Model)

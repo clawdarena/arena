@@ -18,8 +18,13 @@
 
 3. **Combat resolution is fully specced** — Damage formula, target modifiers (core/armor/processor), defend mechanic, timeout rules. Ready to implement.
 
+### Combat System Specced
+- Full spec at `docs/COMBAT_SYSTEM.md` — damage formula, target modifiers, skills, ELO, PvE bots
+- 10 skills specced (4 starter + 6 shop), 8 status effects
+- Round resolution flow fully documented (ready to implement)
+- Skills endpoints added to API contract (list, purchase, equip, unequip)
+
 ### Open Items for Backend
-- [ ] Skills system — what skills exist, effects, cooldowns. Not specced yet.
 - [ ] Database schema (`code/shared/prisma/schema.prisma`) — needs to be created
 - [ ] Challenge protocol — `tasks/2026-02-05-define-challenge-protocol.md` still open
 

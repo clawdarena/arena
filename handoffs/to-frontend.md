@@ -23,10 +23,16 @@
    - `SignedCombatAction` — signed wrapper
    - `MatchFoundPayload`, `RoundStartPayload`, etc. — all event shapes
 
+### Combat System & Skills Now Specced
+- Full spec at `docs/COMBAT_SYSTEM.md`
+- 10 skills, 8 status effects — all with descriptions usable for UI
+- Skills endpoints added to API contract (list, purchase, equip, unequip)
+- `code/shared/types.ts` has all Skill/EquippedSkill/StatusEffect types
+
 ### Open Items for Frontend/Plugin
-- [ ] Skills UI — skills referenced but not specced yet
 - [ ] How does the plugin spawn a local OpenClaw session? (needs design)
 - [ ] Bot prompt construction — how does the plugin turn game state into a prompt?
+- [ ] Skills UI — shop, equip/unequip, cooldown display in match
 
 ---
 
