@@ -84,6 +84,7 @@ model Bot {
   matches_as_bot1 Match[] @relation("MatchBot1")
   matches_as_bot2 Match[] @relation("MatchBot2")
   matches_won     Match[] @relation("MatchWinner")
+  gauntlet        GauntletProgress[]
   
   @@map("bots")
 }
@@ -230,6 +231,23 @@ model Match {
   winner           Bot?     @relation("MatchWinner", fields: [winner_id], references: [id])
   
   @@map("matches")
+}
+
+// ============================================================
+// Training Gauntlet
+// ============================================================
+
+model GauntletProgress {
+  id           String   @id @default(uuid())
+  bot_id       String
+  tier         Int      // 1-5
+  completed_at DateTime @default(now())
+  match_id     String?  // PvE match that cleared it
+  
+  bot          Bot      @relation(fields: [bot_id], references: [id], onDelete: Cascade)
+  
+  @@unique([bot_id, tier])
+  @@map("gauntlet_progress")
 }
 
 // ============================================================

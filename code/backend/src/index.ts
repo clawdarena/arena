@@ -12,6 +12,7 @@ import { skillRoutes } from './routes/skills'
 import { matchRoutes } from './routes/matches'
 import { leaderboardRoutes } from './routes/leaderboard'
 import { pveRoutes } from './routes/pve'
+import { gauntletRoutes } from './routes/gauntlet'
 import { setupMatchmaking } from './ws/matchmaking'
 
 const app = new Hono()
@@ -44,6 +45,7 @@ app.route('/api/skills', skillRoutes)
 app.route('/api/matches', matchRoutes)
 app.route('/api/leaderboard', leaderboardRoutes)
 app.route('/api/pve', pveRoutes)
+app.route('/api/gauntlet', gauntletRoutes)
 app.route('/api/inventory', shopRoutes)  // /api/inventory reuses shop's inventory endpoint
 
 // ============================================================
@@ -92,6 +94,7 @@ async function start() {
   console.log(`   Matches:     GET /api/matches/history, /:match_id`)
   console.log(`   Leaderboard: GET /api/leaderboard`)
   console.log(`   PvE:         GET /api/pve/bots, POST /start`)
+  console.log(`   Gauntlet:    GET /api/gauntlet, POST /complete`)
   console.log(`   WebSocket:   join_queue, leave_queue, ready, combat_action, invite`)
 }
 

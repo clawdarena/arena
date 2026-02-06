@@ -238,8 +238,9 @@
 
 ### What's Still Open
 - [ ] Integration testing (frontend ↔ backend)
-- [ ] Training gauntlet (PvE stat bonus system)
-- [ ] Challenge protocol formal spec doc
+- [ ] Google OAuth (DB table ready, route not built)
+- [ ] Ready timeout enforcement (60s server-side)
+- [ ] Challenge protocol formal spec doc (code is the spec for now)
 
 ### Decisions Made (Rapid-Fire Q&A)
 
