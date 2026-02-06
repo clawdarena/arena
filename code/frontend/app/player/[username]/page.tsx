@@ -80,7 +80,7 @@ function TierBadge({ elo }: { elo: number }) {
   const color = TIER_COLORS[tier]
   const bg = TIER_BG_COLORS[tier]
   return (
-    <span className={`px-2.5 py-1 rounded-lg text-xs font-bold uppercase tracking-wider border ${color} ${bg}`}>
+    <span className={`px-2.5 py-1 rounded-sm text-xs font-bold uppercase tracking-wider border ${color} ${bg}`}>
       {tier}
     </span>
   )
@@ -94,7 +94,7 @@ function ResultBadge({ result }: { result: 'win' | 'loss' | 'draw' }) {
   }
   const c = config[result]
   return (
-    <span className={`w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold border ${c.bg} ${c.text} ${c.border}`}>
+    <span className={`w-8 h-8 rounded-sm flex items-center justify-center text-xs font-bold border ${c.bg} ${c.text} ${c.border}`}>
       {c.label}
     </span>
   )
@@ -110,15 +110,15 @@ function StatBar({ label, value, max, icon: Icon, color }: {
   const pct = Math.min((value / max) * 100, 100)
   return (
     <div className="flex items-center gap-3">
-      <div className={`w-8 h-8 rounded-lg flex items-center justify-center bg-gray-800 ${color}`}>
+      <div className={`w-8 h-8 rounded-sm flex items-center justify-center bg-[var(--bg-raised)] ${color}`}>
         <Icon className="w-4 h-4" />
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between mb-1">
-          <span className="text-xs text-gray-400">{label}</span>
-          <span className="text-xs font-mono text-gray-300">{value}</span>
+          <span className="text-xs text-[var(--text-secondary)]">{label}</span>
+          <span className="text-xs font-mono text-[var(--text-primary)]">{value}</span>
         </div>
-        <div className="h-2 bg-gray-800 rounded-full overflow-hidden">
+        <div className="h-2 bg-[var(--bg-raised)] rounded-full overflow-hidden">
           <div
             className={`h-full rounded-full transition-all duration-500 ${color.replace('text-', 'bg-')}`}
             style={{ width: `${pct}%` }}
@@ -136,13 +136,13 @@ function StatCard({ label, value, icon: Icon, subtext }: {
   subtext?: string
 }) {
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+    <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-4">
       <div className="flex items-center gap-2 mb-2">
-        <Icon className="w-4 h-4 text-gray-500" />
-        <span className="text-xs text-gray-500 uppercase tracking-wider">{label}</span>
+        <Icon className="w-4 h-4 text-[var(--text-muted)]" />
+        <span className="text-xs text-[var(--text-muted)] uppercase tracking-wider">{label}</span>
       </div>
       <div className="text-2xl font-bold text-white">{value}</div>
-      {subtext && <div className="text-xs text-gray-500 mt-1">{subtext}</div>}
+      {subtext && <div className="text-xs text-[var(--text-muted)] mt-1">{subtext}</div>}
     </div>
   )
 }
@@ -150,18 +150,18 @@ function StatCard({ label, value, icon: Icon, subtext }: {
 function LoadingSkeleton() {
   return (
     <div className="max-w-4xl mx-auto px-4 sm:px-8 py-8 animate-pulse">
-      <div className="bg-gray-900 rounded-xl border border-gray-800 p-8 mb-6">
+      <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-8 mb-6">
         <div className="flex items-center gap-4">
-          <div className="w-16 h-16 bg-gray-800 rounded-xl" />
+          <div className="w-16 h-16 bg-[var(--bg-raised)] rounded-sm" />
           <div className="flex-1 space-y-2">
-            <div className="h-6 bg-gray-800 rounded w-48" />
-            <div className="h-4 bg-gray-800 rounded w-32" />
+            <div className="h-6 bg-[var(--bg-raised)] rounded w-48" />
+            <div className="h-4 bg-[var(--bg-raised)] rounded w-32" />
           </div>
         </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="bg-gray-900 rounded-xl border border-gray-800 p-4 h-24" />
+          <div key={i} className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-4 h-24" />
         ))}
       </div>
     </div>
@@ -174,20 +174,20 @@ function NotFound({ username }: { username: string }) {
       <div className="text-center">
         <div className="text-6xl mb-4">🔍</div>
         <h2 className="text-2xl font-bold text-white mb-2">Player Not Found</h2>
-        <p className="text-gray-400 mb-6">
-          No player with username <span className="text-purple-400 font-medium">&quot;{username}&quot;</span> exists.
+        <p className="text-[var(--text-secondary)] mb-6">
+          No player with username <span className="text-[var(--neon-cyan)] font-medium">&quot;{username}&quot;</span> exists.
         </p>
         <div className="flex items-center justify-center gap-3">
           <Link
             href="/leaderboard"
-            className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm transition flex items-center gap-2"
+            className="px-4 py-2 bg-[var(--neon-cyan)] hover:bg-[var(--neon-cyan)] text-white rounded-sm text-sm transition flex items-center gap-2"
           >
             <Trophy className="w-4 h-4" />
             View Leaderboard
           </Link>
           <Link
             href="/dashboard"
-            className="px-4 py-2 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded-lg text-sm transition"
+            className="px-4 py-2 bg-[var(--bg-raised)] hover:bg-[var(--bg-hover)] text-[var(--text-primary)] rounded-sm text-sm transition"
           >
             Go Home
           </Link>
@@ -232,7 +232,7 @@ export default function PlayerProfilePage() {
   }, [username])
 
   return (
-    <div className="min-h-screen bg-gray-950">
+    <div className="min-h-screen bg-[var(--bg-void)]">
       <Navbar />
 
       {loading && <LoadingSkeleton />}
@@ -243,10 +243,10 @@ export default function PlayerProfilePage() {
         <div className="max-w-4xl mx-auto px-4 sm:px-8 py-8">
 
           {/* ===== Header Section ===== */}
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 sm:p-8 mb-6">
+          <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-6 sm:p-8 mb-6">
             <div className="flex flex-col sm:flex-row items-start sm:items-center gap-5">
               {/* Avatar */}
-              <div className="w-16 h-16 rounded-xl bg-gray-800 border border-gray-700 flex items-center justify-center text-3xl flex-shrink-0">
+              <div className="w-16 h-16 rounded-sm bg-[var(--bg-raised)] border border-[var(--border-mid)] flex items-center justify-center text-3xl flex-shrink-0">
                 {profile.bot.avatar || '🤖'}
               </div>
 
@@ -256,24 +256,24 @@ export default function PlayerProfilePage() {
                   <h1 className="text-xl sm:text-2xl font-bold text-white truncate">
                     {profile.bot.name}
                   </h1>
-                  <span className="px-2 py-0.5 rounded-md bg-gray-800 text-gray-400 text-xs font-medium border border-gray-700">
+                  <span className="px-2 py-0.5 rounded-md bg-[var(--bg-raised)] text-[var(--text-secondary)] text-xs font-medium border border-[var(--border-mid)]">
                     Lv.{profile.bot.level}
                   </span>
                   <TierBadge elo={profile.stats.elo} />
                 </div>
 
                 <div className="flex items-center gap-2 mb-2">
-                  <User className="w-3.5 h-3.5 text-gray-500" />
-                  <span className="text-sm text-gray-400">@{profile.user.username}</span>
+                  <User className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                  <span className="text-sm text-[var(--text-secondary)]">@{profile.user.username}</span>
                   {isOwnProfile && (
-                    <span className="text-[10px] bg-purple-600/30 text-purple-300 px-1.5 py-0.5 rounded-full">
+                    <span className="text-[10px] bg-[var(--neon-cyan)]/30 text-[var(--neon-cyan)] px-1.5 py-0.5 rounded-full">
                       You
                     </span>
                   )}
                 </div>
 
                 {profile.bot.tagline && (
-                  <p className="text-sm text-gray-500 italic">&ldquo;{profile.bot.tagline}&rdquo;</p>
+                  <p className="text-sm text-[var(--text-muted)] italic">&ldquo;{profile.bot.tagline}&rdquo;</p>
                 )}
               </div>
 
@@ -282,8 +282,8 @@ export default function PlayerProfilePage() {
                 <div className="text-3xl sm:text-4xl font-bold text-white font-mono">
                   {formatELO(profile.stats.elo)}
                 </div>
-                <div className="text-xs text-gray-500 uppercase tracking-wider">ELO Rating</div>
-                <div className="flex items-center gap-1 mt-2 text-xs text-gray-500 sm:justify-end">
+                <div className="text-xs text-[var(--text-muted)] uppercase tracking-wider">ELO Rating</div>
+                <div className="flex items-center gap-1 mt-2 text-xs text-[var(--text-muted)] sm:justify-end">
                   <Calendar className="w-3 h-3" />
                   Member since {new Date(profile.user.created_at).toLocaleDateString('en-US', {
                     month: 'short',
@@ -297,26 +297,26 @@ export default function PlayerProfilePage() {
           {/* ===== Stats Grid ===== */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             {/* Win/Loss/Draw */}
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+            <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Swords className="w-4 h-4 text-gray-500" />
-                <span className="text-xs text-gray-500 uppercase tracking-wider">Record</span>
+                <Swords className="w-4 h-4 text-[var(--text-muted)]" />
+                <span className="text-xs text-[var(--text-muted)] uppercase tracking-wider">Record</span>
               </div>
               <div className="flex items-baseline gap-1">
                 <span className="text-lg font-bold text-green-400">{profile.stats.wins}</span>
-                <span className="text-gray-600">/</span>
+                <span className="text-[var(--text-muted)]">/</span>
                 <span className="text-lg font-bold text-red-400">{profile.stats.losses}</span>
-                <span className="text-gray-600">/</span>
+                <span className="text-[var(--text-muted)]">/</span>
                 <span className="text-lg font-bold text-yellow-400">{profile.stats.draws}</span>
               </div>
-              <div className="text-[10px] text-gray-600 mt-1">W / L / D</div>
+              <div className="text-[10px] text-[var(--text-muted)] mt-1">W / L / D</div>
             </div>
 
             {/* Win Rate */}
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+            <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-4">
               <div className="flex items-center gap-2 mb-2">
-                <BarChart3 className="w-4 h-4 text-gray-500" />
-                <span className="text-xs text-gray-500 uppercase tracking-wider">Win Rate</span>
+                <BarChart3 className="w-4 h-4 text-[var(--text-muted)]" />
+                <span className="text-xs text-[var(--text-muted)] uppercase tracking-wider">Win Rate</span>
               </div>
               {(() => {
                 const pct = (profile.stats.win_rate * 100).toFixed(1)
@@ -341,33 +341,33 @@ export default function PlayerProfilePage() {
             />
 
             {/* Streak */}
-            <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
+            <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-4">
               <div className="flex items-center gap-2 mb-2">
-                <Flame className="w-4 h-4 text-gray-500" />
-                <span className="text-xs text-gray-500 uppercase tracking-wider">Streak</span>
+                <Flame className="w-4 h-4 text-[var(--text-muted)]" />
+                <span className="text-xs text-[var(--text-muted)] uppercase tracking-wider">Streak</span>
               </div>
               {profile.stats.current_streak != null && profile.stats.current_streak !== 0 ? (
                 <>
                   <div className={`text-2xl font-bold ${profile.stats.current_streak > 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {profile.stats.current_streak > 0 ? '+' : ''}{profile.stats.current_streak}
                   </div>
-                  <div className="text-[10px] text-gray-600 mt-1">
+                  <div className="text-[10px] text-[var(--text-muted)] mt-1">
                     {profile.stats.current_streak > 0 ? 'Win streak' : 'Loss streak'}
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="text-2xl font-bold text-gray-600">—</div>
-                  <div className="text-[10px] text-gray-600 mt-1">No active streak</div>
+                  <div className="text-2xl font-bold text-[var(--text-muted)]">—</div>
+                  <div className="text-[10px] text-[var(--text-muted)] mt-1">No active streak</div>
                 </>
               )}
             </div>
           </div>
 
           {/* ===== Base Stats ===== */}
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 mb-6">
-            <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <Shield className="w-4 h-4 text-purple-400" />
+          <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-6 mb-6">
+            <h2 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wider mb-4 flex items-center gap-2">
+              <Shield className="w-4 h-4 text-[var(--neon-cyan)]" />
               Base Stats
             </h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -379,16 +379,16 @@ export default function PlayerProfilePage() {
           </div>
 
           {/* ===== Recent Matches ===== */}
-          <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-            <div className="px-6 py-4 border-b border-gray-800 flex items-center justify-between">
-              <h2 className="text-sm font-semibold text-gray-300 uppercase tracking-wider flex items-center gap-2">
-                <Clock className="w-4 h-4 text-purple-400" />
+          <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] overflow-hidden">
+            <div className="px-6 py-4 border-b border-[var(--border-dim)] flex items-center justify-between">
+              <h2 className="text-sm font-semibold text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
+                <Clock className="w-4 h-4 text-[var(--neon-cyan)]" />
                 Recent Matches
               </h2>
               {isOwnProfile && (
                 <Link
                   href="/history"
-                  className="text-xs text-purple-400 hover:text-purple-300 transition flex items-center gap-1"
+                  className="text-xs text-[var(--neon-cyan)] hover:text-[var(--neon-cyan)] transition flex items-center gap-1"
                 >
                   View Full History
                   <ArrowRight className="w-3 h-3" />
@@ -401,7 +401,7 @@ export default function PlayerProfilePage() {
                 {profile.recent_matches.map((match) => (
                   <div
                     key={match.id}
-                    className="px-6 py-3 flex items-center gap-4 hover:bg-gray-800/30 transition"
+                    className="px-6 py-3 flex items-center gap-4 hover:bg-[var(--bg-raised)] transition"
                   >
                     {/* Result badge */}
                     <ResultBadge result={match.result} />
@@ -411,7 +411,7 @@ export default function PlayerProfilePage() {
                       <div className="text-sm text-gray-200 truncate">
                         vs <span className="font-medium">{match.opponent.bot_name || match.opponent.username}</span>
                       </div>
-                      <div className="text-xs text-gray-500">
+                      <div className="text-xs text-[var(--text-muted)]">
                         {match.rounds_fought} round{match.rounds_fought !== 1 ? 's' : ''}
                       </div>
                     </div>
@@ -434,14 +434,14 @@ export default function PlayerProfilePage() {
                         </>
                       ) : (
                         <>
-                          <Minus className="w-3.5 h-3.5 text-gray-500" />
-                          <span className="text-sm font-mono font-medium text-gray-500">0</span>
+                          <Minus className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                          <span className="text-sm font-mono font-medium text-[var(--text-muted)]">0</span>
                         </>
                       )}
                     </div>
 
                     {/* Time ago */}
-                    <div className="text-xs text-gray-600 flex-shrink-0 w-14 text-right">
+                    <div className="text-xs text-[var(--text-muted)] flex-shrink-0 w-14 text-right">
                       {timeAgo(match.created_at)}
                     </div>
                   </div>
@@ -450,7 +450,7 @@ export default function PlayerProfilePage() {
             ) : (
               <div className="p-12 text-center">
                 <div className="text-4xl mb-3">⚔️</div>
-                <p className="text-gray-500 text-sm">No matches played yet.</p>
+                <p className="text-[var(--text-muted)] text-sm">No matches played yet.</p>
               </div>
             )}
           </div>

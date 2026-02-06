@@ -28,15 +28,15 @@ export function HPBar({ current, max, label, showText = true }: HPBarProps) {
     <div className="w-full">
       {(label || showText) && (
         <div className="flex items-center justify-between mb-1">
-          {label && <span className="text-xs text-gray-400">{label}</span>}
+          {label && <span className="text-xs text-[var(--text-secondary)]">{label}</span>}
           {showText && (
-            <span className="text-xs font-mono text-gray-300">
+            <span className="text-xs font-mono text-[var(--text-primary)]">
               {current}/{max}
             </span>
           )}
         </div>
       )}
-      <div className="w-full h-3 bg-gray-800 rounded-full overflow-hidden border border-gray-700">
+      <div className="w-full h-3 bg-[var(--bg-raised)] rounded-full overflow-hidden border border-[var(--border-mid)]">
         <div
           className={`h-full ${barColor} ${glowColor} shadow-lg rounded-full transition-all duration-500 ease-out`}
           style={{ width: `${percentage}%` }}

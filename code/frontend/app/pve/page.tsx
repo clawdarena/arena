@@ -98,14 +98,14 @@ function MiniStat({
   return (
     <div className="flex items-center gap-2">
       <div className="w-4 flex justify-center">{icon}</div>
-      <span className="text-[11px] text-gray-500 w-7">{label}</span>
-      <div className="flex-1 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+      <span className="text-[11px] text-[var(--text-muted)] w-7">{label}</span>
+      <div className="flex-1 h-1.5 bg-[var(--bg-raised)] rounded-full overflow-hidden">
         <div
           className={`h-full rounded-full ${barColor}`}
           style={{ width: `${pct}%` }}
         />
       </div>
-      <span className="text-xs font-mono text-gray-400 w-7 text-right">
+      <span className="text-xs font-mono text-[var(--text-secondary)] w-7 text-right">
         {value}
       </span>
     </div>
@@ -128,12 +128,12 @@ function PveBotCard({
   const diff = difficultyConfig[bot.difficulty] ?? difficultyConfig.easy
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 p-5 flex flex-col hover:border-purple-700/40 transition group">
+    <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-5 flex flex-col hover:border-purple-700/40 transition group">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="w-11 h-11 bg-gray-800 rounded-lg flex items-center justify-center text-xl">
-            <BotIcon className="w-6 h-6 text-purple-400" />
+          <div className="w-11 h-11 bg-[var(--bg-raised)] rounded-sm flex items-center justify-center text-xl">
+            <BotIcon className="w-6 h-6 text-[var(--neon-cyan)]" />
           </div>
           <div>
             <h3 className="font-semibold text-gray-100">{bot.name}</h3>
@@ -146,14 +146,14 @@ function PveBotCard({
         </div>
 
         {/* ELO badge */}
-        <div className="flex items-center gap-1 text-xs text-gray-500">
+        <div className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
           <Trophy className="w-3.5 h-3.5" />
           <span className="font-mono">{bot.estimated_elo}</span>
         </div>
       </div>
 
       {/* Description */}
-      <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+      <p className="text-xs text-[var(--text-muted)] mb-4 leading-relaxed">
         {bot.description}
       </p>
 
@@ -200,7 +200,7 @@ function PveBotCard({
         <button
           onClick={() => onFight(bot)}
           disabled={fighting}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
         >
           {fighting ? (
             <>
@@ -283,7 +283,7 @@ function PveContent() {
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
           <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
-          <span className="text-gray-400 text-sm">Loading opponents…</span>
+          <span className="text-[var(--text-secondary)] text-sm">Loading opponents…</span>
         </div>
       </div>
     )
@@ -294,17 +294,17 @@ function PveContent() {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold flex items-center gap-3 mb-2">
-          <Crosshair className="w-8 h-8 text-purple-400" />
+          <Crosshair className="w-8 h-8 text-[var(--neon-cyan)]" />
           PvE Arena
         </h1>
-        <p className="text-gray-400">
+        <p className="text-[var(--text-secondary)]">
           Battle AI opponents to earn credits and sharpen your skills.
         </p>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="mb-6 px-4 py-3 rounded-lg border border-red-800 bg-red-900/20 text-red-400 text-sm">
+        <div className="mb-6 px-4 py-3 rounded-sm border border-red-800 bg-red-900/20 text-red-400 text-sm">
           {error}
         </div>
       )}
@@ -322,7 +322,7 @@ function PveContent() {
       </div>
 
       {pveBots.length === 0 && !error && (
-        <div className="text-center py-16 text-gray-600">
+        <div className="text-center py-16 text-[var(--text-muted)]">
           No PvE opponents available right now.
         </div>
       )}
@@ -337,7 +337,7 @@ function PveContent() {
 export default function PvePage() {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-950">
+      <div className="min-h-screen bg-[var(--bg-void)]">
         <Navbar />
         <PveContent />
       </div>

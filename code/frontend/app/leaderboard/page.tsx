@@ -28,9 +28,9 @@ type TierFilter = 'all' | EloTier
 
 function RankIcon({ rank }: { rank: number }) {
   if (rank === 1) return <Crown className="w-5 h-5 text-yellow-400" />
-  if (rank === 2) return <Medal className="w-5 h-5 text-gray-300" />
+  if (rank === 2) return <Medal className="w-5 h-5 text-[var(--text-primary)]" />
   if (rank === 3) return <Medal className="w-5 h-5 text-amber-600" />
-  return <span className="text-sm font-mono text-gray-500 w-5 text-center">#{rank}</span>
+  return <span className="text-sm font-mono text-[var(--text-muted)] w-5 text-center">#{rank}</span>
 }
 
 function TierBadge({ elo }: { elo: number }) {
@@ -55,10 +55,10 @@ function LeaderboardRow({
 
   return (
     <tr
-      className={`border-b border-gray-800/50 transition ${
+      className={`border-b border-[var(--border-dim)]/50 transition ${
         isCurrentUser
-          ? 'bg-purple-900/20 border-purple-800/30'
-          : 'hover:bg-gray-800/30'
+          ? 'bg-[var(--neon-cyan-dim)] border-[var(--neon-cyan)]'
+          : 'hover:bg-[var(--bg-raised)]'
       }`}
     >
       {/* Rank */}
@@ -71,21 +71,21 @@ function LeaderboardRow({
       {/* Username */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
-          <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm ${
+          <div className={`w-8 h-8 rounded-sm flex items-center justify-center text-sm ${
             isCurrentUser
-              ? 'bg-purple-600 text-white'
+              ? 'bg-[var(--neon-cyan)] text-white'
               : entry.rank <= 3
               ? 'bg-yellow-900/30 text-yellow-400'
-              : 'bg-gray-800 text-gray-400'
+              : 'bg-[var(--bg-raised)] text-[var(--text-secondary)]'
           }`}>
             {isCurrentUser ? '⭐' : <User className="w-4 h-4" />}
           </div>
           <div>
-            <span className={`text-sm font-medium ${isCurrentUser ? 'text-purple-300' : 'text-gray-200'}`}>
+            <span className={`text-sm font-medium ${isCurrentUser ? 'text-[var(--neon-cyan)]' : 'text-gray-200'}`}>
               {entry.user.username}
             </span>
             {isCurrentUser && (
-              <span className="ml-2 text-[10px] bg-purple-600/30 text-purple-300 px-1.5 py-0.5 rounded-full">
+              <span className="ml-2 text-[10px] bg-[var(--neon-cyan)]/30 text-[var(--neon-cyan)] px-1.5 py-0.5 rounded-full">
                 You
               </span>
             )}
@@ -107,7 +107,7 @@ function LeaderboardRow({
       <td className="px-4 py-3 text-center hidden md:table-cell">
         <span className="text-xs">
           <span className="text-green-400">{entry.wins}</span>
-          <span className="text-gray-600 mx-1">/</span>
+          <span className="text-[var(--text-muted)] mx-1">/</span>
           <span className="text-red-400">{entry.losses}</span>
         </span>
       </td>
@@ -166,7 +166,7 @@ function LeaderboardContent() {
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="text-gray-500">Loading leaderboard...</div>
+      <div className="text-[var(--text-muted)]">Loading leaderboard...</div>
     </div>
   )
 
@@ -191,24 +191,24 @@ function LeaderboardContent() {
           <Trophy className="w-6 h-6 text-yellow-400" />
           Leaderboard
         </h1>
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-[var(--text-muted)]">
           {totalPlayers} players ranked
         </div>
       </div>
 
       {/* My rank highlight */}
       {myRank && (
-        <div className="bg-purple-900/20 rounded-xl border border-purple-800/30 p-4 mb-6 flex items-center gap-4">
-          <div className="w-12 h-12 bg-purple-600 rounded-xl flex items-center justify-center text-xl">
+        <div className="bg-[var(--neon-cyan-dim)] rounded-sm border border-[var(--neon-cyan)] p-4 mb-6 flex items-center gap-4">
+          <div className="w-12 h-12 bg-[var(--neon-cyan)] rounded-sm flex items-center justify-center text-xl">
             ⭐
           </div>
           <div className="flex-1">
-            <div className="text-sm text-purple-300">Your Ranking</div>
+            <div className="text-sm text-[var(--neon-cyan)]">Your Ranking</div>
             <div className="text-2xl font-bold text-white">#{myRank.rank}</div>
           </div>
           <div className="text-right">
-            <div className="text-sm font-mono text-purple-300">{formatELO(myRank.elo)} ELO</div>
-            <div className="text-xs text-gray-500">
+            <div className="text-sm font-mono text-[var(--neon-cyan)]">{formatELO(myRank.elo)} ELO</div>
+            <div className="text-xs text-[var(--text-muted)]">
               {(myRank.win_rate * 100).toFixed(1)}% win rate
             </div>
           </div>
@@ -217,15 +217,15 @@ function LeaderboardContent() {
 
       {/* Tier filter */}
       <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-        <Filter className="w-4 h-4 text-gray-500 flex-shrink-0" />
+        <Filter className="w-4 h-4 text-[var(--text-muted)] flex-shrink-0" />
         {tierFilters.map((tf) => (
           <button
             key={tf.id}
             onClick={() => setFilter(tf.id)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition whitespace-nowrap ${
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-medium transition whitespace-nowrap ${
               filter === tf.id
-                ? 'bg-purple-600 text-white'
-                : 'bg-gray-800 text-gray-400 hover:bg-gray-700 hover:text-gray-300'
+                ? 'bg-[var(--neon-cyan)] text-white'
+                : 'bg-[var(--bg-raised)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
             }`}
           >
             <span>{tf.emoji}</span>
@@ -235,11 +235,11 @@ function LeaderboardContent() {
       </div>
 
       {/* Table */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+      <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-gray-800 text-xs text-gray-500 uppercase tracking-wider">
+              <tr className="border-b border-[var(--border-dim)] text-xs text-[var(--text-muted)] uppercase tracking-wider">
                 <th className="px-4 py-3 text-center w-16">Rank</th>
                 <th className="px-4 py-3 text-left">Player</th>
                 <th className="px-4 py-3 text-center hidden sm:table-cell w-24">Tier</th>
@@ -263,7 +263,7 @@ function LeaderboardContent() {
         {filteredLeaderboard.length === 0 && (
           <div className="p-12 text-center">
             <div className="text-4xl mb-4">🔍</div>
-            <p className="text-gray-400">No players in this tier yet.</p>
+            <p className="text-[var(--text-secondary)]">No players in this tier yet.</p>
           </div>
         )}
       </div>
@@ -274,7 +274,7 @@ function LeaderboardContent() {
 export default function LeaderboardPage() {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-950">
+      <div className="min-h-screen bg-[var(--bg-void)]">
         <Navbar />
         <LeaderboardContent />
       </div>

@@ -50,14 +50,14 @@ export default function LoginPage() {
             </span>
           </Link>
           <h1 className="text-3xl font-bold">Welcome Back</h1>
-          <p className="text-gray-400 mt-2">Enter the arena</p>
+          <p className="text-[var(--text-secondary)] mt-2">Enter the arena</p>
         </div>
 
         {/* Form */}
         <form onSubmit={handleLogin} className="space-y-4">
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 space-y-4">
+          <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-6 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 Email
               </label>
               <input
@@ -65,14 +65,14 @@ export default function LoginPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-gray-500"
+                className="w-full px-4 py-3 bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-sm focus:outline-none focus:ring-1 focus:ring-[var(--neon-cyan)] focus:border-[var(--neon-cyan)] text-white placeholder-[var(--text-muted)]"
                 required
                 autoFocus
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 Password
               </label>
               <input
@@ -80,13 +80,13 @@ export default function LoginPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Your password"
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-gray-500"
+                className="w-full px-4 py-3 bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-sm focus:outline-none focus:ring-1 focus:ring-[var(--neon-cyan)] focus:border-[var(--neon-cyan)] text-white placeholder-[var(--text-muted)]"
                 required
               />
             </div>
 
             {error && (
-              <div className="bg-red-900/30 border border-red-800 text-red-400 p-3 rounded-lg text-sm">
+              <div className="bg-red-900/30 border border-red-800 text-red-400 p-3 rounded-sm text-sm">
                 {error}
               </div>
             )}
@@ -94,7 +94,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading || !email || !password}
-              className="w-full py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-semibold transition"
+              className="w-full py-3 bg-[var(--neon-cyan)] hover:bg-[var(--neon-cyan)] disabled:opacity-50 disabled:cursor-not-allowed rounded-sm font-semibold transition"
             >
               {loading ? 'Logging in...' : 'Login'}
             </button>
@@ -102,9 +102,9 @@ export default function LoginPage() {
         </form>
 
         {/* Register link */}
-        <p className="text-center mt-6 text-sm text-gray-500">
+        <p className="text-center mt-6 text-sm text-[var(--text-muted)]">
           New to the Arena?{' '}
-          <Link href="/register" className="text-purple-400 hover:text-purple-300 transition">
+          <Link href="/register" className="text-[var(--neon-cyan)] hover:text-[var(--neon-cyan)] transition">
             Create Account
           </Link>
         </p>

@@ -190,7 +190,7 @@ export function ArenaView({
   }
 
   return (
-    <div className={`relative w-full aspect-[16/9] max-h-[400px] bg-gradient-to-b from-gray-900 via-gray-900 to-gray-950 rounded-xl border border-gray-800 overflow-hidden ${shakeScreen ? 'animate-shake' : ''}`}>
+    <div className={`relative w-full aspect-[16/9] max-h-[400px] bg-gradient-to-b from-gray-900 via-gray-900 to-gray-950 rounded-sm border border-[var(--border-dim)] overflow-hidden ${shakeScreen ? 'animate-shake' : ''}`}>
       {/* Arena floor gradient */}
       <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-purple-900/10 to-transparent" />
 
@@ -224,19 +224,19 @@ export function ArenaView({
           {bot1Effect === 'regenerating' && (
             <div className="absolute -inset-3 rounded-full bg-green-500/15 animate-pulse" />
           )}
-          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-purple-600 to-purple-800 rounded-xl flex items-center justify-center text-3xl sm:text-4xl shadow-lg shadow-purple-500/20 border border-purple-500/30">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-purple-600 to-purple-800 rounded-sm flex items-center justify-center text-3xl sm:text-4xl shadow-lg shadow-purple-500/20 border border-purple-500/30">
             🤖
           </div>
           {/* Status icon */}
           {bot1Effect && (
-            <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-gray-900 border border-gray-700 flex items-center justify-center text-xs animate-bounce-slow">
+            <div className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-[var(--bg-panel)] border border-[var(--border-mid)] flex items-center justify-center text-xs animate-bounce-slow">
               {bot1Effect === 'burning' ? '🔥' : bot1Effect === 'stunned' ? '⚡' : bot1Effect === 'regenerating' ? '💚' : '✨'}
             </div>
           )}
         </div>
         {/* Name */}
         <div className="text-center mt-2">
-          <div className="text-xs sm:text-sm font-semibold text-purple-300 truncate max-w-[100px]">{bot1Name}</div>
+          <div className="text-xs sm:text-sm font-semibold text-[var(--neon-cyan)] truncate max-w-[100px]">{bot1Name}</div>
         </div>
       </div>
 
@@ -255,11 +255,11 @@ export function ArenaView({
           {bot2Effect === 'regenerating' && (
             <div className="absolute -inset-3 rounded-full bg-green-500/15 animate-pulse" />
           )}
-          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-red-600 to-red-800 rounded-xl flex items-center justify-center text-3xl sm:text-4xl shadow-lg shadow-red-500/20 border border-red-500/30">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-red-600 to-red-800 rounded-sm flex items-center justify-center text-3xl sm:text-4xl shadow-lg shadow-red-500/20 border border-red-500/30">
             👾
           </div>
           {bot2Effect && (
-            <div className="absolute -top-2 -left-2 w-6 h-6 rounded-full bg-gray-900 border border-gray-700 flex items-center justify-center text-xs animate-bounce-slow">
+            <div className="absolute -top-2 -left-2 w-6 h-6 rounded-full bg-[var(--bg-panel)] border border-[var(--border-mid)] flex items-center justify-center text-xs animate-bounce-slow">
               {bot2Effect === 'burning' ? '🔥' : bot2Effect === 'stunned' ? '⚡' : bot2Effect === 'regenerating' ? '💚' : '✨'}
             </div>
           )}
@@ -319,10 +319,10 @@ export function ArenaView({
         {/* Bot1 HP */}
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-purple-300 font-medium">{bot1Name}</span>
-            <span className="text-[10px] text-gray-400 font-mono">{bot1Hp}/{bot1MaxHp}</span>
+            <span className="text-[10px] text-[var(--neon-cyan)] font-medium">{bot1Name}</span>
+            <span className="text-[10px] text-[var(--text-secondary)] font-mono">{bot1Hp}/{bot1MaxHp}</span>
           </div>
-          <div className="h-2.5 bg-gray-800 rounded-full overflow-hidden border border-gray-700/50">
+          <div className="h-2.5 bg-[var(--bg-raised)] rounded-full overflow-hidden border border-[var(--border-mid)]">
             <div
               className={`h-full rounded-full transition-all duration-700 ease-out ${hpColor(bot1HpPct)}`}
               style={{ width: `${bot1HpPct}%` }}
@@ -333,9 +333,9 @@ export function ArenaView({
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1">
             <span className="text-[10px] text-red-300 font-medium">{bot2Name}</span>
-            <span className="text-[10px] text-gray-400 font-mono">{bot2Hp}/{bot2MaxHp}</span>
+            <span className="text-[10px] text-[var(--text-secondary)] font-mono">{bot2Hp}/{bot2MaxHp}</span>
           </div>
-          <div className="h-2.5 bg-gray-800 rounded-full overflow-hidden border border-gray-700/50">
+          <div className="h-2.5 bg-[var(--bg-raised)] rounded-full overflow-hidden border border-[var(--border-mid)]">
             <div
               className={`h-full rounded-full transition-all duration-700 ease-out ${hpColor(bot2HpPct)}`}
               style={{ width: `${bot2HpPct}%` }}

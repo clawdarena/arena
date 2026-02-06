@@ -34,7 +34,7 @@ interface BonusData {
 
 const TIER_COLORS = {
   bronze: 'text-amber-600 bg-amber-900/20 border-amber-800/30',
-  silver: 'text-gray-300 bg-gray-700/20 border-gray-600/30',
+  silver: 'text-[var(--text-primary)] bg-gray-700/20 border-[var(--border-bright)]/30',
   gold: 'text-yellow-400 bg-yellow-900/20 border-yellow-800/30',
   diamond: 'text-cyan-400 bg-cyan-900/20 border-cyan-800/30',
 }
@@ -51,10 +51,10 @@ function DQSBar({ label, value, maxValue, icon }: { label: string; value: number
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-xs">
-        <span className="text-gray-400 flex items-center gap-1.5">{icon} {label}</span>
-        <span className="text-gray-300 font-mono">{value}/{maxValue}</span>
+        <span className="text-[var(--text-secondary)] flex items-center gap-1.5">{icon} {label}</span>
+        <span className="text-[var(--text-primary)] font-mono">{value}/{maxValue}</span>
       </div>
-      <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+      <div className="h-1.5 bg-[var(--bg-raised)] rounded-full overflow-hidden">
         <div
           className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full transition-all duration-500"
           style={{ width: `${pct}%` }}
@@ -83,27 +83,27 @@ export function BonusesDisplay({ botId }: { botId: string }) {
     fetch()
   }, [botId])
 
-  if (loading) return <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6 animate-pulse h-48" />
+  if (loading) return <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-6 animate-pulse h-48" />
   if (error || !data) return null
 
   const hasAnyBonus = data.total.hp > 0 || data.total.attack > 0 || data.total.defense > 0 || data.total.speed > 0
 
   return (
-    <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+    <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] overflow-hidden">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-gray-800">
+      <div className="px-6 py-4 border-b border-[var(--border-dim)]">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <Trophy className="w-5 h-5 text-yellow-400" />
             <div>
               <h2 className="text-sm font-semibold text-white">Skill Bonuses</h2>
-              <p className="text-xs text-gray-500">Earned through gameplay, not purchases</p>
+              <p className="text-xs text-[var(--text-muted)]">Earned through gameplay, not purchases</p>
             </div>
           </div>
           {data.titles.length > 0 && (
             <div className="flex gap-2">
               {data.titles.map(title => (
-                <span key={title} className="text-xs px-2.5 py-1 bg-purple-900/30 text-purple-400 rounded-full font-medium flex items-center gap-1">
+                <span key={title} className="text-xs px-2.5 py-1 bg-[var(--neon-cyan-dim)] text-[var(--neon-cyan)] rounded-full font-medium flex items-center gap-1">
                   <Award className="w-3 h-3" /> {title}
                 </span>
               ))}
@@ -116,7 +116,7 @@ export function BonusesDisplay({ botId }: { botId: string }) {
         {/* DQS Score */}
         <div>
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+            <span className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
               <Brain className="w-3 h-3" /> Decision Quality Score
             </span>
             <span className={`text-sm font-bold px-3 py-1 rounded-full border ${TIER_COLORS[data.dqs.tier]}`}>
@@ -132,17 +132,17 @@ export function BonusesDisplay({ botId }: { botId: string }) {
             <DQSBar label="Win Rate" value={data.dqs.breakdown.win_rate_factor} maxValue={20} icon={<Trophy className="w-3 h-3" />} />
           </div>
 
-          <p className="text-[10px] text-gray-600 mt-2">Based on {data.matches_analyzed} recent matches</p>
+          <p className="text-[10px] text-[var(--text-muted)] mt-2">Based on {data.matches_analyzed} recent matches</p>
         </div>
 
         {/* Bot Age */}
-        <div className="flex items-center justify-between bg-gray-800/30 rounded-lg px-4 py-3">
+        <div className="flex items-center justify-between bg-[var(--bg-raised)] rounded-sm px-4 py-3">
           <div className="flex items-center gap-2">
-            <Clock className="w-4 h-4 text-gray-400" />
+            <Clock className="w-4 h-4 text-[var(--text-secondary)]" />
             <div>
-              <span className="text-sm text-gray-300">Bot Age: <span className="font-mono font-semibold">{data.bot_age_days} days</span></span>
+              <span className="text-sm text-[var(--text-primary)]">Bot Age: <span className="font-mono font-semibold">{data.bot_age_days} days</span></span>
               {data.age.title && (
-                <span className="ml-2 text-xs px-2 py-0.5 bg-gray-700 text-gray-300 rounded-full">{data.age.title}</span>
+                <span className="ml-2 text-xs px-2 py-0.5 bg-gray-700 text-[var(--text-primary)] rounded-full">{data.age.title}</span>
               )}
             </div>
           </div>
@@ -156,30 +156,30 @@ export function BonusesDisplay({ botId }: { botId: string }) {
         {/* Total Bonuses */}
         {hasAnyBonus && (
           <div>
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">
+            <label className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider mb-2 block">
               Total Stat Bonuses
             </label>
             <div className="grid grid-cols-4 gap-2">
               {data.total.hp > 0 && (
-                <div className="bg-green-900/20 border border-green-800/30 rounded-lg px-3 py-2 text-center">
+                <div className="bg-green-900/20 border border-green-800/30 rounded-sm px-3 py-2 text-center">
                   <div className="text-green-400 font-mono font-bold">+{data.total.hp}</div>
                   <div className="text-[10px] text-green-600">HP</div>
                 </div>
               )}
               {data.total.attack > 0 && (
-                <div className="bg-red-900/20 border border-red-800/30 rounded-lg px-3 py-2 text-center">
+                <div className="bg-red-900/20 border border-red-800/30 rounded-sm px-3 py-2 text-center">
                   <div className="text-red-400 font-mono font-bold">+{data.total.attack}</div>
                   <div className="text-[10px] text-red-600">ATK</div>
                 </div>
               )}
               {data.total.defense > 0 && (
-                <div className="bg-blue-900/20 border border-blue-800/30 rounded-lg px-3 py-2 text-center">
+                <div className="bg-blue-900/20 border border-blue-800/30 rounded-sm px-3 py-2 text-center">
                   <div className="text-blue-400 font-mono font-bold">+{data.total.defense}</div>
                   <div className="text-[10px] text-blue-600">DEF</div>
                 </div>
               )}
               {data.total.speed > 0 && (
-                <div className="bg-yellow-900/20 border border-yellow-800/30 rounded-lg px-3 py-2 text-center">
+                <div className="bg-yellow-900/20 border border-yellow-800/30 rounded-sm px-3 py-2 text-center">
                   <div className="text-yellow-400 font-mono font-bold">+{data.total.speed}</div>
                   <div className="text-[10px] text-yellow-600">SPD</div>
                 </div>

@@ -23,13 +23,13 @@ export function MatchResult({ result, myBotId }: MatchResultProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="bg-gray-900 rounded-2xl border border-gray-700 p-8 max-w-md w-full mx-4 text-center animate-in fade-in zoom-in duration-300">
+      <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-mid)] p-8 max-w-md w-full mx-4 text-center animate-in fade-in zoom-in duration-300">
         {/* Result Header */}
         <div className="mb-6">
           {isDraw ? (
             <>
               <div className="text-6xl mb-3">🤝</div>
-              <h2 className="text-4xl font-bold text-gray-300">DRAW</h2>
+              <h2 className="text-4xl font-bold text-[var(--text-primary)]">DRAW</h2>
             </>
           ) : isWinner ? (
             <>
@@ -46,23 +46,23 @@ export function MatchResult({ result, myBotId }: MatchResultProps) {
 
         {/* Match Stats */}
         <div className="space-y-3 mb-6">
-          <div className="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3">
-            <span className="text-gray-400">Rounds</span>
+          <div className="flex items-center justify-between bg-[var(--bg-raised)] rounded-sm px-4 py-3">
+            <span className="text-[var(--text-secondary)]">Rounds</span>
             <span className="font-medium">{result.rounds_fought}</span>
           </div>
-          <div className="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3">
-            <span className="text-gray-400">Duration</span>
+          <div className="flex items-center justify-between bg-[var(--bg-raised)] rounded-sm px-4 py-3">
+            <span className="text-[var(--text-secondary)]">Duration</span>
             <span className="font-medium">{result.duration_seconds}s</span>
           </div>
-          <div className="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3">
-            <span className="text-gray-400">ELO</span>
+          <div className="flex items-center justify-between bg-[var(--bg-raised)] rounded-sm px-4 py-3">
+            <span className="text-[var(--text-secondary)]">ELO</span>
             <span className={`font-medium ${eloChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
               {myData.elo_before} → {myData.elo_after}{' '}
               ({eloChange >= 0 ? '+' : ''}{eloChange})
             </span>
           </div>
-          <div className="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3">
-            <span className="text-gray-400">Credits</span>
+          <div className="flex items-center justify-between bg-[var(--bg-raised)] rounded-sm px-4 py-3">
+            <span className="text-[var(--text-secondary)]">Credits</span>
             <span className={`font-medium ${creditsChange >= 0 ? 'text-yellow-400' : 'text-red-400'}`}>
               {creditsChange >= 0 ? '+' : ''}{creditsChange} AC
             </span>
@@ -73,13 +73,13 @@ export function MatchResult({ result, myBotId }: MatchResultProps) {
         <div className="flex gap-3">
           <button
             onClick={() => router.push('/dashboard')}
-            className="flex-1 py-3 bg-gray-800 hover:bg-gray-700 rounded-lg font-medium transition"
+            className="flex-1 py-3 bg-[var(--bg-raised)] hover:bg-[var(--bg-hover)] rounded-sm font-medium transition"
           >
             Dashboard
           </button>
           <button
             onClick={() => router.push('/queue')}
-            className="flex-1 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition"
+            className="flex-1 py-3 bg-[var(--neon-cyan)] hover:bg-[var(--neon-cyan)] rounded-sm font-medium transition"
           >
             Play Again
           </button>

@@ -23,7 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" className="dark">
-      <body className="min-h-screen bg-gray-950 text-white antialiased overscroll-none">
+      <body className="min-h-screen bg-[var(--bg-void)] text-white antialiased overscroll-none">
         <ToastProvider>
           {children}
         </ToastProvider>

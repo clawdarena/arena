@@ -198,7 +198,7 @@ function MatchContent() {
   if (!matchData) {
     return (
       <div className="max-w-5xl mx-auto px-4 sm:px-8 py-8 text-center">
-        <div className="text-gray-400">Loading match...</div>
+        <div className="text-[var(--text-secondary)]">Loading match...</div>
       </div>
     )
   }
@@ -264,8 +264,8 @@ function MatchContent() {
       case 'iron_fortress': return 'bg-blue-900/30 border-blue-700/50 text-blue-300'
       case 'regenerating': return 'bg-green-900/30 border-green-700/50 text-green-300'
       case 'berserker': return 'bg-red-900/30 border-red-700/50 text-red-300'
-      case 'mirror_coat': return 'bg-purple-900/30 border-purple-700/50 text-purple-300'
-      default: return 'bg-gray-800/30 border-gray-700/50 text-gray-300'
+      case 'mirror_coat': return 'bg-[var(--neon-cyan-dim)] border-purple-700/50 text-[var(--neon-cyan)]'
+      default: return 'bg-[var(--bg-raised)] border-[var(--border-mid)] text-[var(--text-primary)]'
     }
   }
 
@@ -273,7 +273,7 @@ function MatchContent() {
     <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6">
       {/* Match Header */}
       <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-        <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 uppercase tracking-wide">
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-[var(--text-muted)] uppercase tracking-wide">
           <Trophy className="w-4 h-4" />
           {matchData.match_type.replace('ranked_', '').replace(/^\w/, (c) => c.toUpperCase())} Ranked
         </div>
@@ -282,15 +282,15 @@ function MatchContent() {
           <div className={`flex items-center gap-1 text-xs ${connected ? 'text-green-500' : 'text-red-500'}`}>
             {connected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
           </div>
-          <div className="bg-gray-900 rounded-lg border border-gray-800 px-3 py-1.5 flex items-center gap-2">
-            <span className="text-xs text-gray-500">Round</span>
-            <span className="text-lg font-bold text-purple-400 font-mono">{roundNumber}/{maxRounds}</span>
+          <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] px-3 py-1.5 flex items-center gap-2">
+            <span className="text-xs text-[var(--text-muted)]">Round</span>
+            <span className="text-lg font-bold text-[var(--neon-cyan)] font-mono">{roundNumber}/{maxRounds}</span>
           </div>
           {phase === 'fighting' && (
-            <div className={`bg-gray-900 rounded-lg border px-3 py-1.5 flex items-center gap-2 ${
-              timer <= 5 ? 'border-red-600/50 bg-red-900/10' : 'border-gray-800'
+            <div className={`bg-[var(--bg-panel)] rounded-sm border px-3 py-1.5 flex items-center gap-2 ${
+              timer <= 5 ? 'border-red-600/50 bg-red-900/10' : 'border-[var(--border-dim)]'
             }`}>
-              <Timer className={`w-3.5 h-3.5 ${timer <= 5 ? 'text-red-400' : 'text-gray-500'}`} />
+              <Timer className={`w-3.5 h-3.5 ${timer <= 5 ? 'text-red-400' : 'text-[var(--text-muted)]'}`} />
               <span className={`text-lg font-bold font-mono ${
                 timer <= 5 ? 'text-red-400 animate-pulse' : 'text-white'
               }`}>
@@ -299,7 +299,7 @@ function MatchContent() {
             </div>
           )}
         </div>
-        <div className="text-sm text-gray-500">
+        <div className="text-sm text-[var(--text-muted)]">
           Entry: <span className="text-yellow-400 font-medium">{matchData.entry_fee} AC</span>
         </div>
       </div>
@@ -321,14 +321,14 @@ function MatchContent() {
       {/* Bot Panels */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
         {/* My Bot Panel */}
-        <div className="bg-gray-900 rounded-xl border border-purple-800/30 p-3 sm:p-4">
+        <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--neon-cyan)] p-3 sm:p-4">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-800 rounded-lg flex items-center justify-center text-lg shadow-lg shadow-purple-500/10">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-800 rounded-sm flex items-center justify-center text-lg shadow-lg shadow-purple-500/10">
               🤖
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-semibold text-purple-300 text-sm truncate">{myBot.name}</div>
-              <div className="text-xs text-gray-500">Your Bot</div>
+              <div className="font-semibold text-[var(--neon-cyan)] text-sm truncate">{myBot.name}</div>
+              <div className="text-xs text-[var(--text-muted)]">Your Bot</div>
             </div>
           </div>
           <HPBar current={myHp} max={myBot.hp} label="HP" />
@@ -338,7 +338,7 @@ function MatchContent() {
               <span className="text-cyan-400">⚡ Energy</span>
               <span className="text-cyan-300 font-mono">{myEnergy}/100</span>
             </div>
-            <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-[var(--bg-raised)] rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full transition-all duration-500"
                 style={{ width: `${myEnergy}%` }}
@@ -366,17 +366,17 @@ function MatchContent() {
             </div>
           )}
           <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-            <div className="bg-gray-800/50 rounded py-1.5">
+            <div className="bg-[var(--bg-raised)] rounded py-1.5">
               <div className="text-xs font-medium text-orange-400">{myBot.attack}</div>
-              <div className="text-[10px] text-gray-600">ATK</div>
+              <div className="text-[10px] text-[var(--text-muted)]">ATK</div>
             </div>
-            <div className="bg-gray-800/50 rounded py-1.5">
+            <div className="bg-[var(--bg-raised)] rounded py-1.5">
               <div className="text-xs font-medium text-blue-400">{myBot.defense}</div>
-              <div className="text-[10px] text-gray-600">DEF</div>
+              <div className="text-[10px] text-[var(--text-muted)]">DEF</div>
             </div>
-            <div className="bg-gray-800/50 rounded py-1.5">
+            <div className="bg-[var(--bg-raised)] rounded py-1.5">
               <div className="text-xs font-medium text-green-400">{myBot.speed}</div>
-              <div className="text-[10px] text-gray-600">SPD</div>
+              <div className="text-[10px] text-[var(--text-muted)]">SPD</div>
             </div>
           </div>
           {myEffects.length > 0 && (
@@ -394,14 +394,14 @@ function MatchContent() {
         </div>
 
         {/* Opponent Bot Panel */}
-        <div className="bg-gray-900 rounded-xl border border-red-800/30 p-3 sm:p-4">
+        <div className="bg-[var(--bg-panel)] rounded-sm border border-red-800/30 p-3 sm:p-4">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-800 rounded-lg flex items-center justify-center text-lg shadow-lg shadow-red-500/10">
+            <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-800 rounded-sm flex items-center justify-center text-lg shadow-lg shadow-red-500/10">
               👾
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-red-300 text-sm truncate">{matchData.opponent.name}</div>
-              <div className="text-xs text-gray-500">{matchData.opponent.elo} ELO</div>
+              <div className="text-xs text-[var(--text-muted)]">{matchData.opponent.elo} ELO</div>
             </div>
           </div>
           <HPBar current={oppHp} max={oppMaxHp} label="HP" />
@@ -411,7 +411,7 @@ function MatchContent() {
               <span className="text-cyan-400">⚡ Energy</span>
               <span className="text-cyan-300 font-mono">{oppEnergy}/100</span>
             </div>
-            <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+            <div className="h-1.5 bg-[var(--bg-raised)] rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full transition-all duration-500"
                 style={{ width: `${oppEnergy}%` }}
@@ -440,17 +440,17 @@ function MatchContent() {
           )}
           {matchStartData && (
             <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-              <div className="bg-gray-800/50 rounded py-1.5">
+              <div className="bg-[var(--bg-raised)] rounded py-1.5">
                 <div className="text-xs font-medium text-orange-400">{matchStartData.bot2.attack}</div>
-                <div className="text-[10px] text-gray-600">ATK</div>
+                <div className="text-[10px] text-[var(--text-muted)]">ATK</div>
               </div>
-              <div className="bg-gray-800/50 rounded py-1.5">
+              <div className="bg-[var(--bg-raised)] rounded py-1.5">
                 <div className="text-xs font-medium text-blue-400">{matchStartData.bot2.defense}</div>
-                <div className="text-[10px] text-gray-600">DEF</div>
+                <div className="text-[10px] text-[var(--text-muted)]">DEF</div>
               </div>
-              <div className="bg-gray-800/50 rounded py-1.5">
+              <div className="bg-[var(--bg-raised)] rounded py-1.5">
                 <div className="text-xs font-medium text-green-400">{matchStartData.bot2.speed}</div>
-                <div className="text-[10px] text-gray-600">SPD</div>
+                <div className="text-[10px] text-[var(--text-muted)]">SPD</div>
               </div>
             </div>
           )}
@@ -472,16 +472,16 @@ function MatchContent() {
       {/* Status indicators */}
       {phase === 'found' && (
         <div className="text-center mb-4">
-          <div className="inline-flex items-center gap-2 bg-purple-900/20 border border-purple-700/30 rounded-lg px-5 py-3 animate-pulse">
-            <Swords className="w-5 h-5 text-purple-400" />
-            <span className="text-purple-300 font-medium">Waiting for opponent to accept...</span>
+          <div className="inline-flex items-center gap-2 bg-[var(--neon-cyan-dim)] border border-[var(--neon-cyan)] rounded-sm px-5 py-3 animate-pulse">
+            <Swords className="w-5 h-5 text-[var(--neon-cyan)]" />
+            <span className="text-[var(--neon-cyan)] font-medium">Waiting for opponent to accept...</span>
           </div>
         </div>
       )}
 
       {phase === 'fighting' && (
         <div className="text-center mb-4">
-          <div className="inline-flex items-center gap-2 bg-green-900/20 border border-green-700/30 rounded-lg px-4 py-2">
+          <div className="inline-flex items-center gap-2 bg-green-900/20 border border-green-700/30 rounded-sm px-4 py-2">
             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
             <span className="text-sm text-green-400">Combat in progress</span>
           </div>
@@ -502,7 +502,7 @@ function MatchContent() {
 export default function MatchPage() {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-950">
+      <div className="min-h-screen bg-[var(--bg-void)]">
         <Navbar />
         <MatchContent />
       </div>

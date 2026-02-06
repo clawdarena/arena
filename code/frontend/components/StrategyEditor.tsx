@@ -193,7 +193,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   defensive: 'text-blue-400 bg-blue-900/20 border-blue-800/30',
   tactical: 'text-yellow-400 bg-yellow-900/20 border-yellow-800/30',
   adaptive: 'text-green-400 bg-green-900/20 border-green-800/30',
-  resource: 'text-purple-400 bg-purple-900/20 border-purple-800/30',
+  resource: 'text-[var(--neon-cyan)] bg-[var(--neon-cyan-dim)] border-[var(--neon-cyan)]',
 }
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -294,26 +294,26 @@ export function StrategyEditor({ botId }: StrategyEditorProps) {
   ].join('\n')
 
   return (
-    <div className="bg-gray-900 rounded-2xl border border-gray-800 overflow-hidden">
+    <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] overflow-hidden">
       {/* Header */}
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-800/50 transition"
+        className="w-full px-6 py-4 flex items-center justify-between hover:bg-[var(--bg-raised)] transition"
       >
         <div className="flex items-center gap-3">
           <Brain className="w-5 h-5 text-cyan-400" />
           <div className="text-left">
             <h2 className="text-sm font-semibold text-white">AI Strategy</h2>
-            <p className="text-xs text-gray-500">{activeTemplates.length} rules active · 100% local · never sent to server</p>
+            <p className="text-xs text-[var(--text-muted)]">{activeTemplates.length} rules active · 100% local · never sent to server</p>
           </div>
         </div>
-        {expanded ? <ChevronUp className="w-4 h-4 text-gray-500" /> : <ChevronDown className="w-4 h-4 text-gray-500" />}
+        {expanded ? <ChevronUp className="w-4 h-4 text-[var(--text-muted)]" /> : <ChevronDown className="w-4 h-4 text-[var(--text-muted)]" />}
       </button>
 
       {expanded && (
         <div className="px-6 pb-6 space-y-5">
           {/* Privacy banner */}
-          <div className="bg-emerald-900/20 border border-emerald-800/30 rounded-lg px-4 py-2.5 flex items-start gap-2.5">
+          <div className="bg-emerald-900/20 border border-emerald-800/30 rounded-sm px-4 py-2.5 flex items-start gap-2.5">
             <Shield className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
             <p className="text-xs text-emerald-300">
               Strategy notes stay on YOUR device. The server never sees your coaching — only the action your bot picks each round.
@@ -322,7 +322,7 @@ export function StrategyEditor({ botId }: StrategyEditorProps) {
 
           {/* Personality Slider */}
           <div>
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-2 block">
+            <label className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider mb-2 block">
               Personality: <span className={personalityColor}>{personalityLabel}</span>
             </label>
             <div className="flex items-center gap-3">
@@ -337,7 +337,7 @@ export function StrategyEditor({ botId }: StrategyEditorProps) {
               />
               <span className="text-xs text-red-400">⚔️</span>
             </div>
-            <p className="text-[10px] text-gray-600 mt-1">
+            <p className="text-[10px] text-[var(--text-muted)] mt-1">
               {strategy.personality < 30 ? 'Bot prioritizes survival, defends often, uses skills conservatively.'
                 : strategy.personality < 70 ? 'Bot balances offense and defense based on situation.'
                 : 'Bot prioritizes damage output, attacks relentlessly, uses skills aggressively.'}
@@ -347,14 +347,14 @@ export function StrategyEditor({ botId }: StrategyEditorProps) {
           {/* Active Rules */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-medium text-gray-500 uppercase tracking-wider flex items-center gap-1.5">
+              <label className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider flex items-center gap-1.5">
                 <Target className="w-3 h-3" />
                 Active Rules ({activeTemplates.length})
               </label>
               {activeTemplates.length > 0 && (
                 <button
                   onClick={() => setStrategy(prev => ({ ...prev, activeRules: [] }))}
-                  className="text-xs text-gray-600 hover:text-red-400 transition"
+                  className="text-xs text-[var(--text-muted)] hover:text-red-400 transition"
                 >
                   Clear all
                 </button>
@@ -362,7 +362,7 @@ export function StrategyEditor({ botId }: StrategyEditorProps) {
             </div>
 
             {activeTemplates.length === 0 ? (
-              <div className="text-sm text-gray-600 bg-gray-800/30 rounded-lg p-4 text-center">
+              <div className="text-sm text-[var(--text-muted)] bg-[var(--bg-raised)] rounded-sm p-4 text-center">
                 No rules active. Add templates below to coach your bot.
               </div>
             ) : (
@@ -370,9 +370,9 @@ export function StrategyEditor({ botId }: StrategyEditorProps) {
                 {activeTemplates.map((template, index) => (
                   <div
                     key={template.id}
-                    className={`flex items-start gap-3 rounded-lg border px-3 py-2.5 ${CATEGORY_COLORS[template.category]}`}
+                    className={`flex items-start gap-3 rounded-sm border px-3 py-2.5 ${CATEGORY_COLORS[template.category]}`}
                   >
-                    <span className="text-sm mt-0.5 font-mono text-gray-500 w-5 shrink-0">{index + 1}.</span>
+                    <span className="text-sm mt-0.5 font-mono text-[var(--text-muted)] w-5 shrink-0">{index + 1}.</span>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span>{template.icon}</span>
@@ -382,7 +382,7 @@ export function StrategyEditor({ botId }: StrategyEditorProps) {
                     </div>
                     <button
                       onClick={() => removeRule(template.id)}
-                      className="text-gray-600 hover:text-red-400 transition p-1 shrink-0"
+                      className="text-[var(--text-muted)] hover:text-red-400 transition p-1 shrink-0"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
                     </button>
@@ -413,7 +413,7 @@ export function StrategyEditor({ botId }: StrategyEditorProps) {
                       className={`px-3 py-1 rounded-full text-xs font-medium transition ${
                         filterCategory === cat
                           ? 'bg-cyan-600 text-white'
-                          : 'bg-gray-800 text-gray-400 hover:bg-gray-700'
+                          : 'bg-[var(--bg-raised)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)]'
                       }`}
                     >
                       {cat === 'all' ? '🌐 All' : CATEGORY_LABELS[cat]}
@@ -427,20 +427,20 @@ export function StrategyEditor({ botId }: StrategyEditorProps) {
                     <button
                       key={template.id}
                       onClick={() => toggleRule(template.id)}
-                      className="text-left bg-gray-800/50 hover:bg-gray-800 border border-gray-700/50 hover:border-gray-600 rounded-lg px-3 py-2.5 transition group"
+                      className="text-left bg-[var(--bg-raised)] hover:bg-[var(--bg-raised)] border border-[var(--border-mid)] hover:border-[var(--border-bright)] rounded-sm px-3 py-2.5 transition group"
                     >
                       <div className="flex items-center gap-2">
                         <span>{template.icon}</span>
-                        <span className="text-sm font-medium text-gray-300 group-hover:text-white">{template.label}</span>
+                        <span className="text-sm font-medium text-[var(--text-primary)] group-hover:text-white">{template.label}</span>
                         <span className={`text-[10px] px-1.5 py-0.5 rounded border ${CATEGORY_COLORS[template.category]}`}>
                           {template.category}
                         </span>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1">{template.description}</p>
+                      <p className="text-xs text-[var(--text-muted)] mt-1">{template.description}</p>
                     </button>
                   ))}
                   {availableTemplates.length === 0 && (
-                    <p className="text-sm text-gray-600 text-center py-4">All templates in this category are active!</p>
+                    <p className="text-sm text-[var(--text-muted)] text-center py-4">All templates in this category are active!</p>
                   )}
                 </div>
               </div>
@@ -449,7 +449,7 @@ export function StrategyEditor({ botId }: StrategyEditorProps) {
 
           {/* Custom Notes */}
           <div>
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5 block flex items-center gap-1.5">
+            <label className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider mb-1.5 block flex items-center gap-1.5">
               <Eye className="w-3 h-3" />
               Custom Notes
             </label>
@@ -458,17 +458,17 @@ export function StrategyEditor({ botId }: StrategyEditorProps) {
               onChange={(e) => setStrategy(prev => ({ ...prev, customNotes: e.target.value }))}
               placeholder="Add your own strategy instructions... e.g. 'Focus on energy management early game, save Fireball for when opponent is below 40 HP'"
               rows={4}
-              className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-white text-sm placeholder-gray-600 resize-none"
+              className="w-full px-4 py-3 bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-sm focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-white text-sm placeholder-[var(--text-muted)] resize-none"
             />
-            <p className="text-[10px] text-gray-600 mt-1">Free text — write anything your bot should know during combat.</p>
+            <p className="text-[10px] text-[var(--text-muted)] mt-1">Free text — write anything your bot should know during combat.</p>
           </div>
 
           {/* Strategy Preview */}
           <div>
-            <label className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1.5 block">
+            <label className="text-xs font-medium text-[var(--text-muted)] uppercase tracking-wider mb-1.5 block">
               📋 Strategy Preview (what your bot reads)
             </label>
-            <pre className="bg-gray-950 border border-gray-800 rounded-lg p-4 text-xs text-gray-400 font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
+            <pre className="bg-[var(--bg-void)] border border-[var(--border-dim)] rounded-sm p-4 text-xs text-[var(--text-secondary)] font-mono whitespace-pre-wrap max-h-48 overflow-y-auto">
               {previewText || 'No strategy configured yet.'}
             </pre>
           </div>
@@ -477,14 +477,14 @@ export function StrategyEditor({ botId }: StrategyEditorProps) {
           <div className="flex items-center gap-3">
             <button
               onClick={handleSave}
-              className="flex-1 py-2.5 bg-cyan-600 hover:bg-cyan-700 rounded-lg font-semibold text-sm transition flex items-center justify-center gap-2"
+              className="flex-1 py-2.5 bg-cyan-600 hover:bg-cyan-700 rounded-sm font-semibold text-sm transition flex items-center justify-center gap-2"
             >
               <Save className="w-4 h-4" />
               {saved ? '✓ Saved to Browser' : 'Save Strategy'}
             </button>
             <button
               onClick={() => setStrategy({ activeRules: [], customNotes: '', personality: 50 })}
-              className="px-4 py-2.5 bg-gray-800 hover:bg-gray-700 rounded-lg text-gray-400 transition"
+              className="px-4 py-2.5 bg-[var(--bg-raised)] hover:bg-[var(--bg-hover)] rounded-sm text-[var(--text-secondary)] transition"
               title="Reset all"
             >
               <RotateCcw className="w-4 h-4" />

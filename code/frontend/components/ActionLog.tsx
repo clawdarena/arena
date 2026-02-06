@@ -37,14 +37,14 @@ export function ActionLog({ rounds, myBotId }: ActionLogProps) {
   }
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
-      <h3 className="text-sm font-semibold text-gray-400 mb-3">📜 Combat Log</h3>
+    <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-4">
+      <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-3">📜 Combat Log</h3>
       <div
         ref={scrollRef}
         className="max-h-64 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-gray-700"
       >
         {rounds.length === 0 && (
-          <p className="text-sm text-gray-600 text-center py-4">
+          <p className="text-sm text-[var(--text-muted)] text-center py-4">
             Waiting for combat to start...
           </p>
         )}
@@ -55,23 +55,23 @@ export function ActionLog({ rounds, myBotId }: ActionLogProps) {
           return (
             <div
               key={round.round}
-              className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50"
+              className="bg-[var(--bg-raised)] rounded-sm p-3 border border-[var(--border-mid)]"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-purple-400">
+                <span className="text-xs font-medium text-[var(--neon-cyan)]">
                   Round {round.round}
                 </span>
-                <div className="flex gap-2 text-xs text-gray-500">
+                <div className="flex gap-2 text-xs text-[var(--text-muted)]">
                   {round.bot1_timed_out && <span className="text-red-400">⏰ Bot1 timeout</span>}
                   {round.bot2_timed_out && <span className="text-red-400">⏰ Bot2 timeout</span>}
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <span className="text-gray-500 text-xs">Bot 1</span>
+                  <span className="text-[var(--text-muted)] text-xs">Bot 1</span>
                   <div className="flex items-center gap-1">
                     <span>{getActionEmoji(round.bot1_action)}</span>
-                    <span className="text-gray-300">
+                    <span className="text-[var(--text-primary)]">
                       {getActionLabel(round.bot1_action, round.bot1_target)}
                     </span>
                   </div>
@@ -80,9 +80,9 @@ export function ActionLog({ rounds, myBotId }: ActionLogProps) {
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-gray-500 text-xs">Bot 2</span>
+                  <span className="text-[var(--text-muted)] text-xs">Bot 2</span>
                   <div className="flex items-center justify-end gap-1">
-                    <span className="text-gray-300">
+                    <span className="text-[var(--text-primary)]">
                       {getActionLabel(round.bot2_action, round.bot2_target)}
                     </span>
                     <span>{getActionEmoji(round.bot2_action)}</span>
@@ -92,7 +92,7 @@ export function ActionLog({ rounds, myBotId }: ActionLogProps) {
                   </span>
                 </div>
               </div>
-              <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+              <div className="flex items-center justify-between mt-2 text-xs text-[var(--text-muted)]">
                 <span>HP: {round.bot1_hp}</span>
                 <span>HP: {round.bot2_hp}</span>
               </div>

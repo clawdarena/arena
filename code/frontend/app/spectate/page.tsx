@@ -78,7 +78,7 @@ function MatchCard({
     .replace(/^\w/, (c) => c.toUpperCase())
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 p-5 hover:border-purple-700/50 transition group">
+    <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-5 hover:border-purple-700/50 transition group">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -92,12 +92,12 @@ function MatchCard({
         </div>
         <div className="flex items-center gap-3">
           {match.spectators != null && match.spectators > 0 && (
-            <div className="flex items-center gap-1 text-xs text-gray-500">
+            <div className="flex items-center gap-1 text-xs text-[var(--text-muted)]">
               <Eye className="w-3 h-3" />
               {match.spectators}
             </div>
           )}
-          <span className="text-xs text-gray-600 bg-gray-800 px-2 py-0.5 rounded-full">
+          <span className="text-xs text-[var(--text-muted)] bg-[var(--bg-raised)] px-2 py-0.5 rounded-full">
             {matchLabel}
           </span>
         </div>
@@ -111,7 +111,7 @@ function MatchCard({
             <div className="w-7 h-7 bg-gradient-to-br from-purple-600 to-purple-800 rounded-md flex items-center justify-center text-xs shadow-lg shadow-purple-500/10">
               🤖
             </div>
-            <span className="text-sm font-semibold text-purple-300 truncate flex-1">
+            <span className="text-sm font-semibold text-[var(--neon-cyan)] truncate flex-1">
               {match.bot1.name}
             </span>
           </div>
@@ -119,7 +119,7 @@ function MatchCard({
         </div>
 
         <div className="flex items-center justify-center">
-          <Swords className="w-4 h-4 text-gray-600" />
+          <Swords className="w-4 h-4 text-[var(--text-muted)]" />
         </div>
 
         {/* Bot 2 */}
@@ -138,13 +138,13 @@ function MatchCard({
 
       {/* Footer */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 text-xs text-gray-500">
+        <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
           <Clock className="w-3 h-3" />
           Round {match.round} • {timeSince}
         </div>
         <button
           onClick={onWatch}
-          className="flex items-center gap-1.5 px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-sm font-medium rounded-lg transition group-hover:shadow-lg group-hover:shadow-purple-500/20"
+          className="flex items-center gap-1.5 px-4 py-2 bg-[var(--neon-cyan)] hover:bg-[var(--neon-cyan)] text-white text-sm font-medium rounded-sm transition group-hover:shadow-lg group-hover:shadow-purple-500/20"
         >
           <Eye className="w-3.5 h-3.5" />
           Watch
@@ -264,7 +264,7 @@ function WatchingView({
       <div className="flex items-center justify-between mb-6">
         <button
           onClick={onLeave}
-          className="flex items-center gap-2 text-sm text-gray-400 hover:text-white transition"
+          className="flex items-center gap-2 text-sm text-[var(--text-secondary)] hover:text-white transition"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to matches
@@ -293,9 +293,9 @@ function WatchingView({
           </div>
 
           {/* Round counter */}
-          <div className="bg-gray-900 rounded-lg border border-gray-800 px-3 py-1.5 flex items-center gap-2">
-            <span className="text-xs text-gray-500">Round</span>
-            <span className="text-lg font-bold text-purple-400 font-mono">
+          <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] px-3 py-1.5 flex items-center gap-2">
+            <span className="text-xs text-[var(--text-muted)]">Round</span>
+            <span className="text-lg font-bold text-[var(--neon-cyan)] font-mono">
               {round}
             </span>
           </div>
@@ -305,32 +305,32 @@ function WatchingView({
       {/* Bot Panels */}
       <div className="grid grid-cols-2 gap-4 mb-6">
         {/* Bot 1 */}
-        <div className="bg-gray-900 rounded-xl border border-purple-800/30 p-5">
+        <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--neon-cyan)] p-5">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-800 rounded-lg flex items-center justify-center text-lg shadow-lg shadow-purple-500/10">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-800 rounded-sm flex items-center justify-center text-lg shadow-lg shadow-purple-500/10">
               🤖
             </div>
             <div className="flex-1 min-w-0">
-              <div className="font-semibold text-purple-300 text-sm truncate">
+              <div className="font-semibold text-[var(--neon-cyan)] text-sm truncate">
                 {match.bot1.name}
               </div>
-              <div className="text-xs text-gray-500">Player 1</div>
+              <div className="text-xs text-[var(--text-muted)]">Player 1</div>
             </div>
           </div>
           <HPBar current={bot1Hp} max={100} label="HP" />
         </div>
 
         {/* Bot 2 */}
-        <div className="bg-gray-900 rounded-xl border border-red-800/30 p-5">
+        <div className="bg-[var(--bg-panel)] rounded-sm border border-red-800/30 p-5">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-800 rounded-lg flex items-center justify-center text-lg shadow-lg shadow-red-500/10">
+            <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-800 rounded-sm flex items-center justify-center text-lg shadow-lg shadow-red-500/10">
               👾
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-semibold text-red-300 text-sm truncate">
                 {match.bot2.name}
               </div>
-              <div className="text-xs text-gray-500">Player 2</div>
+              <div className="text-xs text-[var(--text-muted)]">Player 2</div>
             </div>
           </div>
           <HPBar current={bot2Hp} max={100} label="HP" />
@@ -338,8 +338,8 @@ function WatchingView({
       </div>
 
       {/* Combat Log */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 p-4">
-        <h3 className="text-sm font-semibold text-gray-400 mb-3 flex items-center gap-2">
+      <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-4">
+        <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-3 flex items-center gap-2">
           📜 Combat Log
         </h3>
         <div
@@ -347,20 +347,20 @@ function WatchingView({
           className="max-h-80 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-gray-700"
         >
           {rounds.length === 0 && (
-            <p className="text-sm text-gray-600 text-center py-6">
+            <p className="text-sm text-[var(--text-muted)] text-center py-6">
               Waiting for combat rounds...
             </p>
           )}
           {rounds.map((r) => (
             <div
               key={r.round}
-              className="bg-gray-800/50 rounded-lg p-3 border border-gray-700/50"
+              className="bg-[var(--bg-raised)] rounded-sm p-3 border border-[var(--border-mid)]"
             >
               <div className="flex items-center justify-between mb-2">
-                <span className="text-xs font-medium text-purple-400">
+                <span className="text-xs font-medium text-[var(--neon-cyan)]">
                   Round {r.round}
                 </span>
-                <div className="flex gap-2 text-xs text-gray-500">
+                <div className="flex gap-2 text-xs text-[var(--text-muted)]">
                   {r.bot1_timed_out && (
                     <span className="text-red-400">⏰ {match.bot1.name} timeout</span>
                   )}
@@ -371,10 +371,10 @@ function WatchingView({
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <div>
-                  <span className="text-gray-500 text-xs">{match.bot1.name}</span>
+                  <span className="text-[var(--text-muted)] text-xs">{match.bot1.name}</span>
                   <div className="flex items-center gap-1">
                     <span>{getActionEmoji(r.bot1_action)}</span>
-                    <span className="text-gray-300">
+                    <span className="text-[var(--text-primary)]">
                       {getActionLabel(r.bot1_action, r.bot1_target)}
                     </span>
                   </div>
@@ -385,9 +385,9 @@ function WatchingView({
                   </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-gray-500 text-xs">{match.bot2.name}</span>
+                  <span className="text-[var(--text-muted)] text-xs">{match.bot2.name}</span>
                   <div className="flex items-center justify-end gap-1">
-                    <span className="text-gray-300">
+                    <span className="text-[var(--text-primary)]">
                       {getActionLabel(r.bot2_action, r.bot2_target)}
                     </span>
                     <span>{getActionEmoji(r.bot2_action)}</span>
@@ -399,7 +399,7 @@ function WatchingView({
                   </span>
                 </div>
               </div>
-              <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+              <div className="flex items-center justify-between mt-2 text-xs text-[var(--text-muted)]">
                 <span>HP: {r.bot1_hp}</span>
                 <span>HP: {r.bot2_hp}</span>
               </div>
@@ -411,36 +411,36 @@ function WatchingView({
       {/* Match Ended Overlay */}
       {matchEnded && matchEndData && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 backdrop-blur-sm">
-          <div className="bg-gray-900 border border-gray-700 rounded-2xl p-8 max-w-md w-full mx-4 text-center shadow-2xl">
+          <div className="bg-[var(--bg-panel)] border border-[var(--border-mid)] rounded-sm p-8 max-w-md w-full mx-4 text-center shadow-2xl">
             <Trophy className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
             <h2 className="text-2xl font-bold text-white mb-2">Match Ended!</h2>
             {matchEndData.winner_name ? (
-              <p className="text-gray-300 mb-2">
+              <p className="text-[var(--text-primary)] mb-2">
                 🏆{' '}
-                <span className="text-purple-400 font-semibold">
+                <span className="text-[var(--neon-cyan)] font-semibold">
                   {matchEndData.winner_name}
                 </span>{' '}
                 wins!
               </p>
             ) : (
-              <p className="text-gray-300 mb-2">It&apos;s a draw!</p>
+              <p className="text-[var(--text-primary)] mb-2">It&apos;s a draw!</p>
             )}
             {matchEndData.reason && (
-              <p className="text-xs text-gray-500 mb-6 capitalize">
+              <p className="text-xs text-[var(--text-muted)] mb-6 capitalize">
                 {matchEndData.reason.replace(/_/g, ' ')}
               </p>
             )}
             <div className="flex items-center justify-center gap-6 mb-6">
               <div className="text-center">
-                <div className="text-sm text-purple-300 font-medium mb-1">
+                <div className="text-sm text-[var(--neon-cyan)] font-medium mb-1">
                   {match.bot1.name}
                 </div>
                 <div className="text-2xl font-bold font-mono text-white">
                   {matchEndData.bot1_hp}
                 </div>
-                <div className="text-xs text-gray-500">HP</div>
+                <div className="text-xs text-[var(--text-muted)]">HP</div>
               </div>
-              <Swords className="w-5 h-5 text-gray-600" />
+              <Swords className="w-5 h-5 text-[var(--text-muted)]" />
               <div className="text-center">
                 <div className="text-sm text-red-300 font-medium mb-1">
                   {match.bot2.name}
@@ -448,12 +448,12 @@ function WatchingView({
                 <div className="text-2xl font-bold font-mono text-white">
                   {matchEndData.bot2_hp}
                 </div>
-                <div className="text-xs text-gray-500">HP</div>
+                <div className="text-xs text-[var(--text-muted)]">HP</div>
               </div>
             </div>
             <button
               onClick={onLeave}
-              className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white font-medium rounded-lg transition"
+              className="w-full px-6 py-3 bg-[var(--neon-cyan)] hover:bg-[var(--neon-cyan)] text-white font-medium rounded-sm transition"
             >
               Back to Match List
             </button>
@@ -512,7 +512,7 @@ function SpectateContent() {
       {/* Page Header */}
       <div className="mb-8">
         <div className="flex items-center gap-3 mb-2">
-          <Eye className="w-6 h-6 text-purple-400" />
+          <Eye className="w-6 h-6 text-[var(--neon-cyan)]" />
           <h1 className="text-2xl font-bold text-white">Spectate</h1>
           <div className="flex items-center gap-1.5 bg-red-900/30 border border-red-700/40 px-2.5 py-0.5 rounded-full">
             <span className="relative flex h-2 w-2">
@@ -524,7 +524,7 @@ function SpectateContent() {
             </span>
           </div>
         </div>
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-[var(--text-muted)]">
           Watch ongoing matches in real-time. Pick a match to spectate!
         </p>
       </div>
@@ -533,21 +533,21 @@ function SpectateContent() {
       {loading && (
         <div className="text-center py-16">
           <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
-          <p className="text-gray-500 text-sm">Loading active matches...</p>
+          <p className="text-[var(--text-muted)] text-sm">Loading active matches...</p>
         </div>
       )}
 
       {/* Error */}
       {error && !loading && (
         <div className="text-center py-12">
-          <div className="bg-red-900/20 border border-red-700/30 rounded-xl p-6 max-w-md mx-auto">
+          <div className="bg-red-900/20 border border-red-700/30 rounded-sm p-6 max-w-md mx-auto">
             <p className="text-red-400 text-sm mb-3">{error}</p>
             <button
               onClick={() => {
                 setLoading(true)
                 fetchMatches()
               }}
-              className="text-sm text-purple-400 hover:text-purple-300 transition"
+              className="text-sm text-[var(--neon-cyan)] hover:text-[var(--neon-cyan)] transition"
             >
               Try again
             </button>
@@ -558,13 +558,13 @@ function SpectateContent() {
       {/* Empty State */}
       {!loading && !error && matches.length === 0 && (
         <div className="text-center py-20">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-gray-900 rounded-2xl border border-gray-800 mb-4">
-            <Swords className="w-8 h-8 text-gray-600" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] mb-4">
+            <Swords className="w-8 h-8 text-[var(--text-muted)]" />
           </div>
-          <h3 className="text-lg font-medium text-gray-400 mb-2">
+          <h3 className="text-lg font-medium text-[var(--text-secondary)] mb-2">
             No live matches right now
           </h3>
-          <p className="text-sm text-gray-600">
+          <p className="text-sm text-[var(--text-muted)]">
             Check back soon! Matches start when players queue up.
           </p>
         </div>
@@ -573,7 +573,7 @@ function SpectateContent() {
       {/* Match Grid */}
       {!loading && !error && matches.length > 0 && (
         <>
-          <div className="flex items-center gap-2 mb-4 text-sm text-gray-500">
+          <div className="flex items-center gap-2 mb-4 text-sm text-[var(--text-muted)]">
             <Users className="w-4 h-4" />
             <span>
               {matches.length} active match{matches.length !== 1 ? 'es' : ''}
@@ -597,7 +597,7 @@ function SpectateContent() {
 export default function SpectatePage() {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-950">
+      <div className="min-h-screen bg-[var(--bg-void)]">
         <Navbar />
         <SpectateContent />
       </div>

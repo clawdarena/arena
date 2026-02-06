@@ -139,7 +139,7 @@ function QueueContent() {
 
   return (
     <div className="max-w-lg mx-auto px-8 py-16">
-      <div className="bg-gray-900 rounded-2xl border border-gray-800 p-8 text-center">
+      <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-8 text-center">
         {/* Animated indicator */}
         <div className="relative w-24 h-24 mx-auto mb-8">
           {/* Outer ring */}
@@ -165,7 +165,7 @@ function QueueContent() {
            status === 're_queued' ? 'Re-queued (Priority)' :
            'Searching for Opponent...'}
         </h2>
-        <p className="text-gray-400 mb-2">
+        <p className="text-[var(--text-secondary)] mb-2">
           {status === 'waiting_accept' ? 'You accepted — waiting for opponent' :
            status === 're_queued' ? 'Finding you a new match faster' :
            'Finding a worthy challenger'}
@@ -174,7 +174,7 @@ function QueueContent() {
           <p className={`text-sm mb-4 ${
             status === 're_queued' ? 'text-green-400' :
             status === 'waiting_accept' ? 'text-yellow-400' :
-            'text-gray-500'
+            'text-[var(--text-muted)]'
           }`}>
             {statusMessage}
           </p>
@@ -186,29 +186,29 @@ function QueueContent() {
             }`}>
               {acceptCountdown}s
             </span>
-            <span className="text-gray-500 text-sm ml-2">for opponent to accept</span>
+            <span className="text-[var(--text-muted)] text-sm ml-2">for opponent to accept</span>
           </div>
         )}
 
         {/* Match Info */}
         <div className="space-y-3 mb-8">
-          <div className="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3">
-            <span className="text-gray-400">Tier</span>
-            <span className="font-medium text-purple-400">{tierName}</span>
+          <div className="flex items-center justify-between bg-[var(--bg-raised)] rounded-sm px-4 py-3">
+            <span className="text-[var(--text-secondary)]">Tier</span>
+            <span className="font-medium text-[var(--neon-cyan)]">{tierName}</span>
           </div>
-          <div className="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3">
-            <span className="text-gray-400">Entry Fee</span>
+          <div className="flex items-center justify-between bg-[var(--bg-raised)] rounded-sm px-4 py-3">
+            <span className="text-[var(--text-secondary)]">Entry Fee</span>
             <span className="font-medium text-yellow-400">{entryFee} AC</span>
           </div>
-          <div className="flex items-center justify-between bg-gray-800 rounded-lg px-4 py-3">
-            <span className="text-gray-400">Time in Queue</span>
+          <div className="flex items-center justify-between bg-[var(--bg-raised)] rounded-sm px-4 py-3">
+            <span className="text-[var(--text-secondary)]">Time in Queue</span>
             <span className="font-mono text-lg font-medium">{formatDuration(elapsed)}</span>
           </div>
         </div>
 
         {/* Fun facts / tips while waiting */}
-        <div className="bg-gray-800/50 rounded-lg p-4 mb-8">
-          <p className="text-sm text-gray-500">
+        <div className="bg-[var(--bg-raised)] rounded-sm p-4 mb-8">
+          <p className="text-sm text-[var(--text-muted)]">
             💡 Tip: Your bot&apos;s strategy and reasoning never leave your machine.
             Only combat actions are sent to the server.
           </p>
@@ -217,7 +217,7 @@ function QueueContent() {
         {/* Cancel Button */}
         <button
           onClick={handleCancel}
-          className="w-full py-3 bg-red-600/20 hover:bg-red-600/30 border border-red-600/40 text-red-400 rounded-lg font-medium transition"
+          className="w-full py-3 bg-red-600/20 hover:bg-red-600/30 border border-red-600/40 text-red-400 rounded-sm font-medium transition"
         >
           Cancel Queue
         </button>
@@ -229,7 +229,7 @@ function QueueContent() {
 export default function QueuePage() {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-950">
+      <div className="min-h-screen bg-[var(--bg-void)]">
         <Navbar />
         <QueueContent />
       </div>

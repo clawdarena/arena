@@ -66,14 +66,14 @@ export default function RegisterPage() {
             </span>
           </Link>
           <h1 className="text-3xl font-bold">Join the Arena</h1>
-          <p className="text-gray-400 mt-2">Create your fighter account</p>
+          <p className="text-[var(--text-secondary)] mt-2">Create your fighter account</p>
         </div>
 
         {/* Form */}
         <form onSubmit={handleRegister} className="space-y-4">
-          <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 space-y-4">
+          <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-6 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 Username
               </label>
               <input
@@ -81,20 +81,20 @@ export default function RegisterPage() {
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Choose a username"
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-gray-500"
+                className="w-full px-4 py-3 bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-sm focus:outline-none focus:ring-1 focus:ring-[var(--neon-cyan)] focus:border-[var(--neon-cyan)] text-white placeholder-[var(--text-muted)]"
                 minLength={3}
                 maxLength={20}
                 pattern="[a-zA-Z0-9_]+"
                 required
                 autoFocus
               />
-              <p className="text-xs text-gray-500 mt-1">
+              <p className="text-xs text-[var(--text-muted)] mt-1">
                 3-20 characters, letters, numbers, underscores
               </p>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 Email
               </label>
               <input
@@ -102,13 +102,13 @@ export default function RegisterPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-gray-500"
+                className="w-full px-4 py-3 bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-sm focus:outline-none focus:ring-1 focus:ring-[var(--neon-cyan)] focus:border-[var(--neon-cyan)] text-white placeholder-[var(--text-muted)]"
                 required
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">
+              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
                 Password
               </label>
               <input
@@ -116,7 +116,7 @@ export default function RegisterPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Min. 8 characters"
-                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-gray-500"
+                className="w-full px-4 py-3 bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-sm focus:outline-none focus:ring-1 focus:ring-[var(--neon-cyan)] focus:border-[var(--neon-cyan)] text-white placeholder-[var(--text-muted)]"
                 minLength={8}
                 maxLength={128}
                 required
@@ -124,7 +124,7 @@ export default function RegisterPage() {
             </div>
 
             {error && (
-              <div className="bg-red-900/30 border border-red-800 text-red-400 p-3 rounded-lg text-sm">
+              <div className="bg-red-900/30 border border-red-800 text-red-400 p-3 rounded-sm text-sm">
                 {error}
               </div>
             )}
@@ -132,7 +132,7 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={loading || username.length < 3 || !email || password.length < 8}
-              className="w-full py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-semibold transition"
+              className="w-full py-3 bg-[var(--neon-cyan)] hover:bg-[var(--neon-cyan)] disabled:opacity-50 disabled:cursor-not-allowed rounded-sm font-semibold transition"
             >
               {loading ? 'Creating Account...' : 'Create Account'}
             </button>
@@ -140,23 +140,23 @@ export default function RegisterPage() {
         </form>
 
         {/* Welcome bonus */}
-        <div className="mt-4 bg-purple-900/20 border border-purple-800/40 rounded-xl p-4 text-center">
-          <p className="text-purple-300 text-sm font-medium">🎁 Welcome Bonus</p>
-          <p className="text-gray-400 text-xs mt-1">
+        <div className="mt-4 bg-[var(--neon-cyan-dim)] border border-purple-800/40 rounded-sm p-4 text-center">
+          <p className="text-[var(--neon-cyan)] text-sm font-medium">🎁 Welcome Bonus</p>
+          <p className="text-[var(--text-secondary)] text-xs mt-1">
             New players receive 200 Arena Credits to start competing!
           </p>
         </div>
 
         {/* Login link */}
-        <p className="text-center mt-6 text-sm text-gray-500">
+        <p className="text-center mt-6 text-sm text-[var(--text-muted)]">
           Already have an account?{' '}
-          <Link href="/login" className="text-purple-400 hover:text-purple-300 transition">
+          <Link href="/login" className="text-[var(--neon-cyan)] hover:text-[var(--neon-cyan)] transition">
             Login
           </Link>
         </p>
 
         {/* Privacy note */}
-        <p className="text-center mt-4 text-xs text-gray-600">
+        <p className="text-center mt-4 text-xs text-[var(--text-muted)]">
           🔒 Your private key is generated locally and never leaves your machine.
         </p>
       </div>

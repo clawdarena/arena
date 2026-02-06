@@ -67,8 +67,8 @@ const TOAST_CONFIG: Record<ToastType, {
   match: {
     icon: <Swords className="w-5 h-5" />,
     border: 'border-purple-800/50',
-    bg: 'bg-purple-900/20',
-    iconColor: 'text-purple-400',
+    bg: 'bg-[var(--neon-cyan-dim)]',
+    iconColor: 'text-[var(--neon-cyan)]',
   },
   credits: {
     icon: <Coins className="w-5 h-5" />,
@@ -91,7 +91,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) 
 
   return (
     <div
-      className={`flex items-start gap-3 px-4 py-3 rounded-xl border backdrop-blur-sm shadow-2xl max-w-sm w-full animate-slide-in ${config.border} ${config.bg} bg-gray-900/90`}
+      className={`flex items-start gap-3 px-4 py-3 rounded-sm border backdrop-blur-sm shadow-2xl max-w-sm w-full animate-slide-in ${config.border} ${config.bg} bg-[var(--bg-panel)]/90`}
       role="alert"
     >
       <div className={`flex-shrink-0 mt-0.5 ${config.iconColor}`}>
@@ -100,12 +100,12 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) 
       <div className="flex-1 min-w-0">
         <div className="text-sm font-semibold text-white">{toast.title}</div>
         {toast.message && (
-          <div className="text-xs text-gray-400 mt-0.5">{toast.message}</div>
+          <div className="text-xs text-[var(--text-secondary)] mt-0.5">{toast.message}</div>
         )}
       </div>
       <button
         onClick={onRemove}
-        className="flex-shrink-0 text-gray-600 hover:text-gray-400 transition"
+        className="flex-shrink-0 text-[var(--text-muted)] hover:text-[var(--text-secondary)] transition"
       >
         <X className="w-4 h-4" />
       </button>

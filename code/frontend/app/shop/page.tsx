@@ -51,7 +51,7 @@ function SkillCard({
   const isStarter = skill.price === 0
 
   return (
-    <div className={`relative rounded-xl border p-4 transition-all hover:scale-[1.02] ${rarity.bg} ${rarity.border} ${rarity.glow ? `shadow-lg ${rarity.glow}` : ''}`}>
+    <div className={`relative rounded-sm border p-4 transition-all hover:scale-[1.02] ${rarity.bg} ${rarity.border} ${rarity.glow ? `shadow-lg ${rarity.glow}` : ''}`}>
       {/* Rarity badge */}
       <div className="flex items-center justify-between mb-3">
         <span className={`text-[10px] font-bold uppercase tracking-wider ${rarity.text}`}>
@@ -67,11 +67,11 @@ function SkillCard({
       {/* Skill info */}
       <div className="mb-3">
         <h3 className="text-base font-bold text-white mb-1">{skill.name}</h3>
-        <p className="text-xs text-gray-400 leading-relaxed">{skill.description}</p>
+        <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{skill.description}</p>
       </div>
 
       {/* Meta */}
-      <div className="flex items-center gap-3 mb-3 text-xs text-gray-500">
+      <div className="flex items-center gap-3 mb-3 text-xs text-[var(--text-muted)]">
         <span className="flex items-center gap-1">
           <Timer className="w-3 h-3" />
           {skill.cooldown}r cooldown
@@ -87,30 +87,30 @@ function SkillCard({
         equipped ? (
           <button
             onClick={onUnequip}
-            className="w-full py-2 rounded-lg text-xs font-medium bg-gray-700/50 border border-gray-600/50 text-gray-300 hover:bg-gray-600/50 transition"
+            className="w-full py-2 rounded-sm text-xs font-medium bg-gray-700/50 border border-[var(--border-bright)]/50 text-[var(--text-primary)] hover:bg-gray-600/50 transition"
           >
             Unequip
           </button>
         ) : (
           <button
             onClick={onEquip}
-            className="w-full py-2 rounded-lg text-xs font-medium bg-purple-600/80 hover:bg-purple-600 text-white transition"
+            className="w-full py-2 rounded-sm text-xs font-medium bg-[var(--neon-cyan)]/80 hover:bg-[var(--neon-cyan)] text-white transition"
           >
             Equip
           </button>
         )
       ) : isStarter ? (
-        <div className="w-full py-2 rounded-lg text-xs font-medium bg-green-900/30 border border-green-700/30 text-green-400 text-center">
+        <div className="w-full py-2 rounded-sm text-xs font-medium bg-green-900/30 border border-green-700/30 text-green-400 text-center">
           Free · Starter Skill
         </div>
       ) : (
         <button
           onClick={onPurchase}
           disabled={!canAfford}
-          className={`w-full py-2 rounded-lg text-xs font-medium transition ${
+          className={`w-full py-2 rounded-sm text-xs font-medium transition ${
             canAfford
               ? 'bg-yellow-600/80 hover:bg-yellow-600 text-white'
-              : 'bg-gray-800/50 text-gray-600 cursor-not-allowed'
+              : 'bg-[var(--bg-raised)] text-[var(--text-muted)] cursor-not-allowed'
           }`}
         >
           {canAfford ? `Buy for ${skill.price} AC` : (
@@ -145,7 +145,7 @@ function ItemCard({
   }
 
   return (
-    <div className={`relative rounded-xl border p-4 transition-all hover:scale-[1.02] ${rarity.bg} ${rarity.border} ${rarity.glow ? `shadow-lg ${rarity.glow}` : ''}`}>
+    <div className={`relative rounded-sm border p-4 transition-all hover:scale-[1.02] ${rarity.bg} ${rarity.border} ${rarity.glow ? `shadow-lg ${rarity.glow}` : ''}`}>
       {/* Limited edition badge */}
       {item.limited_edition && (
         <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
@@ -157,11 +157,11 @@ function ItemCard({
         <span className={`text-[10px] font-bold uppercase tracking-wider ${rarity.text}`}>
           {item.rarity}
         </span>
-        <span className="text-xs text-gray-500 capitalize">{categoryIcons[item.category]} {item.category}</span>
+        <span className="text-xs text-[var(--text-muted)] capitalize">{categoryIcons[item.category]} {item.category}</span>
       </div>
 
       <h3 className="text-base font-bold text-white mb-1">{item.name}</h3>
-      <p className="text-xs text-gray-400 leading-relaxed mb-3">{item.description}</p>
+      <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-3">{item.description}</p>
 
       {/* Stat bonuses */}
       {hasBonuses && (
@@ -198,10 +198,10 @@ function ItemCard({
       <button
         onClick={onPurchase}
         disabled={!canAfford}
-        className={`w-full py-2 rounded-lg text-xs font-medium transition ${
+        className={`w-full py-2 rounded-sm text-xs font-medium transition ${
           canAfford
             ? 'bg-yellow-600/80 hover:bg-yellow-600 text-white'
-            : 'bg-gray-800/50 text-gray-600 cursor-not-allowed'
+            : 'bg-[var(--bg-raised)] text-[var(--text-muted)] cursor-not-allowed'
         }`}
       >
         {canAfford ? `Buy for ${item.price} AC` : (
@@ -262,7 +262,7 @@ function ShopContent() {
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="text-gray-500">Loading shop...</div>
+      <div className="text-[var(--text-muted)]">Loading shop...</div>
     </div>
   )
 
@@ -314,10 +314,10 @@ function ShopContent() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold flex items-center gap-2">
-          <ShoppingCart className="w-6 h-6 text-purple-400" />
+          <ShoppingCart className="w-6 h-6 text-[var(--neon-cyan)]" />
           Shop
         </h1>
-        <div className="flex items-center gap-2 bg-gray-900 px-3 py-1.5 rounded-lg border border-gray-800">
+        <div className="flex items-center gap-2 bg-[var(--bg-panel)] px-3 py-1.5 rounded-sm border border-[var(--border-dim)]">
           <span className="text-yellow-400 text-sm">💰</span>
           <span className="text-sm font-medium">{formatCredits(user.credits)} AC</span>
         </div>
@@ -327,10 +327,10 @@ function ShopContent() {
       <div className="flex gap-2 mb-6">
         <button
           onClick={() => setTab('skills')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium transition ${
             tab === 'skills'
-              ? 'bg-purple-600 text-white'
-              : 'bg-gray-800 text-gray-400 hover:text-white'
+              ? 'bg-[var(--neon-cyan)] text-white'
+              : 'bg-[var(--bg-raised)] text-[var(--text-secondary)] hover:text-white'
           }`}
         >
           <Sparkles className="w-4 h-4" />
@@ -338,10 +338,10 @@ function ShopContent() {
         </button>
         <button
           onClick={() => setTab('items')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium transition ${
             tab === 'items'
-              ? 'bg-purple-600 text-white'
-              : 'bg-gray-800 text-gray-400 hover:text-white'
+              ? 'bg-[var(--neon-cyan)] text-white'
+              : 'bg-[var(--bg-raised)] text-[var(--text-secondary)] hover:text-white'
           }`}
         >
           <Package className="w-4 h-4" />
@@ -351,8 +351,8 @@ function ShopContent() {
 
       {/* Equipped skills banner */}
       {tab === 'skills' && (
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-4 mb-6">
-          <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-3">
+        <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-4 mb-6">
+          <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">
             Equipped ({equippedSkills.size}/2 slots)
           </h3>
           <div className="flex gap-3">
@@ -363,7 +363,7 @@ function ShopContent() {
               return (
                 <div
                   key={sid}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${rc.border} ${rc.bg}`}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-sm border ${rc.border} ${rc.bg}`}
                 >
                   <span className="text-sm">✨</span>
                   <span className={`text-sm font-medium ${rc.text}`}>{s.name}</span>
@@ -371,7 +371,7 @@ function ShopContent() {
               )
             })}
             {equippedSkills.size < 2 && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-dashed border-gray-700 text-gray-600 text-sm">
+              <div className="flex items-center gap-2 px-3 py-2 rounded-sm border border-dashed border-[var(--border-mid)] text-[var(--text-muted)] text-sm">
                 <CircleDot className="w-4 h-4" />
                 Empty slot
               </div>
@@ -418,7 +418,7 @@ function ShopContent() {
 export default function ShopPage() {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-gray-950">
+      <div className="min-h-screen bg-[var(--bg-void)]">
         <Navbar />
         <ShopContent />
       </div>
