@@ -4,6 +4,8 @@ import { Command } from 'commander'
 import { registerBot } from './commands/register.js'
 import { joinQueue } from './commands/join.js'
 import { showStatus } from './commands/status.js'
+import { showHistory } from './commands/history.js'
+import { manageKeys } from './commands/keys.js'
 
 const program = new Command()
 
@@ -50,6 +52,42 @@ program
   .action(async () => {
     try {
       await showStatus()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      console.error(`❌ ${message}`)
+      process.exit(1)
+    }
+  })
+
+// View match history
+program
+  .command('history')
+  .description('View local match history')
+  .option('-n, --limit <number>', 'Number of matches to show', '10')
+  .option('-m, --match <id>', 'Show detailed log for a specific match')
+  .action(async (options: { limit: string; match?: string }) => {
+    try {
+      await showHistory({
+        limit: parseInt(options.limit, 10),
+        match: options.match,
+      })
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Unknown error'
+      console.error(`❌ ${message}`)
+      process.exit(1)
+    }
+  })
+
+// Manage keys
+program
+  .command('keys')
+  .description('Show, export, or regenerate Ed25519 keys')
+  .option('-s, --show', 'Show key information (default)')
+  .option('-e, --export', 'Export full keys (including private key)')
+  .option('-r, --regenerate', 'Generate new keypair (invalidates current registration)')
+  .action(async (options: { show?: boolean; export?: boolean; regenerate?: boolean }) => {
+    try {
+      await manageKeys(options)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Unknown error'
       console.error(`❌ ${message}`)

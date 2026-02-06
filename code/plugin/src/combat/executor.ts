@@ -1,6 +1,8 @@
 import { signEvent } from '../keys.js'
 import { ArenaSocket } from '../socket.js'
 import { parseAction } from './parser.js'
+import { decideAction } from './strategy.js'
+import { saveMatchLog, type FullMatchLog, type RoundLogEntry, type MatchLogEntry } from './logger.js'
 
 /**
  * Represents the game state sent to the bot each round.
@@ -17,6 +19,9 @@ interface RoundState {
   opponent_last_action: string | null
   time_limit_seconds: number
 }
+
+/** Default timeout for bot decisions (in ms). If bot takes longer, auto-defend. */
+const BOT_TIMEOUT_MS = 8000
 
 /**
  * The local combat executor.
@@ -36,6 +41,8 @@ export class CombatExecutor {
   private botId: string
   private socket: ArenaSocket
   private matchId: string | null = null
+  private opponentActionHistory: string[] = []
+  private roundLogs: RoundLogEntry[] = []
 
   constructor(botId: string, socket: ArenaSocket) {
     this.botId = botId
@@ -52,28 +59,51 @@ export class CombatExecutor {
     console.log(`\n⚔️  Round ${roundData.round}`)
     console.log(`  HP: ${roundData.my_hp} | Opponent: ${roundData.opponent_hp}`)
 
+    // Track opponent history
+    if (roundData.opponent_last_action) {
+      this.opponentActionHistory.push(roundData.opponent_last_action)
+    }
+
     // 1. Generate combat prompt (LOCALLY — safe structured data only)
     const prompt = this.buildPrompt(roundData)
 
-    // 2. Send to local bot and get response
-    //    TODO: Integrate with OpenClaw sessions_spawn/sessions_send
-    //    For now, use a simple decision function
+    // 2. Get bot decision with timeout handling
     const startTime = Date.now()
-    const botResponse = await this.getBotDecision(prompt)
+    let botResponse: string
+    let timedOut = false
+
+    try {
+      botResponse = await this.getBotDecisionWithTimeout(roundData, BOT_TIMEOUT_MS)
+    } catch {
+      // Timeout or error → auto-defend
+      timedOut = true
+      botResponse = JSON.stringify({
+        action: 'defend',
+        target: null,
+        reasoning: 'Auto-defend due to timeout',
+      })
+      console.log('  ⏰ Bot timed out — auto-defending')
+    }
     const responseTime = Date.now() - startTime
 
     // 3. Parse action from response (LOCALLY)
     const action = parseAction(botResponse)
 
-    console.log(`  Action: ${action.action} → ${action.target || 'n/a'} (${responseTime}ms)`)
+    console.log(`  Action: ${action.action} → ${action.target || 'n/a'} (${responseTime}ms)${timedOut ? ' [TIMEOUT]' : ''}`)
 
-    // 4. Log full response LOCALLY (never sent to server)
-    this.logLocally({
+    // 4. Log round details LOCALLY (never sent to server)
+    this.roundLogs.push({
       round: roundData.round,
-      prompt,
-      full_response: botResponse, // ✅ Stays on your machine
-      action,
-      response_time: responseTime,
+      my_hp: roundData.my_hp,
+      opponent_hp: roundData.opponent_hp,
+      my_action: action.action,
+      my_target: action.target,
+      opponent_action: roundData.opponent_last_action,
+      damage_dealt: 0,  // Filled in by round_complete
+      damage_received: 0,
+      response_time_ms: responseTime,
+      bot_reasoning: action.reasoning,
+      bot_full_response: botResponse,
     })
 
     // 5. Build the combat action (MINIMAL data)
@@ -98,6 +128,28 @@ export class CombatExecutor {
     })
 
     console.log('  ✅ Action submitted (signed)')
+  }
+
+  /**
+   * Save the match result to local logs.
+   * Called when match_end event is received.
+   */
+  saveMatchResult(matchEntry: MatchLogEntry): void {
+    const fullLog: FullMatchLog = {
+      match: matchEntry,
+      rounds: this.roundLogs,
+    }
+    saveMatchLog(fullLog)
+    console.log('  💾 Match log saved locally')
+  }
+
+  /**
+   * Reset state for a new match.
+   */
+  reset(): void {
+    this.matchId = null
+    this.opponentActionHistory = []
+    this.roundLogs = []
   }
 
   /**
@@ -134,30 +186,50 @@ The "reasoning" field stays private and is never sent to the server.`
   }
 
   /**
-   * Get decision from the local OpenClaw bot.
+   * Get bot decision with timeout handling.
+   * If the bot takes too long, throws an error so we auto-defend.
+   */
+  private async getBotDecisionWithTimeout(roundData: RoundState, timeoutMs: number): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        reject(new Error('Bot decision timeout'))
+      }, timeoutMs)
+
+      this.getBotDecision(roundData)
+        .then((result) => {
+          clearTimeout(timer)
+          resolve(result)
+        })
+        .catch((err) => {
+          clearTimeout(timer)
+          reject(err)
+        })
+    })
+  }
+
+  /**
+   * Get decision from the local strategy engine.
    *
    * TODO: Replace with actual OpenClaw integration:
    *   const session = await sessions_spawn({ task: prompt, cleanup: 'delete' })
    *   const response = await sessions_send({ sessionKey: session.key, message: prompt })
    *
-   * For now, uses a basic strategy function for testing.
+   * Currently uses the built-in strategy for testing.
    */
-  private async getBotDecision(prompt: string): Promise<string> {
-    // TODO: Replace with OpenClaw sessions integration
-    // This is a placeholder strategy for testing
-    return JSON.stringify({
-      action: 'attack',
-      target: 'core',
-      reasoning: 'Placeholder strategy — will be replaced with real bot reasoning',
+  private async getBotDecision(roundData: RoundState): Promise<string> {
+    // Use built-in strategy
+    const decision = decideAction({
+      round: roundData.round,
+      my_hp: roundData.my_hp,
+      opponent_hp: roundData.opponent_hp,
+      my_attack: roundData.my_attack,
+      my_defense: roundData.my_defense,
+      my_speed: roundData.my_speed,
+      opponent_last_action: roundData.opponent_last_action,
+      opponent_action_history: this.opponentActionHistory,
     })
-  }
 
-  /**
-   * Log combat details locally (never sent to server).
-   */
-  private logLocally(data: Record<string, unknown>): void {
-    // TODO: Write to local SQLite or file log
-    // For now, just keep in memory
+    return JSON.stringify(decision)
   }
 
   /**
