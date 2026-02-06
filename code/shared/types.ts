@@ -148,6 +148,8 @@ export interface RoundResult {
   bot2_counter: 'none' | 'attack_vs_skill' | 'defend_vs_attack' | 'skill_vs_defend'
   bot1_momentum: number
   bot2_momentum: number
+  bot1_energy: number
+  bot2_energy: number
 }
 
 /** Status effects from skills */

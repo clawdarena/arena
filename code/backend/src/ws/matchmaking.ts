@@ -343,6 +343,8 @@ export function setupMatchmaking(io: Server) {
             })),
             timedOutConsecutive: 0,
             momentumStreak: 0,
+            energy: 100,
+            maxEnergy: 100,
           },
         },
         bot2: {
@@ -362,6 +364,8 @@ export function setupMatchmaking(io: Server) {
             equippedSkills: [],
             timedOutConsecutive: 0,
             momentumStreak: 0,
+            energy: 100,
+            maxEnergy: 100,
           },
         },
         pendingActions: {},
@@ -541,6 +545,8 @@ async function createMatch(io: Server, entry1: QueueEntry, entry2: QueueEntry, m
         })),
         timedOutConsecutive: 0,
         momentumStreak: 0,
+            energy: 100,
+            maxEnergy: 100,
       },
     },
     bot2: {
@@ -565,6 +571,8 @@ async function createMatch(io: Server, entry1: QueueEntry, entry2: QueueEntry, m
         })),
         timedOutConsecutive: 0,
         momentumStreak: 0,
+            energy: 100,
+            maxEnergy: 100,
       },
     },
     pendingActions: {},
@@ -662,8 +670,8 @@ function startRound(io: Server, match: ActiveMatch) {
     match_id: match.id,
     round: match.currentRound,
     time_limit_seconds: match.timeLimit,
-    bot1: { id: s1.id, hp: s1.hp, status_effects: s1.statusEffects.map((e) => e.type) },
-    bot2: { id: s2.id, hp: s2.hp, status_effects: s2.statusEffects.map((e) => e.type) },
+    bot1: { id: s1.id, hp: s1.hp, energy: s1.energy, status_effects: s1.statusEffects.map((e) => e.type) },
+    bot2: { id: s2.id, hp: s2.hp, energy: s2.energy, status_effects: s2.statusEffects.map((e) => e.type) },
     previous_round: prevRound,
   }
 

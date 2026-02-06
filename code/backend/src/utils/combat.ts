@@ -15,6 +15,8 @@ export interface BotCombatState {
   attack: number
   defense: number
   speed: number
+  energy: number
+  maxEnergy: number
   statusEffects: ActiveEffect[]
   skillCooldowns: Map<string, number>  // skill_id → rounds remaining
   equippedSkills: SkillData[]
@@ -22,6 +24,25 @@ export interface BotCombatState {
   // Counter system
   lastAction?: CombatAction
   momentumStreak: number  // consecutive successful counters
+}
+
+// Energy constants
+const ENERGY_START = 100
+const ENERGY_REGEN_PER_ROUND = 15
+const ENERGY_DEFEND_BONUS = 10
+
+// Skill energy costs by rarity
+const SKILL_ENERGY_COSTS: Record<string, number> = {
+  power_strike: 15,
+  shield_wall: 25,
+  overclock: 30,
+  scan: 10,
+  fireball: 20,
+  iron_fortress: 25,
+  emp_blast: 30,
+  regenerate: 35,
+  berserker: 30,
+  mirror_coat: 25,
 }
 
 export interface ActiveEffect {
@@ -63,6 +84,9 @@ export interface RoundResult {
   bot2_counter: string
   bot1_momentum: number  // current streak
   bot2_momentum: number
+  // Energy
+  bot1_energy: number
+  bot2_energy: number
 }
 
 export interface MatchResult {
@@ -338,6 +362,32 @@ export function resolveRound(
     if (cd > 0) action2 = { action: 'defend', target: null }
   }
 
+  // Energy: regen at start of round
+  bot1.energy = Math.min(bot1.maxEnergy, bot1.energy + ENERGY_REGEN_PER_ROUND)
+  bot2.energy = Math.min(bot2.maxEnergy, bot2.energy + ENERGY_REGEN_PER_ROUND)
+
+  // Energy: check skill costs (not enough energy → forced defend)
+  if (action1.action === 'skill' && action1.skill_id) {
+    const cost = SKILL_ENERGY_COSTS[action1.skill_id] || 20
+    if (bot1.energy < cost) {
+      action1 = { action: 'defend', target: null }  // Can't afford it
+    } else {
+      bot1.energy -= cost
+    }
+  }
+  if (action2.action === 'skill' && action2.skill_id) {
+    const cost = SKILL_ENERGY_COSTS[action2.skill_id] || 20
+    if (bot2.energy < cost) {
+      action2 = { action: 'defend', target: null }
+    } else {
+      bot2.energy -= cost
+    }
+  }
+
+  // Energy: defend bonus
+  if (action1.action === 'defend') bot1.energy = Math.min(bot1.maxEnergy, bot1.energy + ENERGY_DEFEND_BONUS)
+  if (action2.action === 'defend') bot2.energy = Math.min(bot2.maxEnergy, bot2.energy + ENERGY_DEFEND_BONUS)
+
   // 3. Get effective stats
   const stats1 = getEffectiveStats(bot1)
   const stats2 = getEffectiveStats(bot2)
@@ -490,6 +540,8 @@ export function resolveRound(
     bot2_counter: counter2.type,
     bot1_momentum: bot1.momentumStreak,
     bot2_momentum: bot2.momentumStreak,
+    bot1_energy: bot1.energy,
+    bot2_energy: bot2.energy,
   }
 }
 

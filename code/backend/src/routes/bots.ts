@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { prisma } from '../db'
 import { authMiddleware, getAuthUser } from '../middleware/auth'
 import { validate, getParsedBody } from '../middleware/validate'
+import { calculateAgeBonus, calculateDQS, combineBonuses } from '../utils/bonuses'
 
 export const botRoutes = new Hono()
 
@@ -288,10 +289,15 @@ botRoutes.post('/allocate-stat', authMiddleware, validate(allocateStatSchema), a
     return c.json({ error: 'Bot not found', code: 'NOT_FOUND' }, 404)
   }
 
-  // Check if bot has pending stat points (1 per level, level 1 has 0 pending)
+  // Check if bot has pending stat points (2 per level, capped at 20 total = level 10)
+  const MAX_STAT_POINTS = 20  // 10 levels worth — forces build tradeoffs
   const statPointsUsed = (bot.base_hp - 100) + (bot.base_attack - 15) + (bot.base_defense - 10) + (bot.base_speed - 10)
-  const statPointsAvailable = (bot.level - 1) * 2  // 2 points per level
+  const statPointsAvailable = Math.min((bot.level - 1) * 2, MAX_STAT_POINTS)  // Cap total
   const pending = statPointsAvailable - statPointsUsed
+
+  if (statPointsUsed >= MAX_STAT_POINTS) {
+    return c.json({ error: 'Stat points maxed out (cap: 20). Levels beyond 10 unlock other bonuses.', code: 'STAT_CAP_REACHED' }, 400)
+  }
 
   if (pending <= 0) {
     return c.json({ error: 'No stat points available', code: 'NO_STAT_POINTS' }, 400)
@@ -312,4 +318,77 @@ botRoutes.post('/allocate-stat', authMiddleware, validate(allocateStatSchema), a
   })
 
   return c.json({ success: true, message: `+${increment} ${stat}`, points_remaining: pending - 1 })
+})
+
+// ============================================================
+// GET /api/bots/:bot_id/bonuses — External skill-based bonuses
+// ============================================================
+
+botRoutes.get('/:bot_id/bonuses', authMiddleware, async (c) => {
+  const { userId } = getAuthUser(c)
+  const botId = c.req.param('bot_id')
+
+  const bot = await prisma.bot.findFirst({ where: { id: botId, user_id: userId } })
+  if (!bot) {
+    return c.json({ error: 'Bot not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  // Age bonus
+  const ageBonus = calculateAgeBonus(bot.created_at)
+
+  // DQS — analyze last 20 matches
+  const matches = await prisma.match.findMany({
+    where: {
+      OR: [{ bot1_id: botId }, { bot2_id: botId }],
+      status: 'completed',
+      replay: { not: undefined },
+    },
+    orderBy: { completed_at: 'desc' },
+    take: 20,
+    select: {
+      bot1_id: true,
+      bot2_id: true,
+      winner_id: true,
+      replay: true,
+    },
+  })
+
+  const matchRounds: any[][] = []
+  const matchResults: ('win' | 'loss' | 'draw')[] = []
+
+  for (const match of matches) {
+    const isBotOne = match.bot1_id === botId
+    const replay = match.replay as any[]
+    if (!replay || !Array.isArray(replay)) continue
+
+    const rounds = replay.map((r: any) => ({
+      bot_action: isBotOne ? r.bot1_action : r.bot2_action,
+      bot_target: isBotOne ? r.bot1_target : r.bot2_target,
+      bot_hp: isBotOne ? r.bot1_hp : r.bot2_hp,
+      bot_max_hp: isBotOne ? 100 : 100,  // Approximation
+      opponent_hp: isBotOne ? r.bot2_hp : r.bot1_hp,
+      bot_counter: isBotOne ? (r.bot1_counter || 'none') : (r.bot2_counter || 'none'),
+      bot_damage_dealt: isBotOne ? r.bot1_damage_dealt : r.bot2_damage_dealt,
+    }))
+
+    matchRounds.push(rounds)
+
+    if (!match.winner_id) {
+      matchResults.push('draw')
+    } else if (match.winner_id === botId) {
+      matchResults.push('win')
+    } else {
+      matchResults.push('loss')
+    }
+  }
+
+  const dqs = calculateDQS(matchRounds, matchResults)
+  const combined = combineBonuses(ageBonus, dqs)
+
+  return c.json({
+    bot_id: botId,
+    bot_age_days: Math.floor((Date.now() - bot.created_at.getTime()) / (1000 * 60 * 60 * 24)),
+    matches_analyzed: matches.length,
+    ...combined,
+  })
 })
