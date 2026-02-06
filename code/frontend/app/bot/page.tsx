@@ -15,6 +15,8 @@ import {
   Save,
   RotateCcw,
 } from 'lucide-react'
+import { StrategyEditor } from '@/components/StrategyEditor'
+import { BonusesDisplay } from '@/components/BonusesDisplay'
 
 // Preset avatars players can pick from
 const AVATAR_OPTIONS = [
@@ -335,6 +337,12 @@ function BotPageContent() {
             Stats are earned through gameplay — Gauntlet rewards and leveling up
           </p>
         </div>
+
+        {/* AI Strategy Editor */}
+        <StrategyEditor botId={botData.id} />
+
+        {/* Skill Bonuses (DQS + Age) */}
+        <BonusesDisplay botId={botData.id} />
       </div>
     </div>
   )

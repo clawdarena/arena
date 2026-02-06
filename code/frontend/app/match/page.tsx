@@ -214,6 +214,16 @@ function MatchContent() {
   const oppHp = latestRound ? latestRound.bot2_hp : (matchStartData?.bot2.hp ?? 100)
   const oppMaxHp = matchStartData?.bot2.hp ?? 100
 
+  // Energy from latest round
+  const myEnergy = latestRound ? (latestRound as any).bot1_energy ?? 100 : 100
+  const oppEnergy = latestRound ? (latestRound as any).bot2_energy ?? 100 : 100
+
+  // Counter & momentum from latest round
+  const myCounter = latestRound ? (latestRound as any).bot1_counter ?? 'none' : 'none'
+  const oppCounter = latestRound ? (latestRound as any).bot2_counter ?? 'none' : 'none'
+  const myMomentum = latestRound ? (latestRound as any).bot1_momentum ?? 0 : 0
+  const oppMomentum = latestRound ? (latestRound as any).bot2_momentum ?? 0 : 0
+
   // Status effects from latest round
   const myEffects: string[] = latestRound
     ? latestRound.effects_applied.filter(e => e.bot === 'bot1').map(e => e.effect)
@@ -221,6 +231,15 @@ function MatchContent() {
   const oppEffects: string[] = latestRound
     ? latestRound.effects_applied.filter(e => e.bot === 'bot2').map(e => e.effect)
     : []
+
+  function counterLabel(counter: string): string {
+    switch (counter) {
+      case 'attack_vs_skill': return '⚔️ COUNTER! Attack vs Skill'
+      case 'defend_vs_attack': return '🛡️ COUNTER! Defend vs Attack'
+      case 'skill_vs_defend': return '✨ COUNTER! Skill vs Defend'
+      default: return ''
+    }
+  }
 
   function effectEmoji(effect: string): string {
     switch (effect) {
@@ -313,6 +332,39 @@ function MatchContent() {
             </div>
           </div>
           <HPBar current={myHp} max={myBot.hp} label="HP" />
+          {/* Energy Bar */}
+          <div className="mt-2">
+            <div className="flex items-center justify-between text-[10px] mb-0.5">
+              <span className="text-cyan-400">⚡ Energy</span>
+              <span className="text-cyan-300 font-mono">{myEnergy}/100</span>
+            </div>
+            <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full transition-all duration-500"
+                style={{ width: `${myEnergy}%` }}
+              />
+            </div>
+          </div>
+          {/* Momentum */}
+          {myMomentum > 0 && (
+            <div className="mt-2 flex items-center gap-1.5">
+              <span className="text-[10px] text-yellow-400">🔥 Momentum</span>
+              <div className="flex gap-0.5">
+                {Array.from({ length: Math.min(myMomentum, 4) }).map((_, i) => (
+                  <div key={i} className="w-3 h-3 rounded-full bg-yellow-500 shadow-sm shadow-yellow-500/50" />
+                ))}
+              </div>
+              <span className="text-[10px] text-yellow-300 font-mono">
+                {myMomentum >= 4 ? '1.5x' : myMomentum === 3 ? '1.25x' : myMomentum === 2 ? '1.1x' : ''}
+              </span>
+            </div>
+          )}
+          {/* Counter indicator */}
+          {myCounter !== 'none' && (
+            <div className="mt-2 bg-yellow-900/30 border border-yellow-700/50 rounded px-2 py-1 text-xs text-yellow-300 text-center animate-pulse">
+              {counterLabel(myCounter)}
+            </div>
+          )}
           <div className="grid grid-cols-3 gap-2 mt-3 text-center">
             <div className="bg-gray-800/50 rounded py-1.5">
               <div className="text-xs font-medium text-orange-400">{myBot.attack}</div>
@@ -353,6 +405,39 @@ function MatchContent() {
             </div>
           </div>
           <HPBar current={oppHp} max={oppMaxHp} label="HP" />
+          {/* Energy Bar */}
+          <div className="mt-2">
+            <div className="flex items-center justify-between text-[10px] mb-0.5">
+              <span className="text-cyan-400">⚡ Energy</span>
+              <span className="text-cyan-300 font-mono">{oppEnergy}/100</span>
+            </div>
+            <div className="h-1.5 bg-gray-800 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full transition-all duration-500"
+                style={{ width: `${oppEnergy}%` }}
+              />
+            </div>
+          </div>
+          {/* Momentum */}
+          {oppMomentum > 0 && (
+            <div className="mt-2 flex items-center gap-1.5">
+              <span className="text-[10px] text-yellow-400">🔥 Momentum</span>
+              <div className="flex gap-0.5">
+                {Array.from({ length: Math.min(oppMomentum, 4) }).map((_, i) => (
+                  <div key={i} className="w-3 h-3 rounded-full bg-yellow-500 shadow-sm shadow-yellow-500/50" />
+                ))}
+              </div>
+              <span className="text-[10px] text-yellow-300 font-mono">
+                {oppMomentum >= 4 ? '1.5x' : oppMomentum === 3 ? '1.25x' : oppMomentum === 2 ? '1.1x' : ''}
+              </span>
+            </div>
+          )}
+          {/* Counter indicator */}
+          {oppCounter !== 'none' && (
+            <div className="mt-2 bg-red-900/30 border border-red-700/50 rounded px-2 py-1 text-xs text-red-300 text-center animate-pulse">
+              {counterLabel(oppCounter)}
+            </div>
+          )}
           {matchStartData && (
             <div className="grid grid-cols-3 gap-2 mt-3 text-center">
               <div className="bg-gray-800/50 rounded py-1.5">

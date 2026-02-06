@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuthStore } from '@/lib/store'
 import { api, apiPost } from '@/lib/api'
+import { connectSocket } from '@/lib/socket'
+import { useMatchStore } from '@/lib/store'
 import { formatCredits } from '@/lib/utils'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Navbar } from '@/components/Navbar'
@@ -252,11 +254,24 @@ function PveContent() {
 
     setFightingId(aiBot.id)
     try {
-      await apiPost('/api/pve/start', {
+      const socket = connectSocket()
+
+      // Listen for match_found from PvE start
+      socket.once('match_found', (data: any) => {
+        useMatchStore.getState().setMatchData(data)
+        router.push('/match')
+      })
+
+      socket.once('error', (err: any) => {
+        setError(err.message ?? 'Failed to start PvE match')
+        setFightingId(null)
+      })
+
+      // Start PvE via WebSocket
+      socket.emit('pve_start', {
         bot_id: userBot.id,
         ai_bot_id: aiBot.id,
       })
-      router.push('/match')
     } catch (err: any) {
       setError(err.message ?? 'Failed to start PvE match')
       setFightingId(null)
