@@ -191,3 +191,44 @@
 - Auth API endpoints running on port 3001
 - CORS enabled for localhost:3000
 - WebSocket server on same port
+
+---
+
+## 2026-02-06 — Day 3 (continued): Backend Build
+
+### What Was Done
+
+**1. Backend Setup Complete (Task 001) ✅**
+- Bun + Hono server on port 3001
+- PostgreSQL with Prisma ORM (full schema)
+- Redis client, CORS for frontend, Zod validation
+- JWT auth middleware, Ed25519 verification utility
+- ELO calculation, credit transaction ledger
+- Seed script: 10 skills + 15 shop items
+- Zero TypeScript errors
+
+**2. Database Schema (Prisma)**
+- Users (email + bcrypt password + OAuth + Ed25519 public_key)
+- Bots (stats, accessories, skill slots)
+- Shop items (skins, accessories with stat bonuses)
+- Skills (effect_data JSON for flexibility)
+- Matches (JSON replay storage)
+- Credit transactions (full ledger with reason + balance)
+- OAuth accounts table (Google-ready)
+
+**3. Auth API Complete (Task 003) ✅**
+- POST /api/auth/register → creates user + default bot + starter skills + 200 credit welcome bonus
+- POST /api/auth/login → email + password (bcrypt)
+- POST /api/auth/login-username → legacy key-only auth
+- GET /api/auth/me → full profile with bots, accessories, skills
+
+**Tasks Completed:** 001, 003 → moved to tasks/done/
+
+### What's Still Open
+- [ ] Shop API endpoints
+- [ ] Bot management endpoints
+- [ ] Skills endpoints (list, purchase, equip)
+- [ ] Matchmaking + WebSocket server
+- [ ] Match coordinator (combat resolution)
+- [ ] Leaderboard API
+- [ ] Challenge protocol spec

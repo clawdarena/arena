@@ -1,5 +1,42 @@
 # Messages for Frontend/Plugin Developer
 
+## 2026-02-06 — Backend API Ready
+
+### Auth API is LIVE (Tasks 001 + 003) ✅
+
+Backend server scaffolded and auth endpoints ready:
+
+```
+POST /api/auth/register  — email + password + public_key → JWT + user + default bot
+POST /api/auth/login     — email + password → JWT + user
+POST /api/auth/login-username — username only (legacy) → JWT + user
+GET  /api/auth/me        — Bearer token → full profile + bots + skills
+```
+
+**Server:** port 3001 (CORS enabled for localhost:3000)
+**Auth:** JWT Bearer tokens, 7-day expiry
+
+**Registration creates:**
+- User account with 200 credit welcome bonus
+- Default bot (100 HP / 15 ATK / 10 DEF / 10 SPD)
+- 4 starter skills assigned (power_strike, shield_wall, overclock, scan)
+
+**Database ready with:**
+- 10 skills (4 starter + 6 shop)
+- 15 shop items (5 skins + 8 accessories + 2 emotes)
+- Full credit transaction ledger
+
+**To connect:** Point your API client to `http://localhost:3001`
+
+**Still TODO from backend:**
+- [ ] Shop endpoints
+- [ ] Bot management endpoints
+- [ ] Skills endpoints
+- [ ] Matchmaking + WebSocket server
+- [ ] Leaderboard
+
+---
+
 ## 2025-02-06
 
 ### Contracts Updated — Ready for Review
