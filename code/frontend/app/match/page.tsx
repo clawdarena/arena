@@ -264,7 +264,7 @@ function MatchContent() {
       case 'iron_fortress': return 'bg-blue-900/30 border-blue-700/50 text-blue-300'
       case 'regenerating': return 'bg-green-900/30 border-green-700/50 text-green-300'
       case 'berserker': return 'bg-red-900/30 border-red-700/50 text-red-300'
-      case 'mirror_coat': return 'bg-[var(--neon-cyan-dim)] border-purple-700/50 text-[var(--neon-cyan)]'
+      case 'mirror_coat': return 'bg-[var(--neon-cyan-dim)] border-[var(--neon-cyan)] text-[var(--neon-cyan)]'
       default: return 'bg-[var(--bg-raised)] border-[var(--border-mid)] text-[var(--text-primary)]'
     }
   }
@@ -323,7 +323,7 @@ function MatchContent() {
         {/* My Bot Panel */}
         <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--neon-cyan)] p-3 sm:p-4">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-800 rounded-sm flex items-center justify-center text-lg shadow-lg shadow-purple-500/10">
+            <div className="w-10 h-10 bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-sm flex items-center justify-center text-lg ">
               🤖
             </div>
             <div className="flex-1 min-w-0">
@@ -502,7 +502,7 @@ function MatchContent() {
 export default function MatchPage() {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-[var(--bg-void)]">
+      <div className="min-h-screen bg-[var(--bg-void)] arena-grid-bg">
         <Navbar />
         <MatchContent />
       </div>

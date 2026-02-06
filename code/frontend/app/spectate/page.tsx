@@ -78,7 +78,7 @@ function MatchCard({
     .replace(/^\w/, (c) => c.toUpperCase())
 
   return (
-    <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-5 hover:border-purple-700/50 transition group">
+    <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-5 hover:border-[var(--neon-cyan)] transition group">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -108,7 +108,7 @@ function MatchCard({
         {/* Bot 1 */}
         <div>
           <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-7 h-7 bg-gradient-to-br from-purple-600 to-purple-800 rounded-md flex items-center justify-center text-xs shadow-lg shadow-purple-500/10">
+            <div className="w-7 h-7 bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-md flex items-center justify-center text-xs ">
               🤖
             </div>
             <span className="text-sm font-semibold text-[var(--neon-cyan)] truncate flex-1">
@@ -144,7 +144,7 @@ function MatchCard({
         </div>
         <button
           onClick={onWatch}
-          className="flex items-center gap-1.5 px-4 py-2 bg-[var(--neon-cyan)] hover:bg-[var(--neon-cyan)] text-white text-sm font-medium rounded-sm transition group-hover:shadow-lg group-hover:shadow-purple-500/20"
+          className="flex items-center gap-1.5 px-4 py-2 bg-[var(--neon-cyan)] hover:bg-[var(--neon-cyan)] text-white text-sm font-medium rounded-sm transition group-hover:shadow-lg group-hover:shadow-[var(--neon-cyan-dim)]"
         >
           <Eye className="w-3.5 h-3.5" />
           Watch
@@ -307,7 +307,7 @@ function WatchingView({
         {/* Bot 1 */}
         <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--neon-cyan)] p-5">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-800 rounded-sm flex items-center justify-center text-lg shadow-lg shadow-purple-500/10">
+            <div className="w-10 h-10 bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-sm flex items-center justify-center text-lg ">
               🤖
             </div>
             <div className="flex-1 min-w-0">
@@ -532,7 +532,7 @@ function SpectateContent() {
       {/* Loading */}
       {loading && (
         <div className="text-center py-16">
-          <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-8 h-8 border-2 border-[var(--neon-cyan)] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-[var(--text-muted)] text-sm">Loading active matches...</p>
         </div>
       )}
@@ -597,7 +597,7 @@ function SpectateContent() {
 export default function SpectatePage() {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-[var(--bg-void)]">
+      <div className="min-h-screen bg-[var(--bg-void)] arena-grid-bg">
         <Navbar />
         <SpectateContent />
       </div>

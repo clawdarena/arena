@@ -51,34 +51,34 @@ function SkillCard({
   const isStarter = skill.price === 0
 
   return (
-    <div className={`relative rounded-sm border p-4 transition-all hover:scale-[1.02] ${rarity.bg} ${rarity.border} ${rarity.glow ? `shadow-lg ${rarity.glow}` : ''}`}>
+    <div className={`relative panel p-4 transition-all hover:border-[var(--border-bright)] group ${rarity.glow ? `shadow-lg ${rarity.glow}` : ''}`}>
       {/* Rarity badge */}
       <div className="flex items-center justify-between mb-3">
-        <span className={`text-[10px] font-bold uppercase tracking-wider ${rarity.text}`}>
-          {skill.rarity}
+        <span className={`arena-subtitle text-[9px] ${rarity.text}`}>
+          {skill.rarity.toUpperCase()}
         </span>
         {owned && (
-          <span className="flex items-center gap-1 text-[10px] text-green-400 font-medium">
-            <Check className="w-3 h-3" /> Owned
+          <span className="flex items-center gap-1 text-[10px] text-[var(--neon-green)] font-mono font-bold">
+            <Check className="w-3 h-3" /> OWNED
           </span>
         )}
       </div>
 
       {/* Skill info */}
       <div className="mb-3">
-        <h3 className="text-base font-bold text-white mb-1">{skill.name}</h3>
+        <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1 font-body">{skill.name}</h3>
         <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{skill.description}</p>
       </div>
 
       {/* Meta */}
-      <div className="flex items-center gap-3 mb-3 text-xs text-[var(--text-muted)]">
+      <div className="flex items-center gap-3 mb-3 text-[10px] text-[var(--text-muted)] font-mono">
         <span className="flex items-center gap-1">
           <Timer className="w-3 h-3" />
-          {skill.cooldown}r cooldown
+          {skill.cooldown}r
         </span>
         <span className="flex items-center gap-1">
           <Target className="w-3 h-3" />
-          {skill.target === 'self' ? 'Self' : 'Opponent'}
+          {skill.target === 'self' ? 'Self' : 'Enemy'}
         </span>
       </div>
 
@@ -87,35 +87,35 @@ function SkillCard({
         equipped ? (
           <button
             onClick={onUnequip}
-            className="w-full py-2 rounded-sm text-xs font-medium bg-gray-700/50 border border-[var(--border-bright)]/50 text-[var(--text-primary)] hover:bg-gray-600/50 transition"
+            className="w-full py-2 rounded-sm text-xs font-mono font-bold bg-[var(--bg-raised)] border border-[var(--border-mid)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] transition"
           >
-            Unequip
+            UNEQUIP
           </button>
         ) : (
           <button
             onClick={onEquip}
-            className="w-full py-2 rounded-sm text-xs font-medium bg-[var(--neon-cyan)]/80 hover:bg-[var(--neon-cyan)] text-white transition"
+            className="btn-secondary w-full py-2 text-xs"
           >
-            Equip
+            EQUIP
           </button>
         )
       ) : isStarter ? (
-        <div className="w-full py-2 rounded-sm text-xs font-medium bg-green-900/30 border border-green-700/30 text-green-400 text-center">
-          Free · Starter Skill
+        <div className="w-full py-2 rounded-sm text-xs font-mono font-bold bg-[var(--neon-green-dim)] border border-[var(--neon-green)] text-[var(--neon-green)] text-center">
+          FREE · STARTER
         </div>
       ) : (
         <button
           onClick={onPurchase}
           disabled={!canAfford}
-          className={`w-full py-2 rounded-sm text-xs font-medium transition ${
+          className={`w-full py-2 rounded-sm text-xs font-mono font-bold transition ${
             canAfford
-              ? 'bg-yellow-600/80 hover:bg-yellow-600 text-white'
+              ? 'bg-[var(--neon-amber)] text-[var(--bg-void)] hover:shadow-lg hover:shadow-[var(--neon-amber-dim)]'
               : 'bg-[var(--bg-raised)] text-[var(--text-muted)] cursor-not-allowed'
           }`}
         >
-          {canAfford ? `Buy for ${skill.price} AC` : (
+          {canAfford ? `${skill.price} CR` : (
             <span className="flex items-center gap-1 justify-center">
-              <Lock className="w-3 h-3" /> {skill.price} AC
+              <Lock className="w-3 h-3" /> {skill.price} CR
             </span>
           )}
         </button>
@@ -145,68 +145,68 @@ function ItemCard({
   }
 
   return (
-    <div className={`relative rounded-sm border p-4 transition-all hover:scale-[1.02] ${rarity.bg} ${rarity.border} ${rarity.glow ? `shadow-lg ${rarity.glow}` : ''}`}>
-      {/* Limited edition badge */}
+    <div className={`relative panel p-4 transition-all hover:border-[var(--border-bright)] ${rarity.glow ? `shadow-lg ${rarity.glow}` : ''}`}>
+      {/* Limited badge */}
       {item.limited_edition && (
-        <div className="absolute -top-2 -right-2 bg-red-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+        <div className="absolute -top-1.5 -right-1.5 bg-[var(--neon-red)] text-white arena-subtitle text-[8px] px-2 py-0.5">
           LIMITED
         </div>
       )}
 
       <div className="flex items-center justify-between mb-3">
-        <span className={`text-[10px] font-bold uppercase tracking-wider ${rarity.text}`}>
-          {item.rarity}
+        <span className={`arena-subtitle text-[9px] ${rarity.text}`}>
+          {item.rarity.toUpperCase()}
         </span>
-        <span className="text-xs text-[var(--text-muted)] capitalize">{categoryIcons[item.category]} {item.category}</span>
+        <span className="text-[10px] text-[var(--text-muted)] font-mono uppercase">{categoryIcons[item.category]} {item.category}</span>
       </div>
 
-      <h3 className="text-base font-bold text-white mb-1">{item.name}</h3>
+      <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1 font-body">{item.name}</h3>
       <p className="text-xs text-[var(--text-secondary)] leading-relaxed mb-3">{item.description}</p>
 
       {/* Stat bonuses */}
       {hasBonuses && (
-        <div className="flex flex-wrap gap-2 mb-3">
+        <div className="flex flex-wrap gap-1.5 mb-3">
           {item.hp_bonus > 0 && (
-            <span className="flex items-center gap-1 text-[10px] text-red-400 bg-red-900/20 px-1.5 py-0.5 rounded">
-              <Heart className="w-2.5 h-2.5" /> +{item.hp_bonus} HP
+            <span className="flex items-center gap-1 text-[9px] font-mono font-bold text-[var(--neon-red)] bg-[var(--neon-red-dim)] px-1.5 py-0.5 rounded-sm">
+              <Heart className="w-2.5 h-2.5" /> +{item.hp_bonus}
             </span>
           )}
           {item.attack_bonus > 0 && (
-            <span className="flex items-center gap-1 text-[10px] text-orange-400 bg-orange-900/20 px-1.5 py-0.5 rounded">
-              <Swords className="w-2.5 h-2.5" /> +{item.attack_bonus} ATK
+            <span className="flex items-center gap-1 text-[9px] font-mono font-bold text-[var(--neon-amber)] bg-[var(--neon-amber-dim)] px-1.5 py-0.5 rounded-sm">
+              <Swords className="w-2.5 h-2.5" /> +{item.attack_bonus}
             </span>
           )}
           {item.defense_bonus > 0 && (
-            <span className="flex items-center gap-1 text-[10px] text-blue-400 bg-blue-900/20 px-1.5 py-0.5 rounded">
-              <Shield className="w-2.5 h-2.5" /> +{item.defense_bonus} DEF
+            <span className="flex items-center gap-1 text-[9px] font-mono font-bold text-[var(--neon-cyan)] bg-[var(--neon-cyan-dim)] px-1.5 py-0.5 rounded-sm">
+              <Shield className="w-2.5 h-2.5" /> +{item.defense_bonus}
             </span>
           )}
           {item.speed_bonus > 0 && (
-            <span className="flex items-center gap-1 text-[10px] text-green-400 bg-green-900/20 px-1.5 py-0.5 rounded">
-              <Zap className="w-2.5 h-2.5" /> +{item.speed_bonus} SPD
+            <span className="flex items-center gap-1 text-[9px] font-mono font-bold text-[var(--neon-green)] bg-[var(--neon-green-dim)] px-1.5 py-0.5 rounded-sm">
+              <Zap className="w-2.5 h-2.5" /> +{item.speed_bonus}
             </span>
           )}
         </div>
       )}
 
       {item.limited_edition && item.stock_remaining !== null && (
-        <div className="text-[10px] text-red-400/80 mb-2">
-          ⚠️ {item.stock_remaining} remaining
+        <div className="text-[10px] text-[var(--neon-red)] font-mono mb-2">
+          ⚠ {item.stock_remaining} remaining
         </div>
       )}
 
       <button
         onClick={onPurchase}
         disabled={!canAfford}
-        className={`w-full py-2 rounded-sm text-xs font-medium transition ${
+        className={`w-full py-2 rounded-sm text-xs font-mono font-bold transition ${
           canAfford
-            ? 'bg-yellow-600/80 hover:bg-yellow-600 text-white'
+            ? 'bg-[var(--neon-amber)] text-[var(--bg-void)] hover:shadow-lg hover:shadow-[var(--neon-amber-dim)]'
             : 'bg-[var(--bg-raised)] text-[var(--text-muted)] cursor-not-allowed'
         }`}
       >
-        {canAfford ? `Buy for ${item.price} AC` : (
+        {canAfford ? `${item.price} CR` : (
           <span className="flex items-center gap-1 justify-center">
-            <Lock className="w-3 h-3" /> {item.price} AC
+            <Lock className="w-3 h-3" /> {item.price} CR
           </span>
         )}
       </button>
@@ -240,13 +240,11 @@ function ShopContent() {
           }
         }
 
-        // Fetch owned skills
         try {
           const owned = await api<{ skills: any[] }>('/api/skills/owned')
           setOwnedSkills(new Set(owned.skills.map((s: any) => s.skill_id || s.id)))
         } catch { /* starter skills fallback */ }
 
-        // Fetch shop items
         try {
           const items = await api<{ items: ShopItem[] }>('/api/shop/items')
           setShopItems(items.items || [])
@@ -262,7 +260,10 @@ function ShopContent() {
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="text-[var(--text-muted)]">Loading shop...</div>
+      <div className="flex items-center gap-3 text-[var(--text-muted)]">
+        <div className="w-4 h-4 border-2 border-[var(--neon-cyan)] border-t-transparent rounded-full animate-spin" />
+        <span className="arena-subtitle text-xs">LOADING INVENTORY</span>
+      </div>
     </div>
   )
 
@@ -296,7 +297,6 @@ function ShopContent() {
     })
   }
 
-  // Sort skills: owned first, then by rarity
   const rarityOrder: Record<string, number> = { legendary: 0, epic: 1, rare: 2, common: 3 }
   const sortedSkills = [...SKILL_LIST].sort((a, b) => {
     const aOwned = ownedSkills.has(a.id) ? 0 : 1
@@ -310,52 +310,52 @@ function ShopContent() {
   })
 
   return (
-    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-8">
+    <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <ShoppingCart className="w-6 h-6 text-[var(--neon-cyan)]" />
-          Shop
-        </h1>
-        <div className="flex items-center gap-2 bg-[var(--bg-panel)] px-3 py-1.5 rounded-sm border border-[var(--border-dim)]">
-          <span className="text-yellow-400 text-sm">💰</span>
-          <span className="text-sm font-medium">{formatCredits(user.credits)} AC</span>
+        <div className="flex items-center gap-3">
+          <h1 className="arena-title text-xl text-[var(--text-primary)]">ARMORY</h1>
+          <div className="h-px flex-1 bg-[var(--border-dim)] min-w-8" />
+        </div>
+        <div className="flex items-center gap-2 panel-raised px-3 py-1.5">
+          <span className="text-[var(--neon-amber)] font-mono font-bold text-sm">{formatCredits(user.credits)}</span>
+          <span className="arena-subtitle text-[9px] text-[var(--text-muted)]">CR</span>
         </div>
       </div>
 
       {/* Tab Switcher */}
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-1 mb-6">
         <button
           onClick={() => setTab('skills')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium transition ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-sm text-xs transition ${
             tab === 'skills'
-              ? 'bg-[var(--neon-cyan)] text-white'
-              : 'bg-[var(--bg-raised)] text-[var(--text-secondary)] hover:text-white'
+              ? 'btn-primary'
+              : 'bg-[var(--bg-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-dim)]'
           }`}
         >
-          <Sparkles className="w-4 h-4" />
-          Skills ({SKILL_LIST.length})
+          <Sparkles className="w-3.5 h-3.5" />
+          SKILLS ({SKILL_LIST.length})
         </button>
         <button
           onClick={() => setTab('items')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-sm text-sm font-medium transition ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-sm text-xs transition ${
             tab === 'items'
-              ? 'bg-[var(--neon-cyan)] text-white'
-              : 'bg-[var(--bg-raised)] text-[var(--text-secondary)] hover:text-white'
+              ? 'btn-primary'
+              : 'bg-[var(--bg-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-dim)]'
           }`}
         >
-          <Package className="w-4 h-4" />
-          Items ({shopItems.length})
+          <Package className="w-3.5 h-3.5" />
+          ITEMS ({shopItems.length})
         </button>
       </div>
 
       {/* Equipped skills banner */}
       {tab === 'skills' && (
-        <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-4 mb-6">
-          <h3 className="text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">
-            Equipped ({equippedSkills.size}/2 slots)
+        <div className="panel p-4 mb-6">
+          <h3 className="arena-subtitle text-[10px] text-[var(--text-muted)] mb-3">
+            EQUIPPED ({equippedSkills.size}/2 SLOTS)
           </h3>
-          <div className="flex gap-3">
+          <div className="flex gap-2">
             {[...equippedSkills].map((sid) => {
               const s = ALL_SKILLS[sid as SkillId]
               if (!s) return null
@@ -366,14 +366,14 @@ function ShopContent() {
                   className={`flex items-center gap-2 px-3 py-2 rounded-sm border ${rc.border} ${rc.bg}`}
                 >
                   <span className="text-sm">✨</span>
-                  <span className={`text-sm font-medium ${rc.text}`}>{s.name}</span>
+                  <span className={`text-sm font-semibold ${rc.text}`}>{s.name}</span>
                 </div>
               )
             })}
             {equippedSkills.size < 2 && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-sm border border-dashed border-[var(--border-mid)] text-[var(--text-muted)] text-sm">
-                <CircleDot className="w-4 h-4" />
-                Empty slot
+              <div className="flex items-center gap-2 px-3 py-2 rounded-sm border border-dashed border-[var(--border-mid)] text-[var(--text-muted)]">
+                <CircleDot className="w-3.5 h-3.5" />
+                <span className="text-xs font-mono">EMPTY</span>
               </div>
             )}
           </div>
@@ -382,7 +382,7 @@ function ShopContent() {
 
       {/* Skills Grid */}
       {tab === 'skills' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {sortedSkills.map((skill) => (
             <SkillCard
               key={skill.id}
@@ -400,7 +400,7 @@ function ShopContent() {
 
       {/* Items Grid */}
       {tab === 'items' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
           {sortedItems.map((item) => (
             <ItemCard
               key={item.id}
@@ -418,7 +418,7 @@ function ShopContent() {
 export default function ShopPage() {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-[var(--bg-void)]">
+      <div className="min-h-screen bg-[var(--bg-void)] arena-grid-bg">
         <Navbar />
         <ShopContent />
       </div>

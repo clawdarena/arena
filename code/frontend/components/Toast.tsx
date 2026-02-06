@@ -66,7 +66,7 @@ const TOAST_CONFIG: Record<ToastType, {
   },
   match: {
     icon: <Swords className="w-5 h-5" />,
-    border: 'border-purple-800/50',
+    border: 'border-[var(--neon-cyan)]',
     bg: 'bg-[var(--neon-cyan-dim)]',
     iconColor: 'text-[var(--neon-cyan)]',
   },

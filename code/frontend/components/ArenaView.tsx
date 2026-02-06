@@ -190,20 +190,20 @@ export function ArenaView({
   }
 
   return (
-    <div className={`relative w-full aspect-[16/9] max-h-[400px] bg-gradient-to-b from-gray-900 via-gray-900 to-gray-950 rounded-sm border border-[var(--border-dim)] overflow-hidden ${shakeScreen ? 'animate-shake' : ''}`}>
+    <div className={`relative w-full aspect-[16/9] max-h-[400px] bg-gradient-to-b from-[var(--bg-panel)] via-[var(--bg-panel)] to-[var(--bg-void)] rounded-sm border border-[var(--border-dim)] overflow-hidden ${shakeScreen ? 'animate-shake' : ''}`}>
       {/* Arena floor gradient */}
-      <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-purple-900/10 to-transparent" />
+      <div className="absolute bottom-0 left-0 right-0 h-1/3 bg-gradient-to-t from-[var(--neon-cyan)]/5 to-transparent" />
 
       {/* Grid lines for depth */}
       <div className="absolute bottom-0 left-0 right-0 h-1/3 opacity-10">
-        <div className="absolute bottom-0 left-0 right-0 h-px bg-purple-500" />
-        <div className="absolute bottom-[33%] left-[10%] right-[10%] h-px bg-purple-500/50" />
-        <div className="absolute bottom-[66%] left-[20%] right-[20%] h-px bg-purple-500/30" />
+        <div className="absolute bottom-0 left-0 right-0 h-px bg-[var(--neon-cyan)]" />
+        <div className="absolute bottom-[33%] left-[10%] right-[10%] h-px bg-[var(--neon-cyan)]/50" />
+        <div className="absolute bottom-[66%] left-[20%] right-[20%] h-px bg-[var(--neon-cyan)]/30" />
       </div>
 
       {/* VS Badge */}
       <div className="absolute top-4 left-1/2 -translate-x-1/2 z-10">
-        <div className="text-xl font-black text-gray-700/50 tracking-widest">VS</div>
+        <div className="text-xl font-black text-[var(--text-ghost)] tracking-widest">VS</div>
       </div>
 
       {/* Bot 1 (Left) */}
@@ -224,7 +224,7 @@ export function ArenaView({
           {bot1Effect === 'regenerating' && (
             <div className="absolute -inset-3 rounded-full bg-green-500/15 animate-pulse" />
           )}
-          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-gradient-to-br from-purple-600 to-purple-800 rounded-sm flex items-center justify-center text-3xl sm:text-4xl shadow-lg shadow-purple-500/20 border border-purple-500/30">
+          <div className="w-20 h-20 sm:w-24 sm:h-24 bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-sm flex items-center justify-center text-3xl sm:text-4xl  border border-[var(--neon-cyan)]/30">
             🤖
           </div>
           {/* Status icon */}

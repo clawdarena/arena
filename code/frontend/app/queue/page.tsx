@@ -20,7 +20,6 @@ function QueueContent() {
   const [statusMessage, setStatusMessage] = useState('')
   const toast = useToast()
 
-  // Connect WebSocket and join queue
   useEffect(() => {
     if (!isQueuing || !matchType) return
 
@@ -36,7 +35,6 @@ function QueueContent() {
       setPhase('found')
       setStatus('found')
       setAcceptCountdown(60)
-      // Auto-ready (accept match)
       socket.emit('ready', { match_id: data.match_id, bot_id: botId })
       setStatus('waiting_accept')
       setStatusMessage('Waiting for opponent to accept...')
@@ -49,20 +47,16 @@ function QueueContent() {
 
     socket.on('match_cancelled', (data: any) => {
       setAcceptCountdown(null)
-
       if (data.re_queued) {
-        // We accepted but opponent didn't — we're re-queued with priority
         setStatus('re_queued')
-        setStatusMessage('Opponent didn\'t accept. Re-queuing you with priority...')
+        setStatusMessage('Opponent didn\'t accept. Re-queuing with priority...')
         toast.info('Opponent didn\'t accept', 'Re-queuing with priority...')
         setPhase('idle')
-        // Stay on queue page, backend already re-queued us
         setTimeout(() => {
           setStatus('searching')
           setStatusMessage('')
         }, 3000)
       } else {
-        // We didn't accept, or neither did — back to dashboard
         stopQueuing()
         router.push('/dashboard')
       }
@@ -93,25 +87,20 @@ function QueueContent() {
     }
   }, [isQueuing, matchType, bots, setMatchData, setPhase, stopQueuing, router])
 
-  // Accept countdown timer (60s)
   useEffect(() => {
     if (acceptCountdown === null || acceptCountdown <= 0) return
     const timer = setTimeout(() => setAcceptCountdown((c) => (c !== null ? c - 1 : null)), 1000)
     return () => clearTimeout(timer)
   }, [acceptCountdown])
 
-  // Elapsed timer
   useEffect(() => {
     if (!isQueuing || !queueStartTime) return
-
     const interval = setInterval(() => {
       setElapsed(Math.floor((Date.now() - queueStartTime) / 1000))
     }, 1000)
-
     return () => clearInterval(interval)
   }, [isQueuing, queueStartTime])
 
-  // Redirect to match when found
   useEffect(() => {
     if (phase === 'fighting') {
       stopQueuing()
@@ -119,7 +108,6 @@ function QueueContent() {
     }
   }, [phase, router, stopQueuing])
 
-  // If not queuing, redirect back to dashboard
   useEffect(() => {
     if (!isQueuing && phase === 'idle') {
       router.push('/dashboard')
@@ -135,45 +123,45 @@ function QueueContent() {
   }
 
   const entryFee = matchType ? getEntryFee(matchType) : 0
-  const tierName = matchType?.replace('ranked_', '').replace(/^\w/, (c) => c.toUpperCase()) ?? 'Unknown'
+  const tierName = matchType?.replace('ranked_', '').toUpperCase() ?? 'UNKNOWN'
 
   return (
-    <div className="max-w-lg mx-auto px-8 py-16">
-      <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-8 text-center">
+    <div className="max-w-md mx-auto px-6 py-16">
+      <div className="panel p-8 text-center corner-brackets relative">
         {/* Animated indicator */}
-        <div className="relative w-24 h-24 mx-auto mb-8">
+        <div className="relative w-20 h-20 mx-auto mb-8">
           {/* Outer ring */}
-          <div className={`absolute inset-0 border-4 rounded-full ${
-            status === 'waiting_accept' ? 'border-yellow-500/20' :
-            status === 're_queued' ? 'border-green-500/20' :
-            'border-purple-500/20'
+          <div className={`absolute inset-0 border-2 rounded-full ${
+            status === 'waiting_accept' ? 'border-[var(--neon-amber-dim)]' :
+            status === 're_queued' ? 'border-[var(--neon-green-dim)]' :
+            'border-[var(--neon-cyan-dim)]'
           }`} />
           {/* Spinning ring */}
-          <div className={`absolute inset-0 border-4 border-transparent rounded-full animate-spin ${
-            status === 'waiting_accept' ? 'border-t-yellow-500' :
-            status === 're_queued' ? 'border-t-green-500' :
-            'border-t-purple-500'
-          }`} />
+          <div className={`absolute inset-0 border-2 border-transparent rounded-full animate-spin ${
+            status === 'waiting_accept' ? 'border-t-[var(--neon-amber)]' :
+            status === 're_queued' ? 'border-t-[var(--neon-green)]' :
+            'border-t-[var(--neon-cyan)]'
+          }`} style={{ animationDuration: '1.5s' }} />
           {/* Inner icon */}
-          <div className="absolute inset-0 flex items-center justify-center text-3xl">
+          <div className="absolute inset-0 flex items-center justify-center text-2xl">
             {status === 'waiting_accept' ? '⏳' : status === 're_queued' ? '🔄' : '⚔️'}
           </div>
         </div>
 
-        <h2 className="text-2xl font-bold mb-2">
-          {status === 'waiting_accept' ? 'Match Found!' :
-           status === 're_queued' ? 'Re-queued (Priority)' :
-           'Searching for Opponent...'}
+        <h2 className="arena-title text-lg mb-2">
+          {status === 'waiting_accept' ? 'MATCH FOUND' :
+           status === 're_queued' ? 'RE-QUEUED' :
+           'SCANNING FOR TARGETS'}
         </h2>
-        <p className="text-[var(--text-secondary)] mb-2">
-          {status === 'waiting_accept' ? 'You accepted — waiting for opponent' :
-           status === 're_queued' ? 'Finding you a new match faster' :
-           'Finding a worthy challenger'}
+        <p className="text-sm text-[var(--text-secondary)] mb-2">
+          {status === 'waiting_accept' ? 'Auto-accepted — waiting for opponent' :
+           status === 're_queued' ? 'Priority queue — finding next match' :
+           'Searching for a worthy challenger'}
         </p>
         {statusMessage && (
-          <p className={`text-sm mb-4 ${
-            status === 're_queued' ? 'text-green-400' :
-            status === 'waiting_accept' ? 'text-yellow-400' :
+          <p className={`text-xs font-mono mb-4 ${
+            status === 're_queued' ? 'text-[var(--neon-green)]' :
+            status === 'waiting_accept' ? 'text-[var(--neon-amber)]' :
             'text-[var(--text-muted)]'
           }`}>
             {statusMessage}
@@ -181,45 +169,41 @@ function QueueContent() {
         )}
         {acceptCountdown !== null && acceptCountdown > 0 && (
           <div className="mb-4">
-            <span className={`text-lg font-mono font-bold ${
-              acceptCountdown <= 10 ? 'text-red-400 animate-pulse' : 'text-yellow-400'
+            <span className={`text-2xl font-mono font-bold ${
+              acceptCountdown <= 10 ? 'text-[var(--neon-red)] animate-pulse glow-red' : 'text-[var(--neon-amber)] glow-amber'
             }`}>
-              {acceptCountdown}s
+              {acceptCountdown}
             </span>
-            <span className="text-[var(--text-muted)] text-sm ml-2">for opponent to accept</span>
+            <span className="text-[var(--text-muted)] text-xs ml-2 font-mono">SEC</span>
           </div>
         )}
 
         {/* Match Info */}
-        <div className="space-y-3 mb-8">
-          <div className="flex items-center justify-between bg-[var(--bg-raised)] rounded-sm px-4 py-3">
-            <span className="text-[var(--text-secondary)]">Tier</span>
-            <span className="font-medium text-[var(--neon-cyan)]">{tierName}</span>
+        <div className="space-y-1.5 mb-6 text-left">
+          <div className="flex items-center justify-between bg-[var(--bg-void)] border border-[var(--border-dim)] rounded-sm px-4 py-2.5">
+            <span className="arena-subtitle text-[10px] text-[var(--text-muted)]">TIER</span>
+            <span className="font-mono text-sm font-bold text-[var(--neon-cyan)]">{tierName}</span>
           </div>
-          <div className="flex items-center justify-between bg-[var(--bg-raised)] rounded-sm px-4 py-3">
-            <span className="text-[var(--text-secondary)]">Entry Fee</span>
-            <span className="font-medium text-yellow-400">{entryFee} AC</span>
+          <div className="flex items-center justify-between bg-[var(--bg-void)] border border-[var(--border-dim)] rounded-sm px-4 py-2.5">
+            <span className="arena-subtitle text-[10px] text-[var(--text-muted)]">ENTRY FEE</span>
+            <span className="font-mono text-sm font-bold text-[var(--neon-amber)]">{entryFee} CR</span>
           </div>
-          <div className="flex items-center justify-between bg-[var(--bg-raised)] rounded-sm px-4 py-3">
-            <span className="text-[var(--text-secondary)]">Time in Queue</span>
-            <span className="font-mono text-lg font-medium">{formatDuration(elapsed)}</span>
+          <div className="flex items-center justify-between bg-[var(--bg-void)] border border-[var(--border-dim)] rounded-sm px-4 py-2.5">
+            <span className="arena-subtitle text-[10px] text-[var(--text-muted)]">ELAPSED</span>
+            <span className="font-mono text-lg font-bold text-[var(--text-primary)]">{formatDuration(elapsed)}</span>
           </div>
         </div>
 
-        {/* Fun facts / tips while waiting */}
-        <div className="bg-[var(--bg-raised)] rounded-sm p-4 mb-8">
-          <p className="text-sm text-[var(--text-muted)]">
-            💡 Tip: Your bot&apos;s strategy and reasoning never leave your machine.
-            Only combat actions are sent to the server.
+        {/* Tip */}
+        <div className="panel-raised p-3 mb-6 text-left border-l-2 border-l-[var(--neon-cyan)]">
+          <p className="text-xs text-[var(--text-muted)] font-mono">
+            // your bot&apos;s strategy never leaves your machine
           </p>
         </div>
 
-        {/* Cancel Button */}
-        <button
-          onClick={handleCancel}
-          className="w-full py-3 bg-red-600/20 hover:bg-red-600/30 border border-red-600/40 text-red-400 rounded-sm font-medium transition"
-        >
-          Cancel Queue
+        {/* Cancel */}
+        <button onClick={handleCancel} className="btn-danger w-full py-3">
+          CANCEL QUEUE
         </button>
       </div>
     </div>
@@ -229,7 +213,7 @@ function QueueContent() {
 export default function QueuePage() {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-[var(--bg-void)]">
+      <div className="min-h-screen bg-[var(--bg-void)] arena-grid-bg">
         <Navbar />
         <QueueContent />
       </div>

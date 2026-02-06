@@ -34,7 +34,7 @@ interface BonusData {
 
 const TIER_COLORS = {
   bronze: 'text-amber-600 bg-amber-900/20 border-amber-800/30',
-  silver: 'text-[var(--text-primary)] bg-gray-700/20 border-[var(--border-bright)]/30',
+  silver: 'text-[var(--text-primary)] bg-[var(--bg-raised)]/20 border-[var(--border-bright)]/30',
   gold: 'text-yellow-400 bg-yellow-900/20 border-yellow-800/30',
   diamond: 'text-cyan-400 bg-cyan-900/20 border-cyan-800/30',
 }
@@ -142,7 +142,7 @@ export function BonusesDisplay({ botId }: { botId: string }) {
             <div>
               <span className="text-sm text-[var(--text-primary)]">Bot Age: <span className="font-mono font-semibold">{data.bot_age_days} days</span></span>
               {data.age.title && (
-                <span className="ml-2 text-xs px-2 py-0.5 bg-gray-700 text-[var(--text-primary)] rounded-full">{data.age.title}</span>
+                <span className="ml-2 text-xs px-2 py-0.5 bg-[var(--bg-raised)] text-[var(--text-primary)] rounded-full">{data.age.title}</span>
               )}
             </div>
           </div>

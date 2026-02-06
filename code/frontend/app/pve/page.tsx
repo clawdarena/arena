@@ -128,7 +128,7 @@ function PveBotCard({
   const diff = difficultyConfig[bot.difficulty] ?? difficultyConfig.easy
 
   return (
-    <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-5 flex flex-col hover:border-purple-700/40 transition group">
+    <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-5 flex flex-col hover:border-[var(--neon-cyan)] transition group">
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-center gap-3">
@@ -136,7 +136,7 @@ function PveBotCard({
             <BotIcon className="w-6 h-6 text-[var(--neon-cyan)]" />
           </div>
           <div>
-            <h3 className="font-semibold text-gray-100">{bot.name}</h3>
+            <h3 className="font-semibold text-[var(--text-primary)]">{bot.name}</h3>
             <span
               className={`text-[11px] font-semibold uppercase tracking-wide ${diff.color} ${diff.bg} ${diff.border} border px-1.5 py-0.5 rounded`}
             >
@@ -200,7 +200,7 @@ function PveBotCard({
         <button
           onClick={() => onFight(bot)}
           disabled={fighting}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-semibold bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+          className="flex items-center gap-1.5 px-4 py-2 rounded-sm text-sm font-semibold btn-primary disabled:opacity-50 disabled:cursor-not-allowed transition"
         >
           {fighting ? (
             <>
@@ -282,7 +282,7 @@ function PveContent() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-[var(--neon-cyan)] border-t-transparent rounded-full animate-spin" />
           <span className="text-[var(--text-secondary)] text-sm">Loading opponents…</span>
         </div>
       </div>
@@ -337,7 +337,7 @@ function PveContent() {
 export default function PvePage() {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-[var(--bg-void)]">
+      <div className="min-h-screen bg-[var(--bg-void)] arena-grid-bg">
         <Navbar />
         <PveContent />
       </div>

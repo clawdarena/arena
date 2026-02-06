@@ -100,7 +100,7 @@ function BotIdentityEditor({ bot, onSave }: { bot: BotData; onSave: (updated: Bo
         <div className="relative">
           <button
             onClick={() => setShowAvatarPicker(!showAvatarPicker)}
-            className="w-24 h-24 rounded-sm bg-[var(--bg-raised)] border-2 border-[var(--border-mid)] hover:border-purple-500 transition flex items-center justify-center text-5xl relative group"
+            className="w-24 h-24 rounded-sm bg-[var(--bg-raised)] border-2 border-[var(--border-mid)] hover:border-[var(--neon-cyan)] transition flex items-center justify-center text-5xl relative group"
           >
             {avatar}
             <div className="absolute inset-0 bg-black/50 rounded-sm opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
@@ -351,7 +351,7 @@ function BotPageContent() {
 export default function BotPage() {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-[var(--bg-void)]">
+      <div className="min-h-screen bg-[var(--bg-void)] arena-grid-bg">
         <Navbar />
         <BotPageContent />
       </div>

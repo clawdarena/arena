@@ -63,7 +63,7 @@ const tierGlows: Record<number, string> = {
   1: 'from-green-600 to-emerald-600',
   2: 'from-orange-600 to-red-600',
   3: 'from-blue-600 to-cyan-600',
-  4: 'from-slate-500 to-gray-600',
+  4: 'from-gray-500 to-gray-600',
   5: 'from-yellow-500 to-amber-600',
 }
 
@@ -110,7 +110,7 @@ function BotSelector({
       <select
         value={selectedId}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-sm px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:border-[var(--neon-cyan)]"
+        className="bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-sm px-3 py-1.5 text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--neon-cyan)]"
       >
         {bots.map((b) => (
           <option key={b.id} value={b.id}>
@@ -140,7 +140,7 @@ function TierCard({
   isLast: boolean
 }) {
   const icon = tierIcons[tier.tier] ?? <Star className="w-5 h-5" />
-  const glow = tierGlows[tier.tier] ?? 'from-purple-600 to-pink-600'
+  const glow = tierGlows[tier.tier] ?? 'from-[var(--neon-cyan)] to-[var(--neon-amber)]'
 
   return (
     <div className="flex gap-4">
@@ -153,7 +153,7 @@ function TierCard({
               ? 'border-green-500 bg-green-900/40 text-green-400'
               : tier.locked
               ? 'border-[var(--border-mid)] bg-[var(--bg-raised)]/40 text-[var(--text-muted)]'
-              : `border-purple-500 bg-purple-900/40 text-[var(--neon-cyan)] shadow-lg shadow-purple-500/20`
+              : `border-[var(--neon-cyan)] bg-[var(--neon-cyan-dim)] text-[var(--neon-cyan)] `
           }`}
         >
           {tier.completed ? (
@@ -182,7 +182,7 @@ function TierCard({
             : tier.locked
             ? 'bg-[var(--bg-panel)] border-[var(--border-dim)]/50 opacity-60'
             : isCurrentTier
-            ? 'bg-[var(--bg-panel)] border-purple-700/60 shadow-lg shadow-purple-900/20'
+            ? 'bg-[var(--bg-panel)] border-[var(--neon-cyan)] '
             : 'bg-[var(--bg-panel)] border-[var(--border-dim)]'
         }`}
       >
@@ -199,14 +199,14 @@ function TierCard({
                 </span>
               )}
               {isCurrentTier && !tier.completed && (
-                <span className="text-[10px] bg-purple-900/40 text-[var(--neon-cyan)] border border-purple-700/50 px-1.5 py-0.5 rounded uppercase font-semibold">
+                <span className="text-[10px] bg-[var(--neon-cyan-dim)] text-[var(--neon-cyan)] border border-[var(--neon-cyan)] px-1.5 py-0.5 rounded uppercase font-semibold">
                   Current
                 </span>
               )}
             </div>
             <h3
               className={`text-lg font-bold ${
-                tier.locked ? 'text-[var(--text-muted)]' : 'text-gray-100'
+                tier.locked ? 'text-[var(--text-muted)]' : 'text-[var(--text-primary)]'
               }`}
             >
               {tier.name}
@@ -222,7 +222,7 @@ function TierCard({
         {/* Description */}
         <p
           className={`text-sm mb-3 ${
-            tier.locked ? 'text-gray-700' : 'text-[var(--text-secondary)]'
+            tier.locked ? 'text-[var(--text-muted)]' : 'text-[var(--text-secondary)]'
           }`}
         >
           {tier.description}
@@ -244,7 +244,7 @@ function TierCard({
         <div className="flex items-center gap-4 mb-4">
           <div
             className={`flex items-center gap-1.5 text-sm ${
-              tier.locked ? 'text-gray-700' : 'text-yellow-400'
+              tier.locked ? 'text-[var(--text-muted)]' : 'text-yellow-400'
             }`}
           >
             <Star className="w-3.5 h-3.5" />
@@ -255,7 +255,7 @@ function TierCard({
           {tier.reward.stat && (
             <div
               className={`flex items-center gap-1.5 text-sm ${
-                tier.locked ? 'text-gray-700' : 'text-[var(--neon-cyan)]'
+                tier.locked ? 'text-[var(--text-muted)]' : 'text-[var(--neon-cyan)]'
               }`}
             >
               <ChevronRight className="w-3 h-3" />
@@ -357,7 +357,7 @@ function GauntletContent() {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-purple-500 border-t-transparent rounded-full animate-spin" />
+          <div className="w-8 h-8 border-2 border-[var(--neon-cyan)] border-t-transparent rounded-full animate-spin" />
           <span className="text-[var(--text-secondary)] text-sm">Loading gauntlet…</span>
         </div>
       </div>
@@ -396,7 +396,7 @@ function GauntletContent() {
           </div>
           <div className="h-2 bg-[var(--bg-raised)] rounded-full overflow-hidden">
             <div
-              className="h-full bg-gradient-to-r from-purple-600 to-yellow-500 rounded-full transition-all duration-500"
+              className="h-full bg-gradient-to-r from-[var(--neon-cyan)] to-[var(--neon-amber)] rounded-full transition-all duration-500"
               style={{
                 width: `${(data.total_completed / data.total_tiers) * 100}%`,
               }}
@@ -451,7 +451,7 @@ function GauntletContent() {
 export default function GauntletPage() {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-[var(--bg-void)]">
+      <div className="min-h-screen bg-[var(--bg-void)] arena-grid-bg">
         <Navbar />
         <GauntletContent />
       </div>

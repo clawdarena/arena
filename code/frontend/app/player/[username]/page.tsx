@@ -397,7 +397,7 @@ export default function PlayerProfilePage() {
             </div>
 
             {profile.recent_matches.length > 0 ? (
-              <div className="divide-y divide-gray-800/50">
+              <div className="divide-y divide-[var(--border-dim)]">
                 {profile.recent_matches.map((match) => (
                   <div
                     key={match.id}
@@ -408,7 +408,7 @@ export default function PlayerProfilePage() {
 
                     {/* Opponent & rounds */}
                     <div className="flex-1 min-w-0">
-                      <div className="text-sm text-gray-200 truncate">
+                      <div className="text-sm text-[var(--text-primary)] truncate">
                         vs <span className="font-medium">{match.opponent.bot_name || match.opponent.username}</span>
                       </div>
                       <div className="text-xs text-[var(--text-muted)]">

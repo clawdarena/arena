@@ -27,18 +27,18 @@ import {
 type TierFilter = 'all' | EloTier
 
 function RankIcon({ rank }: { rank: number }) {
-  if (rank === 1) return <Crown className="w-5 h-5 text-yellow-400" />
+  if (rank === 1) return <Crown className="w-5 h-5 text-[var(--neon-amber)]" />
   if (rank === 2) return <Medal className="w-5 h-5 text-[var(--text-primary)]" />
   if (rank === 3) return <Medal className="w-5 h-5 text-amber-600" />
-  return <span className="text-sm font-mono text-[var(--text-muted)] w-5 text-center">#{rank}</span>
+  return <span className="text-xs font-mono text-[var(--text-muted)] w-5 text-center">#{rank}</span>
 }
 
 function TierBadge({ elo }: { elo: number }) {
   const tier = getEloTier(elo)
   const color = TIER_COLORS[tier]
   return (
-    <span className={`text-[10px] font-bold uppercase tracking-wider ${color}`}>
-      {tier}
+    <span className={`arena-subtitle text-[9px] ${color}`}>
+      {tier.toUpperCase()}
     </span>
   )
 }
@@ -51,85 +51,69 @@ function LeaderboardRow({
   isCurrentUser: boolean
 }) {
   const winRate = (entry.win_rate * 100).toFixed(1)
-  const tier = getEloTier(entry.elo)
 
   return (
     <tr
-      className={`border-b border-[var(--border-dim)]/50 transition ${
+      className={`border-b border-[var(--border-dim)] transition ${
         isCurrentUser
-          ? 'bg-[var(--neon-cyan-dim)] border-[var(--neon-cyan)]'
+          ? 'bg-[var(--neon-cyan-dim)] border-l-2 border-l-[var(--neon-cyan)]'
           : 'hover:bg-[var(--bg-raised)]'
       }`}
     >
-      {/* Rank */}
       <td className="px-4 py-3 text-center">
-        <div className="flex items-center justify-center">
-          <RankIcon rank={entry.rank} />
-        </div>
+        <RankIcon rank={entry.rank} />
       </td>
-
-      {/* Username */}
       <td className="px-4 py-3">
         <div className="flex items-center gap-3">
-          <div className={`w-8 h-8 rounded-sm flex items-center justify-center text-sm ${
+          <div className={`w-7 h-7 rounded-sm flex items-center justify-center text-xs ${
             isCurrentUser
-              ? 'bg-[var(--neon-cyan)] text-white'
+              ? 'bg-[var(--neon-cyan)] text-[var(--bg-void)]'
               : entry.rank <= 3
-              ? 'bg-yellow-900/30 text-yellow-400'
-              : 'bg-[var(--bg-raised)] text-[var(--text-secondary)]'
+              ? 'bg-[var(--neon-amber-dim)] text-[var(--neon-amber)]'
+              : 'bg-[var(--bg-raised)] text-[var(--text-muted)]'
           }`}>
-            {isCurrentUser ? '⭐' : <User className="w-4 h-4" />}
+            {isCurrentUser ? '⭐' : <User className="w-3.5 h-3.5" />}
           </div>
           <div>
-            <span className={`text-sm font-medium ${isCurrentUser ? 'text-[var(--neon-cyan)]' : 'text-gray-200'}`}>
+            <span className={`text-sm font-semibold ${isCurrentUser ? 'text-[var(--neon-cyan)]' : 'text-[var(--text-primary)]'}`}>
               {entry.user.username}
             </span>
             {isCurrentUser && (
-              <span className="ml-2 text-[10px] bg-[var(--neon-cyan)]/30 text-[var(--neon-cyan)] px-1.5 py-0.5 rounded-full">
-                You
+              <span className="ml-2 arena-subtitle text-[8px] bg-[var(--neon-cyan-dim)] text-[var(--neon-cyan)] px-1.5 py-0.5">
+                YOU
               </span>
             )}
           </div>
         </div>
       </td>
-
-      {/* Tier */}
       <td className="px-4 py-3 text-center hidden sm:table-cell">
         <TierBadge elo={entry.elo} />
       </td>
-
-      {/* ELO */}
       <td className="px-4 py-3 text-center">
-        <span className="text-sm font-mono font-semibold text-white">{formatELO(entry.elo)}</span>
+        <span className="text-sm font-mono font-bold text-[var(--text-primary)]">{formatELO(entry.elo)}</span>
       </td>
-
-      {/* W/L */}
       <td className="px-4 py-3 text-center hidden md:table-cell">
-        <span className="text-xs">
-          <span className="text-green-400">{entry.wins}</span>
-          <span className="text-[var(--text-muted)] mx-1">/</span>
-          <span className="text-red-400">{entry.losses}</span>
+        <span className="text-xs font-mono">
+          <span className="text-[var(--neon-green)]">{entry.wins}</span>
+          <span className="text-[var(--text-muted)] mx-0.5">/</span>
+          <span className="text-[var(--neon-red)]">{entry.losses}</span>
         </span>
       </td>
-
-      {/* Win Rate */}
       <td className="px-4 py-3 text-center">
-        <div className="flex items-center justify-center gap-1">
-          <span className={`text-sm font-medium ${
-            entry.win_rate >= 0.6 ? 'text-green-400' :
-            entry.win_rate >= 0.5 ? 'text-yellow-400' :
-            'text-red-400'
-          }`}>
-            {winRate}%
-          </span>
-        </div>
+        <span className={`text-sm font-mono font-bold ${
+          entry.win_rate >= 0.6 ? 'text-[var(--neon-green)]' :
+          entry.win_rate >= 0.5 ? 'text-[var(--neon-amber)]' :
+          'text-[var(--neon-red)]'
+        }`}>
+          {winRate}%
+        </span>
       </td>
     </tr>
   )
 }
 
 function LeaderboardContent() {
-  const { user, setUser, setBots, setToken } = useAuthStore()
+  const { user } = useAuthStore()
   const [filter, setFilter] = useState<TierFilter>('all')
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [myRank, setMyRank] = useState<LeaderboardEntry | null>(null)
@@ -166,7 +150,10 @@ function LeaderboardContent() {
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="text-[var(--text-muted)]">Loading leaderboard...</div>
+      <div className="flex items-center gap-3 text-[var(--text-muted)]">
+        <div className="w-4 h-4 border-2 border-[var(--neon-amber)] border-t-transparent rounded-full animate-spin" />
+        <span className="arena-subtitle text-xs">LOADING RANKINGS</span>
+      </div>
     </div>
   )
 
@@ -174,78 +161,74 @@ function LeaderboardContent() {
     ? leaderboard
     : leaderboard.filter((entry) => getEloTier(entry.elo) === filter)
 
-  const tierFilters: Array<{ id: TierFilter; label: string; emoji: string }> = [
-    { id: 'all', label: 'All', emoji: '🌍' },
-    { id: 'legend', label: 'Legend', emoji: '👑' },
-    { id: 'platinum', label: 'Platinum', emoji: '💎' },
-    { id: 'gold', label: 'Gold', emoji: '🥇' },
-    { id: 'silver', label: 'Silver', emoji: '🥈' },
-    { id: 'bronze', label: 'Bronze', emoji: '🥉' },
+  const tierFilters: Array<{ id: TierFilter; label: string }> = [
+    { id: 'all', label: 'ALL' },
+    { id: 'legend', label: 'LEGEND' },
+    { id: 'platinum', label: 'PLAT' },
+    { id: 'gold', label: 'GOLD' },
+    { id: 'silver', label: 'SILVER' },
+    { id: 'bronze', label: 'BRONZE' },
   ]
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-8 py-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          <Trophy className="w-6 h-6 text-yellow-400" />
-          Leaderboard
-        </h1>
-        <div className="text-sm text-[var(--text-muted)]">
-          {totalPlayers} players ranked
+        <div className="flex items-center gap-3">
+          <h1 className="arena-title text-xl text-[var(--text-primary)]">RANKINGS</h1>
+          <div className="h-px flex-1 bg-[var(--border-dim)] min-w-8" />
         </div>
+        <span className="text-xs font-mono text-[var(--text-muted)]">{totalPlayers} RANKED</span>
       </div>
 
       {/* My rank highlight */}
       {myRank && (
-        <div className="bg-[var(--neon-cyan-dim)] rounded-sm border border-[var(--neon-cyan)] p-4 mb-6 flex items-center gap-4">
-          <div className="w-12 h-12 bg-[var(--neon-cyan)] rounded-sm flex items-center justify-center text-xl">
-            ⭐
+        <div className="panel p-4 mb-6 corner-brackets box-glow-cyan flex items-center gap-4">
+          <div className="w-12 h-12 bg-[var(--neon-cyan)] rounded-sm flex items-center justify-center text-xl font-mono font-bold text-[var(--bg-void)]">
+            #{myRank.rank}
           </div>
           <div className="flex-1">
-            <div className="text-sm text-[var(--neon-cyan)]">Your Ranking</div>
-            <div className="text-2xl font-bold text-white">#{myRank.rank}</div>
+            <div className="arena-subtitle text-[10px] text-[var(--neon-cyan)]">YOUR POSITION</div>
+            <div className="text-lg font-mono font-bold text-[var(--text-primary)]">{myRank.user.username}</div>
           </div>
           <div className="text-right">
-            <div className="text-sm font-mono text-[var(--neon-cyan)]">{formatELO(myRank.elo)} ELO</div>
-            <div className="text-xs text-[var(--text-muted)]">
-              {(myRank.win_rate * 100).toFixed(1)}% win rate
+            <div className="text-lg font-mono font-bold text-[var(--neon-cyan)] glow-cyan">{formatELO(myRank.elo)}</div>
+            <div className="text-[10px] font-mono text-[var(--text-muted)]">
+              {(myRank.win_rate * 100).toFixed(1)}% WR
             </div>
           </div>
         </div>
       )}
 
       {/* Tier filter */}
-      <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-        <Filter className="w-4 h-4 text-[var(--text-muted)] flex-shrink-0" />
+      <div className="flex items-center gap-1 mb-4 overflow-x-auto pb-2">
         {tierFilters.map((tf) => (
           <button
             key={tf.id}
             onClick={() => setFilter(tf.id)}
-            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-sm text-xs font-medium transition whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-sm text-[10px] font-mono font-bold transition whitespace-nowrap ${
               filter === tf.id
-                ? 'bg-[var(--neon-cyan)] text-white'
-                : 'bg-[var(--bg-raised)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
+                ? 'bg-[var(--neon-cyan)] text-[var(--bg-void)]'
+                : 'bg-[var(--bg-raised)] text-[var(--text-muted)] hover:text-[var(--text-secondary)] border border-[var(--border-dim)]'
             }`}
           >
-            <span>{tf.emoji}</span>
             {tf.label}
           </button>
         ))}
       </div>
 
       {/* Table */}
-      <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] overflow-hidden">
+      <div className="panel overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="border-b border-[var(--border-dim)] text-xs text-[var(--text-muted)] uppercase tracking-wider">
-                <th className="px-4 py-3 text-center w-16">Rank</th>
-                <th className="px-4 py-3 text-left">Player</th>
-                <th className="px-4 py-3 text-center hidden sm:table-cell w-24">Tier</th>
-                <th className="px-4 py-3 text-center w-24">ELO</th>
-                <th className="px-4 py-3 text-center hidden md:table-cell w-24">W/L</th>
-                <th className="px-4 py-3 text-center w-24">Win %</th>
+              <tr className="border-b border-[var(--border-mid)]">
+                <th className="px-4 py-3 text-center w-16 arena-subtitle text-[9px] text-[var(--text-muted)]">#</th>
+                <th className="px-4 py-3 text-left arena-subtitle text-[9px] text-[var(--text-muted)]">OPERATOR</th>
+                <th className="px-4 py-3 text-center hidden sm:table-cell w-24 arena-subtitle text-[9px] text-[var(--text-muted)]">TIER</th>
+                <th className="px-4 py-3 text-center w-24 arena-subtitle text-[9px] text-[var(--text-muted)]">ELO</th>
+                <th className="px-4 py-3 text-center hidden md:table-cell w-24 arena-subtitle text-[9px] text-[var(--text-muted)]">W/L</th>
+                <th className="px-4 py-3 text-center w-24 arena-subtitle text-[9px] text-[var(--text-muted)]">WIN%</th>
               </tr>
             </thead>
             <tbody>
@@ -253,7 +236,7 @@ function LeaderboardContent() {
                 <LeaderboardRow
                   key={entry.user.id}
                   entry={entry}
-                  isCurrentUser={entry.user.id === 'usr_001'}
+                  isCurrentUser={entry.user.id === user?.id}
                 />
               ))}
             </tbody>
@@ -262,8 +245,7 @@ function LeaderboardContent() {
 
         {filteredLeaderboard.length === 0 && (
           <div className="p-12 text-center">
-            <div className="text-4xl mb-4">🔍</div>
-            <p className="text-[var(--text-secondary)]">No players in this tier yet.</p>
+            <p className="text-[var(--text-muted)] font-mono text-sm">// no combatants in this tier</p>
           </div>
         )}
       </div>
@@ -274,7 +256,7 @@ function LeaderboardContent() {
 export default function LeaderboardPage() {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-[var(--bg-void)]">
+      <div className="min-h-screen bg-[var(--bg-void)] arena-grid-bg">
         <Navbar />
         <LeaderboardContent />
       </div>

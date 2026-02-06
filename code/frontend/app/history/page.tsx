@@ -41,28 +41,26 @@ function RoundReplay({ round, index }: { round: RoundResult; index: number }) {
 
   return (
     <div className="flex items-center gap-3 py-2 text-sm">
-      <div className="w-8 h-8 rounded-sm bg-[var(--bg-raised)] flex items-center justify-center text-xs font-bold text-[var(--neon-cyan)]">
-        R{round.round}
+      <div className="w-7 h-7 rounded-sm bg-[var(--bg-void)] border border-[var(--border-dim)] flex items-center justify-center text-[10px] font-mono font-bold text-[var(--neon-cyan)]">
+        {round.round}
       </div>
       <div className="flex-1 grid grid-cols-2 gap-4">
-        {/* Bot 1 */}
         <div>
-          <div className="text-[var(--text-primary)] text-xs">{actionLabel(round.bot1_action, round.bot1_target)}</div>
+          <div className="text-[var(--text-primary)] text-xs font-medium">{actionLabel(round.bot1_action, round.bot1_target)}</div>
           <div className="flex items-center gap-2 mt-0.5">
             {round.bot1_damage_dealt > 0 && (
-              <span className="text-xs text-orange-400">-{round.bot1_damage_dealt} dmg dealt</span>
+              <span className="text-[10px] font-mono text-[var(--neon-red)]">-{round.bot1_damage_dealt}</span>
             )}
-            <span className="text-[10px] text-[var(--text-muted)]">HP: {round.bot1_hp}</span>
+            <span className="text-[10px] font-mono text-[var(--text-muted)]">HP:{round.bot1_hp}</span>
           </div>
         </div>
-        {/* Bot 2 */}
         <div className="text-right">
-          <div className="text-[var(--text-primary)] text-xs">{actionLabel(round.bot2_action, round.bot2_target)}</div>
+          <div className="text-[var(--text-primary)] text-xs font-medium">{actionLabel(round.bot2_action, round.bot2_target)}</div>
           <div className="flex items-center justify-end gap-2 mt-0.5">
             {round.bot2_damage_dealt > 0 && (
-              <span className="text-xs text-orange-400">-{round.bot2_damage_dealt} dmg dealt</span>
+              <span className="text-[10px] font-mono text-[var(--neon-red)]">-{round.bot2_damage_dealt}</span>
             )}
-            <span className="text-[10px] text-[var(--text-muted)]">HP: {round.bot2_hp}</span>
+            <span className="text-[10px] font-mono text-[var(--text-muted)]">HP:{round.bot2_hp}</span>
           </div>
         </div>
       </div>
@@ -74,87 +72,76 @@ function MatchRow({ match }: { match: MatchHistoryEntry }) {
   const [expanded, setExpanded] = useState(false)
   const result = getMatchResult(match)
   const eloChange = match.my_bot.elo_after - match.my_bot.elo_before
-  const tierName = match.match_type.replace('ranked_', '')
+  const tierName = match.match_type.replace('ranked_', '').toUpperCase()
 
   const resultConfig = {
-    win: { label: 'VICTORY', color: 'text-green-400', bg: 'bg-green-900/20 border-green-800/30', badge: 'bg-green-500/20 text-green-400' },
-    loss: { label: 'DEFEAT', color: 'text-red-400', bg: 'bg-red-900/20 border-red-800/30', badge: 'bg-red-500/20 text-red-400' },
-    draw: { label: 'DRAW', color: 'text-[var(--text-secondary)]', bg: 'bg-[var(--bg-raised)]/40 border-[var(--border-mid)]/30', badge: 'bg-gray-500/20 text-[var(--text-secondary)]' },
+    win: { label: 'VICTORY', color: 'text-[var(--neon-green)]', bg: 'bg-[var(--neon-green-dim)] border-[var(--neon-green)]', badge: 'bg-[var(--neon-green-dim)] text-[var(--neon-green)]' },
+    loss: { label: 'DEFEAT', color: 'text-[var(--neon-red)]', bg: 'bg-[var(--neon-red-dim)] border-[var(--neon-red)]', badge: 'bg-[var(--neon-red-dim)] text-[var(--neon-red)]' },
+    draw: { label: 'DRAW', color: 'text-[var(--text-secondary)]', bg: 'panel border-[var(--border-mid)]', badge: 'bg-[var(--bg-raised)] text-[var(--text-secondary)]' },
   }
 
   const cfg = resultConfig[result]
 
   return (
-    <div className={`rounded-sm border transition-all ${expanded ? cfg.bg : 'bg-[var(--bg-panel)] border-[var(--border-dim)] hover:border-[var(--border-mid)]'}`}>
+    <div className={`rounded-sm border transition-all ${expanded ? cfg.bg : 'panel hover:border-[var(--border-mid)]'}`}>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-4 p-4 text-left"
+        className="w-full flex items-center gap-3 p-4 text-left"
       >
         {/* Result badge */}
-        <div className={`w-14 py-1.5 rounded-sm text-center text-xs font-bold ${cfg.badge}`}>
+        <div className={`w-10 py-1.5 rounded-sm text-center text-[10px] font-mono font-bold ${cfg.badge}`}>
           {result === 'win' ? 'W' : result === 'loss' ? 'L' : 'D'}
         </div>
 
         {/* Match info */}
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className="font-medium text-gray-200 truncate">vs {match.opponent.name}</span>
-            <span className="text-[10px] text-[var(--text-muted)] px-1.5 py-0.5 bg-[var(--bg-raised)] rounded capitalize">{tierName}</span>
+            <span className="font-semibold text-[var(--text-primary)] text-sm truncate">vs {match.opponent.name}</span>
+            <span className="arena-subtitle text-[8px] text-[var(--text-muted)] px-1.5 py-0.5 bg-[var(--bg-void)] rounded-sm border border-[var(--border-dim)]">{tierName}</span>
           </div>
-          <div className="flex items-center gap-3 mt-1 text-xs text-[var(--text-muted)]">
-            <span className="flex items-center gap-1">
-              <Swords className="w-3 h-3" />
-              {match.rounds_fought} rounds
-            </span>
-            <span className="flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              {formatDuration(match.duration_seconds)}
-            </span>
+          <div className="flex items-center gap-3 mt-1 text-[10px] text-[var(--text-muted)] font-mono">
+            <span>{match.rounds_fought}r</span>
+            <span>{formatDuration(match.duration_seconds)}</span>
             <span>{timeAgo(match.created_at)}</span>
           </div>
         </div>
 
         {/* ELO change */}
-        <div className={`flex items-center gap-1 text-sm font-mono font-medium ${
-          eloChange > 0 ? 'text-green-400' : eloChange < 0 ? 'text-red-400' : 'text-[var(--text-muted)]'
+        <div className={`flex items-center gap-1 text-sm font-mono font-bold ${
+          eloChange > 0 ? 'text-[var(--neon-green)]' : eloChange < 0 ? 'text-[var(--neon-red)]' : 'text-[var(--text-muted)]'
         }`}>
-          {eloChange > 0 ? <TrendingUp className="w-3.5 h-3.5" /> :
-           eloChange < 0 ? <TrendingDown className="w-3.5 h-3.5" /> :
-           <Minus className="w-3.5 h-3.5" />}
           {eloChange > 0 ? '+' : ''}{eloChange}
         </div>
 
         {/* Credits */}
         {match.credits_won > 0 && (
-          <span className="text-xs font-medium text-yellow-400">+{match.credits_won} AC</span>
+          <span className="text-[10px] font-mono font-bold text-[var(--neon-amber)]">+{match.credits_won}</span>
         )}
 
-        {/* Expand icon */}
         <div className="text-[var(--text-muted)]">
-          {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          {expanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
         </div>
       </button>
 
-      {/* Expanded: Round-by-round replay */}
       {expanded && (
-        <div className="px-4 pb-4 border-t border-[var(--border-dim)]/50">
-          <div className="flex items-center justify-between py-3 text-xs text-[var(--text-muted)]">
-            <span className="font-medium">{match.my_bot.name}</span>
-            <span className="text-[var(--text-muted)]">Round-by-Round Replay</span>
-            <span className="font-medium">{match.opponent.name}</span>
+        <div className="px-4 pb-4 border-t border-[var(--border-dim)]">
+          <div className="flex items-center justify-between py-3 text-[10px] text-[var(--text-muted)] font-mono">
+            <span>{match.my_bot.name}</span>
+            <span className="arena-subtitle text-[9px]">ROUND REPLAY</span>
+            <span>{match.opponent.name}</span>
           </div>
-          <div className="divide-y divide-gray-800/30">
+          <div className="divide-y divide-[var(--border-dim)]">
             {match.replay.map((round, i) => (
               <RoundReplay key={i} round={round} index={i} />
             ))}
           </div>
-          <div className="mt-3 pt-3 border-t border-[var(--border-dim)]/50 flex items-center justify-between text-xs">
+          <div className="mt-3 pt-3 border-t border-[var(--border-dim)] flex items-center justify-between text-[10px] font-mono">
             <span className="text-[var(--text-muted)]">
-              ELO: {match.my_bot.elo_before} → <span className={cfg.color}>{match.my_bot.elo_after}</span>
+              {match.my_bot.elo_before} → <span className={cfg.color}>{match.my_bot.elo_after}</span>
             </span>
-            <span className={`font-bold ${cfg.color}`}>{cfg.label}</span>
+            <span className={`font-bold ${cfg.color} arena-subtitle text-[10px]`}>{cfg.label}</span>
             <span className="text-[var(--text-muted)]">
-              Opp ELO: {match.opponent.elo_before} → {match.opponent.elo_after}
+              {match.opponent.elo_before} → {match.opponent.elo_after}
             </span>
           </div>
         </div>
@@ -164,7 +151,7 @@ function MatchRow({ match }: { match: MatchHistoryEntry }) {
 }
 
 function HistoryContent() {
-  const { user, setUser, setBots, setToken } = useAuthStore()
+  const { user } = useAuthStore()
   const [filter, setFilter] = useState<'all' | MatchType>('all')
   const [matchHistory, setMatchHistory] = useState<MatchHistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -185,7 +172,10 @@ function HistoryContent() {
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="text-[var(--text-muted)]">Loading history...</div>
+      <div className="flex items-center gap-3 text-[var(--text-muted)]">
+        <div className="w-4 h-4 border-2 border-[var(--neon-cyan)] border-t-transparent rounded-full animate-spin" />
+        <span className="arena-subtitle text-xs">LOADING COMBAT LOG</span>
+      </div>
     </div>
   )
 
@@ -198,40 +188,40 @@ function HistoryContent() {
   const draws = matchHistory.filter((m) => m.winner_id === null).length
 
   const tierFilters: Array<{ id: 'all' | MatchType; label: string }> = [
-    { id: 'all', label: 'All Tiers' },
-    { id: 'ranked_bronze', label: 'Bronze' },
-    { id: 'ranked_silver', label: 'Silver' },
-    { id: 'ranked_gold', label: 'Gold' },
-    { id: 'ranked_platinum', label: 'Platinum' },
-    { id: 'ranked_legend', label: 'Legend' },
+    { id: 'all', label: 'ALL' },
+    { id: 'ranked_bronze', label: 'BRONZE' },
+    { id: 'ranked_silver', label: 'SILVER' },
+    { id: 'ranked_gold', label: 'GOLD' },
+    { id: 'ranked_platinum', label: 'PLAT' },
+    { id: 'ranked_legend', label: 'LEGEND' },
   ]
 
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-8 py-8">
+    <div className="max-w-4xl mx-auto px-4 sm:px-8 py-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold flex items-center gap-2">
-          📜 Match History
-        </h1>
-        <div className="flex items-center gap-3 text-sm">
-          <span className="text-green-400 font-medium">{wins}W</span>
+        <div className="flex items-center gap-3">
+          <h1 className="arena-title text-xl text-[var(--text-primary)]">COMBAT LOG</h1>
+          <div className="h-px flex-1 bg-[var(--border-dim)] min-w-8" />
+        </div>
+        <div className="flex items-center gap-2 text-xs font-mono font-bold">
+          <span className="text-[var(--neon-green)]">{wins}W</span>
           <span className="text-[var(--text-muted)]">/</span>
-          <span className="text-red-400 font-medium">{losses}L</span>
+          <span className="text-[var(--neon-red)]">{losses}L</span>
           <span className="text-[var(--text-muted)]">/</span>
-          <span className="text-[var(--text-secondary)] font-medium">{draws}D</span>
+          <span className="text-[var(--text-secondary)]">{draws}D</span>
         </div>
       </div>
 
       {/* Tier filter */}
-      <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-2">
-        <Filter className="w-4 h-4 text-[var(--text-muted)] flex-shrink-0" />
+      <div className="flex items-center gap-1 mb-4 overflow-x-auto pb-2">
         {tierFilters.map((tf) => (
           <button
             key={tf.id}
             onClick={() => setFilter(tf.id)}
-            className={`px-3 py-1.5 rounded-sm text-xs font-medium transition whitespace-nowrap ${
+            className={`px-3 py-1.5 rounded-sm text-[10px] font-mono font-bold transition whitespace-nowrap ${
               filter === tf.id
-                ? 'bg-[var(--neon-cyan)] text-white'
-                : 'bg-[var(--bg-raised)] text-[var(--text-secondary)] hover:bg-[var(--bg-hover)] hover:text-[var(--text-primary)]'
+                ? 'bg-[var(--neon-cyan)] text-[var(--bg-void)]'
+                : 'bg-[var(--bg-raised)] text-[var(--text-muted)] hover:text-[var(--text-secondary)] border border-[var(--border-dim)]'
             }`}
           >
             {tf.label}
@@ -240,15 +230,14 @@ function HistoryContent() {
       </div>
 
       {/* Match list */}
-      <div className="space-y-3">
+      <div className="space-y-2">
         {filteredMatches.length > 0 ? (
           filteredMatches.map((match) => (
             <MatchRow key={match.id} match={match} />
           ))
         ) : (
-          <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-12 text-center">
-            <div className="text-4xl mb-4">🔍</div>
-            <p className="text-[var(--text-secondary)]">No matches found for this tier.</p>
+          <div className="panel p-12 text-center">
+            <p className="text-[var(--text-muted)] font-mono text-sm">// no combat data for this tier</p>
           </div>
         )}
       </div>
@@ -259,7 +248,7 @@ function HistoryContent() {
 export default function HistoryPage() {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-[var(--bg-void)]">
+      <div className="min-h-screen bg-[var(--bg-void)] arena-grid-bg">
         <Navbar />
         <HistoryContent />
       </div>

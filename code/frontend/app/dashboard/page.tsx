@@ -23,10 +23,10 @@ function StatBar({ label, value, max, color, icon }: {
   return (
     <div className="flex items-center gap-3">
       <div className="w-5 text-center">{icon}</div>
-      <span className="text-xs text-[var(--text-secondary)] w-8">{label}</span>
-      <div className="flex-1 h-2.5 bg-[var(--bg-raised)] rounded-full overflow-hidden">
+      <span className="arena-subtitle text-[10px] text-[var(--text-muted)] w-8">{label}</span>
+      <div className="flex-1 bar-track">
         <div
-          className={`h-full rounded-full transition-all duration-700 ease-out ${color}`}
+          className={`h-full transition-all duration-700 ease-out ${color}`}
           style={{ width: `${pct}%` }}
         />
       </div>
@@ -42,16 +42,16 @@ function SkillBadge({ skillId }: { skillId: string }) {
   const rarityColors: Record<string, string> = {
     common: 'border-[var(--border-bright)] bg-[var(--bg-raised)] text-[var(--text-primary)]',
     rare: 'border-blue-600/50 bg-blue-900/20 text-blue-400',
-    epic: 'border-purple-600/50 bg-[var(--neon-cyan-dim)] text-[var(--neon-cyan)]',
-    legendary: 'border-yellow-600/50 bg-yellow-900/20 text-yellow-400',
+    epic: 'border-[var(--neon-cyan)] bg-[var(--neon-cyan-dim)] text-[var(--neon-cyan)]',
+    legendary: 'border-[var(--neon-amber)] bg-[var(--neon-amber-dim)] text-[var(--neon-amber)]',
   }
 
   return (
     <div className={`flex items-center gap-2 px-3 py-2 rounded-sm border ${rarityColors[skill.rarity] || rarityColors.common}`}>
       <span className="text-sm">✨</span>
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium truncate">{skill.name}</div>
-        <div className="text-xs opacity-60">{skill.cooldown}r cooldown</div>
+        <div className="text-sm font-semibold truncate">{skill.name}</div>
+        <div className="text-[10px] text-[var(--text-muted)] font-mono">{skill.cooldown}r cooldown</div>
       </div>
     </div>
   )
@@ -63,28 +63,28 @@ function MatchHistoryRow({ match }: { match: MatchHistoryEntry }) {
   const eloChange = match.my_bot.elo_after - match.my_bot.elo_before
 
   return (
-    <div className="flex items-center gap-3 py-2.5 px-3 rounded-sm hover:bg-[var(--bg-raised)] transition group">
+    <div className="flex items-center gap-3 py-2.5 px-3 hover:bg-[var(--bg-raised)] transition group">
       {/* Result indicator */}
-      <div className={`w-8 h-8 rounded-sm flex items-center justify-center text-sm font-bold ${
-        isDraw ? 'bg-gray-700/50 text-[var(--text-secondary)]' :
-        isWin ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
+      <div className={`w-8 h-8 rounded-sm flex items-center justify-center text-xs font-mono font-bold ${
+        isDraw ? 'bg-[var(--bg-raised)] text-[var(--text-muted)]' :
+        isWin ? 'bg-[var(--neon-green-dim)] text-[var(--neon-green)]' : 'bg-[var(--neon-red-dim)] text-[var(--neon-red)]'
       }`}>
         {isDraw ? 'D' : isWin ? 'W' : 'L'}
       </div>
 
       {/* Opponent info */}
       <div className="flex-1 min-w-0">
-        <div className="text-sm font-medium text-gray-200 truncate">
+        <div className="text-sm font-semibold text-[var(--text-primary)] truncate">
           vs {match.opponent.name}
         </div>
-        <div className="text-xs text-[var(--text-muted)]">
+        <div className="text-[10px] text-[var(--text-muted)] font-mono">
           {match.rounds_fought} rounds · {timeAgo(match.created_at)}
         </div>
       </div>
 
       {/* ELO change */}
-      <div className={`flex items-center gap-1 text-sm font-mono ${
-        eloChange > 0 ? 'text-green-400' : eloChange < 0 ? 'text-red-400' : 'text-[var(--text-muted)]'
+      <div className={`flex items-center gap-1 text-sm font-mono font-bold ${
+        eloChange > 0 ? 'text-[var(--neon-green)]' : eloChange < 0 ? 'text-[var(--neon-red)]' : 'text-[var(--text-muted)]'
       }`}>
         {eloChange > 0 ? <TrendingUp className="w-3.5 h-3.5" /> :
          eloChange < 0 ? <TrendingDown className="w-3.5 h-3.5" /> :
@@ -94,7 +94,7 @@ function MatchHistoryRow({ match }: { match: MatchHistoryEntry }) {
 
       {/* Credits */}
       {match.credits_won > 0 && (
-        <span className="text-xs text-yellow-400 font-medium">+{match.credits_won} AC</span>
+        <span className="text-xs text-[var(--neon-amber)] font-mono font-bold">+{match.credits_won}</span>
       )}
     </div>
   )
@@ -108,7 +108,6 @@ function DashboardContent() {
   const [recentMatches, setRecentMatches] = useState<MatchHistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
 
-  // Fetch real user data from backend
   useEffect(() => {
     async function fetchData() {
       try {
@@ -128,12 +127,11 @@ function DashboardContent() {
           setBots(me.bots)
         }
 
-        // Fetch match history
         try {
           const historyRes = await api<{ matches: MatchHistoryEntry[] }>('/api/matches/history?limit=5')
           setRecentMatches(historyRes.matches || [])
         } catch {
-          // No matches yet — that's fine
+          // No matches yet
         }
       } catch (err) {
         console.error('Failed to fetch user data:', err)
@@ -146,7 +144,10 @@ function DashboardContent() {
 
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="text-[var(--text-muted)]">Loading...</div>
+      <div className="flex items-center gap-3 text-[var(--text-muted)]">
+        <div className="w-4 h-4 border-2 border-[var(--neon-cyan)] border-t-transparent rounded-full animate-spin" />
+        <span className="arena-subtitle text-xs">LOADING COMMAND CENTER</span>
+      </div>
     </div>
   )
 
@@ -160,11 +161,11 @@ function DashboardContent() {
   const bot = bots[0]
 
   const tiers = [
-    { id: 'ranked_bronze', name: 'Bronze', fee: 50, minElo: 0 },
-    { id: 'ranked_silver', name: 'Silver', fee: 100, minElo: 1200 },
-    { id: 'ranked_gold', name: 'Gold', fee: 200, minElo: 1400 },
-    { id: 'ranked_platinum', name: 'Platinum', fee: 400, minElo: 1600 },
-    { id: 'ranked_legend', name: 'Legend', fee: 800, minElo: 1800 },
+    { id: 'ranked_bronze', name: 'BRONZE', fee: 50, minElo: 0 },
+    { id: 'ranked_silver', name: 'SILVER', fee: 100, minElo: 1200 },
+    { id: 'ranked_gold', name: 'GOLD', fee: 200, minElo: 1400 },
+    { id: 'ranked_platinum', name: 'PLATINUM', fee: 400, minElo: 1600 },
+    { id: 'ranked_legend', name: 'LEGEND', fee: 800, minElo: 1800 },
   ]
 
   function handleFindMatch() {
@@ -184,161 +185,146 @@ function DashboardContent() {
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6">
+      {/* Page header */}
+      <div className="flex items-center gap-3 mb-6">
+        <h1 className="arena-title text-xl text-[var(--text-primary)]">COMMAND CENTER</h1>
+        <div className="h-px flex-1 bg-[var(--border-dim)]" />
+        <span className="arena-subtitle text-[10px] text-[var(--text-muted)]">
+          {user.username.toUpperCase()}
+        </span>
+      </div>
+
       {/* Top Row: Profile + Credits + Peak */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
         {/* Profile Card */}
-        <div className="md:col-span-2 bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-6">
+        <div className="md:col-span-2 panel p-6">
           <div className="flex items-center gap-4 mb-5">
-            <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex items-center justify-center text-2xl shadow-lg shadow-purple-500/20">
+            <div className="w-14 h-14 bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-sm flex items-center justify-center text-2xl">
               🤖
             </div>
             <div>
-              <h2 className="text-xl font-bold">{user.username}</h2>
+              <h2 className="text-lg font-bold font-body">{user.username}</h2>
               <div className="flex items-center gap-2 mt-0.5">
-                <Trophy className={`w-4 h-4 ${rank.color}`} />
-                <span className={`text-sm font-semibold ${rank.color}`}>
-                  {rank.name}
+                <Trophy className={`w-3.5 h-3.5 ${rank.color}`} />
+                <span className={`arena-subtitle text-[10px] ${rank.color}`}>
+                  {rank.name.toUpperCase()}
                 </span>
-                <span className="text-sm text-[var(--text-muted)]">·</span>
-                <span className="text-sm text-[var(--text-primary)] font-mono">{formatELO(user.current_elo)} ELO</span>
+                <span className="text-[var(--text-muted)]">·</span>
+                <span className="text-sm text-[var(--neon-cyan)] font-mono font-bold">{formatELO(user.current_elo)}</span>
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4 text-center">
-            <div className="bg-[var(--bg-raised)] rounded-sm py-3">
-              <div className="text-2xl font-bold text-green-400">{user.wins}</div>
-              <div className="text-xs text-[var(--text-muted)] mt-0.5">Wins</div>
+          <div className="grid grid-cols-3 gap-2 text-center">
+            <div className="bg-[var(--bg-void)] border border-[var(--border-dim)] rounded-sm py-3">
+              <div className="text-xl font-mono font-bold text-[var(--neon-green)]">{user.wins}</div>
+              <div className="arena-subtitle text-[9px] text-[var(--text-muted)] mt-0.5">WINS</div>
             </div>
-            <div className="bg-[var(--bg-raised)] rounded-sm py-3">
-              <div className="text-2xl font-bold text-red-400">{user.losses}</div>
-              <div className="text-xs text-[var(--text-muted)] mt-0.5">Losses</div>
+            <div className="bg-[var(--bg-void)] border border-[var(--border-dim)] rounded-sm py-3">
+              <div className="text-xl font-mono font-bold text-[var(--neon-red)]">{user.losses}</div>
+              <div className="arena-subtitle text-[9px] text-[var(--text-muted)] mt-0.5">LOSSES</div>
             </div>
-            <div className="bg-[var(--bg-raised)] rounded-sm py-3">
-              <div className="text-2xl font-bold text-blue-400">{winRate}%</div>
-              <div className="text-xs text-[var(--text-muted)] mt-0.5">Win Rate</div>
+            <div className="bg-[var(--bg-void)] border border-[var(--border-dim)] rounded-sm py-3">
+              <div className="text-xl font-mono font-bold text-[var(--neon-cyan)]">{winRate}%</div>
+              <div className="arena-subtitle text-[9px] text-[var(--text-muted)] mt-0.5">WIN RATE</div>
             </div>
           </div>
         </div>
 
         {/* Credits Card */}
-        <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-6 flex flex-col justify-between">
+        <div className="panel p-6 flex flex-col justify-between">
           <div>
-            <div className="text-sm text-[var(--text-muted)] mb-1">Credits</div>
-            <div className="text-3xl font-bold text-yellow-400">
+            <div className="arena-subtitle text-[10px] text-[var(--text-muted)] mb-2">CREDITS</div>
+            <div className="text-3xl font-mono font-bold text-[var(--neon-amber)] glow-amber">
               {formatCredits(user.credits)}
             </div>
-            <div className="text-xs text-[var(--text-muted)] mt-1">Arena Credits</div>
+            <div className="text-[10px] text-[var(--text-muted)] font-mono mt-1">ARENA CR</div>
           </div>
           <Link
             href="/shop"
-            className="inline-flex items-center gap-1 mt-3 text-xs text-[var(--neon-cyan)] hover:text-[var(--neon-cyan)] transition"
+            className="inline-flex items-center gap-1 mt-3 text-xs text-[var(--neon-cyan)] hover:underline transition"
           >
-            Visit shop <ChevronRight className="w-3 h-3" />
+            <span className="arena-subtitle text-[10px]">SHOP</span> <ChevronRight className="w-3 h-3" />
           </Link>
         </div>
 
         {/* Peak ELO Card */}
-        <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-6 flex flex-col justify-between">
+        <div className="panel p-6 flex flex-col justify-between">
           <div>
-            <div className="text-sm text-[var(--text-muted)] mb-1">Peak ELO</div>
-            <div className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
+            <div className="arena-subtitle text-[10px] text-[var(--text-muted)] mb-2">PEAK ELO</div>
+            <div className="text-3xl font-mono font-bold text-[var(--neon-amber)]">
               {formatELO(user.peak_elo)}
             </div>
-            <div className="text-xs text-[var(--text-muted)] mt-1">All-time best</div>
+            <div className="text-[10px] text-[var(--text-muted)] font-mono mt-1">ALL-TIME</div>
           </div>
-          <div className="mt-3 text-xs text-[var(--text-muted)] flex items-center gap-1">
+          <div className="mt-3 text-[10px] text-[var(--text-muted)] flex items-center gap-1 font-mono">
             <Activity className="w-3 h-3" />
-            {user.total_matches} matches played
+            {user.total_matches} MATCHES
           </div>
         </div>
       </div>
 
       {/* Middle Row: Bot Stats + Skills + Match Finder */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
         {/* Bot Stats */}
-        <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-6">
+        <div className="panel p-6">
           <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 bg-[var(--bg-raised)] rounded-sm flex items-center justify-center text-lg">
+            <div className="w-10 h-10 bg-[var(--bg-void)] border border-[var(--border-dim)] rounded-sm flex items-center justify-center text-lg">
               🤖
             </div>
             <div>
-              <div className="font-semibold">{bot.name}</div>
-              <div className="text-xs text-[var(--text-muted)]">Level {bot.level} · {bot.xp} XP</div>
+              <div className="font-semibold text-[var(--text-primary)]">{bot.name}</div>
+              <div className="text-[10px] text-[var(--text-muted)] font-mono">LVL {bot.level} · {bot.xp} XP</div>
             </div>
           </div>
           <div className="space-y-3">
-            <StatBar
-              label="HP"
-              value={bot.base_hp}
-              max={200}
-              color="bg-red-500"
-              icon={<Heart className="w-3.5 h-3.5 text-red-400" />}
-            />
-            <StatBar
-              label="ATK"
-              value={bot.base_attack}
-              max={50}
-              color="bg-orange-500"
-              icon={<Swords className="w-3.5 h-3.5 text-orange-400" />}
-            />
-            <StatBar
-              label="DEF"
-              value={bot.base_defense}
-              max={40}
-              color="bg-blue-500"
-              icon={<Shield className="w-3.5 h-3.5 text-blue-400" />}
-            />
-            <StatBar
-              label="SPD"
-              value={bot.base_speed}
-              max={30}
-              color="bg-green-500"
-              icon={<Zap className="w-3.5 h-3.5 text-green-400" />}
-            />
+            <StatBar label="HP" value={bot.base_hp} max={200} color="bg-[var(--neon-red)]" icon={<Heart className="w-3.5 h-3.5 text-[var(--neon-red)]" />} />
+            <StatBar label="ATK" value={bot.base_attack} max={50} color="bg-[var(--neon-amber)]" icon={<Swords className="w-3.5 h-3.5 text-[var(--neon-amber)]" />} />
+            <StatBar label="DEF" value={bot.base_defense} max={40} color="bg-[var(--neon-cyan)]" icon={<Shield className="w-3.5 h-3.5 text-[var(--neon-cyan)]" />} />
+            <StatBar label="SPD" value={bot.base_speed} max={30} color="bg-[var(--neon-green)]" icon={<Zap className="w-3.5 h-3.5 text-[var(--neon-green)]" />} />
           </div>
         </div>
 
         {/* Equipped Skills */}
-        <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-6">
-          <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-4 flex items-center gap-2">
-            <Flame className="w-4 h-4" />
-            Equipped Skills
+        <div className="panel p-6">
+          <h3 className="arena-subtitle text-[10px] text-[var(--text-muted)] mb-4 flex items-center gap-2">
+            <Flame className="w-3.5 h-3.5 text-[var(--neon-amber)]" />
+            EQUIPPED SKILLS
           </h3>
-          <div className="space-y-3">
+          <div className="space-y-2">
             {bot.skills.length > 0 ? (
               bot.skills.map((equipped) => (
                 <SkillBadge key={equipped.slot} skillId={equipped.skill_id} />
               ))
             ) : (
-              <p className="text-sm text-[var(--text-muted)] text-center py-4">
-                No skills equipped. Visit the shop!
+              <p className="text-sm text-[var(--text-muted)] text-center py-6 font-mono">
+                // no skills equipped
               </p>
             )}
           </div>
           {bot.skills.length < 2 && (
             <div className="mt-3 pt-3 border-t border-[var(--border-dim)]">
-              <p className="text-xs text-[var(--text-muted)]">
-                {2 - bot.skills.length} skill slot{2 - bot.skills.length > 1 ? 's' : ''} available
+              <p className="text-[10px] text-[var(--text-muted)] font-mono">
+                {2 - bot.skills.length} slot{2 - bot.skills.length > 1 ? 's' : ''} available
               </p>
             </div>
           )}
           <Link
             href="/shop"
-            className="inline-flex items-center gap-1 mt-4 text-xs text-[var(--neon-cyan)] hover:text-[var(--neon-cyan)] transition"
+            className="inline-flex items-center gap-1 mt-4 text-xs text-[var(--neon-cyan)] hover:underline"
           >
-            Browse skills <ChevronRight className="w-3 h-3" />
+            <span className="arena-subtitle text-[10px]">BROWSE SKILLS</span> <ChevronRight className="w-3 h-3" />
           </Link>
         </div>
 
         {/* Match Finder */}
-        <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-6">
-          <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-4 flex items-center gap-2">
-            <Swords className="w-4 h-4" />
-            Find a Match
+        <div className="panel p-6 corner-brackets">
+          <h3 className="arena-subtitle text-[10px] text-[var(--text-muted)] mb-4 flex items-center gap-2">
+            <Swords className="w-3.5 h-3.5 text-[var(--neon-red)]" />
+            FIND MATCH
           </h3>
 
-          <div className="space-y-2 mb-4">
+          <div className="space-y-1.5 mb-4">
             {tiers.map((tier) => {
               const locked = user.current_elo < tier.minElo
               return (
@@ -347,16 +333,16 @@ function DashboardContent() {
                   onClick={() => !locked && setSelectedTier(tier.id)}
                   className={`w-full flex items-center justify-between p-2.5 rounded-sm border text-sm transition ${
                     selectedTier === tier.id
-                      ? 'border-purple-500 bg-[var(--neon-cyan-dim)] text-white'
+                      ? 'border-[var(--neon-cyan)] bg-[var(--neon-cyan-dim)] text-[var(--text-primary)]'
                       : locked
-                      ? 'border-[var(--border-dim)] bg-[var(--bg-raised)]/20 text-[var(--text-muted)] cursor-not-allowed'
-                      : 'border-[var(--border-mid)] hover:border-[var(--border-bright)] text-[var(--text-primary)]'
+                      ? 'border-[var(--border-dim)] bg-[var(--bg-void)] text-[var(--text-muted)] cursor-not-allowed opacity-40'
+                      : 'border-[var(--border-dim)] hover:border-[var(--border-mid)] text-[var(--text-secondary)]'
                   }`}
                   disabled={locked}
                 >
-                  <span className="font-medium">{tier.name}</span>
-                  <span className="text-xs text-[var(--text-muted)]">
-                    {locked ? `🔒 ${tier.minElo}+ ELO` : `${tier.fee} AC`}
+                  <span className="arena-subtitle text-[10px]">{tier.name}</span>
+                  <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                    {locked ? `🔒 ${tier.minElo}+` : `${tier.fee} CR`}
                   </span>
                 </button>
               )
@@ -365,39 +351,39 @@ function DashboardContent() {
 
           <button
             onClick={handleFindMatch}
-            className={`w-full py-3 rounded-sm font-semibold transition ${
+            className={`w-full py-3 font-semibold transition ${
               isQueuing
-                ? 'bg-red-600 hover:bg-red-700'
-                : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
+                ? 'btn-danger'
+                : 'btn-primary'
             }`}
           >
-            {isQueuing ? '⏳ Cancel Search' : '⚔️ Find Match'}
+            {isQueuing ? '⏳ CANCEL SEARCH' : '⚔️ FIND MATCH →'}
           </button>
         </div>
       </div>
 
       {/* Bottom Row: Recent Matches */}
-      <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-6">
+      <div className="panel p-6">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-sm font-semibold text-[var(--text-secondary)] flex items-center gap-2">
-            📜 Recent Matches
+          <h3 className="arena-subtitle text-[10px] text-[var(--text-muted)] flex items-center gap-2">
+            📜 RECENT MATCHES
           </h3>
           <Link
             href="/history"
-            className="text-xs text-[var(--neon-cyan)] hover:text-[var(--neon-cyan)] transition flex items-center gap-1"
+            className="arena-subtitle text-[10px] text-[var(--neon-cyan)] hover:underline flex items-center gap-1"
           >
-            View all <ChevronRight className="w-3 h-3" />
+            VIEW ALL <ChevronRight className="w-3 h-3" />
           </Link>
         </div>
         {recentMatches.length > 0 ? (
-          <div className="divide-y divide-gray-800/50">
+          <div className="divide-y divide-[var(--border-dim)]">
             {recentMatches.map((match) => (
               <MatchHistoryRow key={match.id} match={match} />
             ))}
           </div>
         ) : (
-          <p className="text-sm text-[var(--text-muted)] text-center py-6">
-            No matches yet. Jump into the arena!
+          <p className="text-sm text-[var(--text-muted)] text-center py-8 font-mono">
+            // no combat data — enter the arena
           </p>
         )}
       </div>
@@ -408,7 +394,7 @@ function DashboardContent() {
 export default function DashboardPage() {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-[var(--bg-void)]">
+      <div className="min-h-screen bg-[var(--bg-void)] arena-grid-bg">
         <Navbar />
         <DashboardContent />
       </div>

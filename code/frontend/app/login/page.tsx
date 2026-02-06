@@ -39,73 +39,81 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4 bg-gradient-to-br from-gray-950 via-purple-950/20 to-gray-950">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen flex items-center justify-center px-4 bg-[var(--bg-void)] arena-grid-bg relative">
+      {/* Ambient glow */}
+      <div className="fixed top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-[var(--neon-cyan)] opacity-[0.03] rounded-full blur-[150px] pointer-events-none" />
+
+      <div className="w-full max-w-sm relative z-10">
         {/* Header */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center gap-2 mb-6">
-            <span className="text-2xl">⚔️</span>
-            <span className="text-xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-              ClawdArena
+          <Link href="/" className="inline-flex items-center gap-2 mb-6 group">
+            <span className="text-xl">⚔️</span>
+            <span className="arena-title text-sm tracking-[0.15em] text-[var(--neon-cyan)] glow-cyan group-hover:text-white transition-colors">
+              CLAWDARENA
             </span>
           </Link>
-          <h1 className="text-3xl font-bold">Welcome Back</h1>
-          <p className="text-[var(--text-secondary)] mt-2">Enter the arena</p>
+          <h1 className="arena-title text-2xl text-[var(--text-primary)] mb-1">AUTHENTICATE</h1>
+          <p className="text-[var(--text-muted)] text-sm">Enter your credentials to access the arena</p>
         </div>
 
         {/* Form */}
-        <form onSubmit={handleLogin} className="space-y-4">
-          <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] p-6 space-y-4">
+        <form onSubmit={handleLogin}>
+          <div className="panel p-6 corner-brackets space-y-5">
             <div>
-              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-                Email
+              <label className="arena-subtitle text-[10px] text-[var(--text-muted)] block mb-2">
+                EMAIL ADDRESS
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@example.com"
-                className="w-full px-4 py-3 bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-sm focus:outline-none focus:ring-1 focus:ring-[var(--neon-cyan)] focus:border-[var(--neon-cyan)] text-white placeholder-[var(--text-muted)]"
+                placeholder="operator@example.com"
+                className="input-field"
                 required
                 autoFocus
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-[var(--text-primary)] mb-2">
-                Password
+              <label className="arena-subtitle text-[10px] text-[var(--text-muted)] block mb-2">
+                PASSWORD
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Your password"
-                className="w-full px-4 py-3 bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-sm focus:outline-none focus:ring-1 focus:ring-[var(--neon-cyan)] focus:border-[var(--neon-cyan)] text-white placeholder-[var(--text-muted)]"
+                placeholder="••••••••••"
+                className="input-field"
                 required
               />
             </div>
 
             {error && (
-              <div className="bg-red-900/30 border border-red-800 text-red-400 p-3 rounded-sm text-sm">
-                {error}
+              <div className="bg-[var(--neon-red-dim)] border border-[var(--neon-red)] text-[var(--neon-red)] p-3 rounded-sm text-sm font-mono">
+                ✕ {error}
               </div>
             )}
 
             <button
               type="submit"
               disabled={loading || !email || !password}
-              className="w-full py-3 bg-[var(--neon-cyan)] hover:bg-[var(--neon-cyan)] disabled:opacity-50 disabled:cursor-not-allowed rounded-sm font-semibold transition"
+              className="btn-primary w-full py-3 disabled:opacity-30 disabled:cursor-not-allowed"
             >
-              {loading ? 'Logging in...' : 'Login'}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="w-3 h-3 border-2 border-[var(--bg-void)] border-t-transparent rounded-full animate-spin" />
+                  AUTHENTICATING...
+                </span>
+              ) : 'LOGIN →'}
             </button>
           </div>
         </form>
 
         {/* Register link */}
         <p className="text-center mt-6 text-sm text-[var(--text-muted)]">
-          New to the Arena?{' '}
-          <Link href="/register" className="text-[var(--neon-cyan)] hover:text-[var(--neon-cyan)] transition">
-            Create Account
+          No account?{' '}
+          <Link href="/register" className="text-[var(--neon-cyan)] hover:underline transition">
+            Deploy a new bot →
           </Link>
         </p>
       </div>

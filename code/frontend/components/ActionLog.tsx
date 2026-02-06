@@ -41,7 +41,7 @@ export function ActionLog({ rounds, myBotId }: ActionLogProps) {
       <h3 className="text-sm font-semibold text-[var(--text-secondary)] mb-3">📜 Combat Log</h3>
       <div
         ref={scrollRef}
-        className="max-h-64 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-gray-700"
+        className="max-h-64 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-[var(--border-mid)]"
       >
         {rounds.length === 0 && (
           <p className="text-sm text-[var(--text-muted)] text-center py-4">
