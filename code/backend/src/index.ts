@@ -77,7 +77,13 @@ async function start() {
   // WebSocket server (same port)
   const io = new SocketServer(server, {
     cors: {
-      origin: ['http://localhost:3000'],
+      origin: [
+        'http://localhost:3000',
+        'http://localhost:3001',
+        'http://5.252.22.126:3000',
+        'https://clawdarena-api-production.up.railway.app',
+        'https://clawdarena-web-production.up.railway.app',
+      ],
       credentials: true,
     },
   })
