@@ -9,7 +9,7 @@ import {
   ALL_SKILLS,
   SKILL_LIST,
   RARITY_COLORS,
-} from '@/lib/mock-api'
+} from '@/lib/constants'
 import { api } from '@/lib/api'
 import { formatCredits } from '@/lib/utils'
 import type { Skill, SkillId, ShopItem } from '../../../shared/types'

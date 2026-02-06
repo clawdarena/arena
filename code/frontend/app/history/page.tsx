@@ -11,7 +11,7 @@ import {
   TIER_COLORS,
   type MatchHistoryEntry,
   type EloTier,
-} from '@/lib/mock-api'
+} from '@/lib/constants'
 import { api } from '@/lib/api'
 import { timeAgo, formatDuration } from '@/lib/utils'
 import type { MatchType, RoundResult } from '../../../shared/types'

@@ -10,7 +10,7 @@ import {
   TIER_BG_COLORS,
   type LeaderboardEntry,
   type EloTier,
-} from '@/lib/mock-api'
+} from '@/lib/constants'
 import { api } from '@/lib/api'
 import { formatELO, getELORank } from '@/lib/utils'
 import {
