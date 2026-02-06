@@ -823,12 +823,14 @@ async function refundAndCancel(
       re_queued: true,
     })
 
-    // Re-queue the player who accepted
+    // Re-queue the player who accepted (PRIORITY — front of queue)
     if (reQueueEntry) {
-      queueEntries.push(reQueueEntry)
+      reQueueEntry.joinedAt = 0  // Earliest timestamp = matched first
+      queueEntries.unshift(reQueueEntry)
       io.to(match[acceptedSide].socketId).emit('queue_joined', {
-        queue_position: queueEntries.length,
-        estimated_wait_seconds: 30,
+        queue_position: 1,
+        estimated_wait_seconds: 15,
+        priority: true,
       })
       // Try matchmaking again
       tryMatchmake(io, match.matchType)
