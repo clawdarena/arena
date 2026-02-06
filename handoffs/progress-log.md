@@ -224,14 +224,22 @@
 
 **Tasks Completed:** 001, 003 → moved to tasks/done/
 
+### What's Done (All Backend) ✅
+- [x] Shop API (list, purchase, inventory)
+- [x] Bot management (register, equip/unequip items + skills, stat allocation)
+- [x] Skills API (list, owned, purchase)
+- [x] Matchmaking + WebSocket (queue, invites, auto-queue, full match lifecycle)
+- [x] Combat engine (damage, targets, 10 skills, 8 status effects, mirror coat, shield wall)
+- [x] Leaderboard API
+- [x] PvE endpoints (5 AI bots)
+- [x] XP + leveling + win quality bonuses
+- [x] ELO system (K=32, 5 tiers)
+- [x] Credit transaction ledger
+
 ### What's Still Open
-- [ ] Shop API endpoints
-- [ ] Bot management endpoints
-- [ ] Skills endpoints (list, purchase, equip)
-- [ ] Matchmaking + WebSocket server (with direct invites + auto-queue)
-- [ ] Match coordinator (combat resolution)
-- [ ] Leaderboard API
-- [ ] Challenge protocol spec
+- [ ] Integration testing (frontend ↔ backend)
+- [ ] Training gauntlet (PvE stat bonus system)
+- [ ] Challenge protocol formal spec doc
 
 ### Decisions Made (Rapid-Fire Q&A)
 
