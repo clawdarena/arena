@@ -160,6 +160,16 @@ function DashboardContent() {
 
   const bot = bots[0]
 
+  if (!bot) return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-8 py-16 text-center">
+      <div className="panel p-8 corner-brackets max-w-md mx-auto">
+        <div className="text-3xl mb-4">🤖</div>
+        <h2 className="arena-title text-lg mb-2">NO BOT DEPLOYED</h2>
+        <p className="text-[var(--text-muted)] text-sm mb-4">Register a bot to enter the arena.</p>
+      </div>
+    </div>
+  )
+
   const tiers = [
     { id: 'ranked_bronze', name: 'BRONZE', fee: 50, minElo: 0 },
     { id: 'ranked_silver', name: 'SILVER', fee: 100, minElo: 1200 },

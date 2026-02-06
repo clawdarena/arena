@@ -163,7 +163,7 @@ function useLiveMatch() {
 
 function MatchContent() {
   const router = useRouter()
-  const { user } = useAuthStore()
+  const { user, bots } = useAuthStore()
   const {
     phase,
     matchData,
@@ -182,6 +182,34 @@ function MatchContent() {
     matchStartData,
   } = useLiveMatch()
 
+  const [actionSubmitted, setActionSubmitted] = useState(false)
+  const [lastAction, setLastAction] = useState<string | null>(null)
+
+  // Reset action submitted when new round starts
+  useEffect(() => {
+    setActionSubmitted(false)
+    setLastAction(null)
+  }, [roundHistory.length])
+
+  function sendAction(action: string, skillId?: string) {
+    if (actionSubmitted || phase !== 'fighting') return
+
+    const socket = connectSocket()
+    const actionPayload = {
+      action,
+      target: action === 'attack' ? 'opponent' : null,
+      skill_id: skillId || null,
+    }
+
+    socket.emit('combat_action', {
+      action: actionPayload,
+      signature: 'web_client', // Web UI doesn't have private key for signing
+    })
+
+    setActionSubmitted(true)
+    setLastAction(action)
+  }
+
   // If no match data, redirect to dashboard
   useEffect(() => {
     if (!matchData && phase === 'idle') {
@@ -197,8 +225,13 @@ function MatchContent() {
 
   if (!matchData) {
     return (
-      <div className="max-w-5xl mx-auto px-4 sm:px-8 py-8 text-center">
-        <div className="text-[var(--text-secondary)]">Loading match...</div>
+      <div className="max-w-5xl mx-auto px-4 sm:px-8 py-16 text-center">
+        <div className="panel p-8 corner-brackets max-w-sm mx-auto">
+          <div className="text-3xl mb-4">⚔️</div>
+          <h2 className="arena-title text-lg mb-2">NO ACTIVE MATCH</h2>
+          <p className="text-[var(--text-muted)] text-sm mb-4">Join a queue or start PvE to fight.</p>
+          <a href="/dashboard" className="btn-primary inline-block py-2 px-6 text-sm">GO TO HQ</a>
+        </div>
       </div>
     )
   }
@@ -479,12 +512,60 @@ function MatchContent() {
         </div>
       )}
 
+      {/* Action Buttons — only show during fighting phase */}
       {phase === 'fighting' && (
-        <div className="text-center mb-4">
-          <div className="inline-flex items-center gap-2 bg-green-900/20 border border-green-700/30 rounded-sm px-4 py-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-sm text-green-400">Combat in progress</span>
-          </div>
+        <div className="mb-4">
+          {actionSubmitted ? (
+            <div className="text-center">
+              <div className="inline-flex items-center gap-2 panel-raised px-5 py-3 border-l-2 border-l-[var(--neon-green)]">
+                <div className="w-2 h-2 bg-[var(--neon-green)] rounded-full animate-pulse" />
+                <span className="text-sm text-[var(--neon-green)] font-mono">
+                  {lastAction?.toUpperCase()} SUBMITTED — WAITING FOR RESOLUTION
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="panel p-4 corner-brackets">
+              <div className="flex items-center justify-between mb-3">
+                <span className="arena-subtitle text-[10px] text-[var(--text-muted)]">
+                  CHOOSE YOUR ACTION — R{(roundHistory.length || 0) + 1}
+                </span>
+                <span className={`font-mono text-sm font-bold ${timer <= 5 ? 'text-[var(--neon-red)] glow-red animate-pulse' : 'text-[var(--neon-amber)]'}`}>
+                  {timer}s
+                </span>
+              </div>
+              <div className="grid grid-cols-3 gap-2">
+                {/* Attack */}
+                <button
+                  onClick={() => sendAction('attack')}
+                  className="flex flex-col items-center gap-1.5 p-3 bg-[var(--bg-void)] border border-[var(--border-mid)] rounded-sm hover:border-[var(--neon-red)] hover:bg-[var(--neon-red-dim)] transition group"
+                >
+                  <Swords className="w-5 h-5 text-[var(--neon-red)] group-hover:scale-110 transition-transform" />
+                  <span className="arena-subtitle text-[10px] text-[var(--text-secondary)] group-hover:text-[var(--neon-red)]">ATTACK</span>
+                  <span className="text-[9px] text-[var(--text-muted)] font-mono">0 EN</span>
+                </button>
+                {/* Defend */}
+                <button
+                  onClick={() => sendAction('defend')}
+                  className="flex flex-col items-center gap-1.5 p-3 bg-[var(--bg-void)] border border-[var(--border-mid)] rounded-sm hover:border-[var(--neon-cyan)] hover:bg-[var(--neon-cyan-dim)] transition group"
+                >
+                  <Shield className="w-5 h-5 text-[var(--neon-cyan)] group-hover:scale-110 transition-transform" />
+                  <span className="arena-subtitle text-[10px] text-[var(--text-secondary)] group-hover:text-[var(--neon-cyan)]">DEFEND</span>
+                  <span className="text-[9px] text-[var(--text-muted)] font-mono">+15 EN</span>
+                </button>
+                {/* Skill */}
+                <button
+                  onClick={() => sendAction('skill')}
+                  disabled={myEnergy < 10}
+                  className="flex flex-col items-center gap-1.5 p-3 bg-[var(--bg-void)] border border-[var(--border-mid)] rounded-sm hover:border-[var(--neon-amber)] hover:bg-[var(--neon-amber-dim)] transition group disabled:opacity-30 disabled:cursor-not-allowed"
+                >
+                  <Zap className="w-5 h-5 text-[var(--neon-amber)] group-hover:scale-110 transition-transform" />
+                  <span className="arena-subtitle text-[10px] text-[var(--text-secondary)] group-hover:text-[var(--neon-amber)]">SKILL</span>
+                  <span className="text-[9px] text-[var(--text-muted)] font-mono">10+ EN</span>
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

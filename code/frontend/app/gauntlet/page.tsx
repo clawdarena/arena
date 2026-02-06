@@ -2,8 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useAuthStore } from '@/lib/store'
+import { useAuthStore, useMatchStore } from '@/lib/store'
 import { api, apiPost } from '@/lib/api'
+import { connectSocket } from '@/lib/socket'
 import { formatCredits } from '@/lib/utils'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Navbar } from '@/components/Navbar'
@@ -337,12 +338,26 @@ function GauntletContent() {
     if (!selectedBotId) return
 
     setStarting(true)
+    setError(null)
     try {
-      await apiPost('/api/pve/start', {
+      const socket = connectSocket()
+
+      socket.once('match_found', (data: any) => {
+        useMatchStore.getState().setMatchData(data)
+        setStarting(false)
+        router.push('/match')
+      })
+
+      socket.once('error', (err: any) => {
+        setError(err.message ?? 'Failed to start gauntlet match')
+        setStarting(false)
+      })
+
+      // Start PvE via WebSocket (same as PvE page)
+      socket.emit('pve_start', {
         bot_id: selectedBotId,
         ai_bot_id: tier.opponent,
       })
-      router.push('/match')
     } catch (err: any) {
       setError(err.message ?? 'Failed to start gauntlet match')
       setStarting(false)
