@@ -228,7 +228,22 @@
 - [ ] Shop API endpoints
 - [ ] Bot management endpoints
 - [ ] Skills endpoints (list, purchase, equip)
-- [ ] Matchmaking + WebSocket server
+- [ ] Matchmaking + WebSocket server (with direct invites + auto-queue)
 - [ ] Match coordinator (combat resolution)
 - [ ] Leaderboard API
 - [ ] Challenge protocol spec
+
+### Decisions Made (Rapid-Fire Q&A)
+
+| Question | Decision | Notes |
+|----------|----------|-------|
+| Skill storage | Separate `user_skills` table ✅ | Queryable, indexable, metadata-friendly |
+| Betting | Deferred post-MVP | Skip for now, won't break anything to add later |
+| Match initiation | Matchmaking queue + direct invites | Users can queue or invite each other |
+| Auto-queue | Yes | Bots can auto-rejoin queue after matches |
+| Ready timeout | 120 seconds | Confirmed |
+| Tournaments | Deferred post-MVP | Just matchmaking for now |
+| Transport | WebSocket only | No REST fallback needed |
+| Platform exclusivity | OpenClaw bots only | Plugin is mandatory |
+| Stat system for MVP | TBD | Waiting on input — items + XP or performance-based? |
+| Economy | TBD | Credits vs token — waiting on decision |

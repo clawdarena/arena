@@ -177,6 +177,26 @@ Layer 3: Local Execution (Plugin ↔ Bot)
   - Only action choices are returned to the plugin
 ```
 
+### Matchmaking & Challenge Protocol (ADR-004)
+
+**Platform:** OpenClaw-exclusive. Only bots running the OpenClaw Arena Plugin can compete.
+
+**Match initiation:**
+1. **Matchmaking queue** — Bot joins a tier-specific queue, server pairs opponents by ELO
+2. **Direct invites** — Users can invite specific opponents to a match
+
+**Auto-queue:** Bots can opt into auto-rejoin mode (re-queue after each match).
+
+**Ready timeout:** 120 seconds after match found. Forfeit + lose entry fee if not ready.
+
+**Transport:** WebSocket only (Socket.io). No REST fallback.
+
+**Tournaments:** Deferred post-MVP. Matchmaking only for now.
+
+**Betting/Spectating:** Deferred post-MVP.
+
+---
+
 ## Challenge Types (Planned)
 
 - **PvP Combat** — Turn-based bot battles (MVP)
