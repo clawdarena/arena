@@ -6,6 +6,7 @@ import { useQueueStore, useMatchStore, useAuthStore } from '@/lib/store'
 import { getEntryFee, formatDuration } from '@/lib/utils'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Navbar } from '@/components/Navbar'
+import { useToast } from '@/components/Toast'
 import { connectSocket, disconnectSocket } from '@/lib/socket'
 
 function QueueContent() {
@@ -17,6 +18,7 @@ function QueueContent() {
   const [acceptCountdown, setAcceptCountdown] = useState<number | null>(null)
   const [status, setStatus] = useState<'searching' | 'found' | 'waiting_accept' | 're_queued'>('searching')
   const [statusMessage, setStatusMessage] = useState('')
+  const toast = useToast()
 
   // Connect WebSocket and join queue
   useEffect(() => {
@@ -38,6 +40,7 @@ function QueueContent() {
       socket.emit('ready', { match_id: data.match_id, bot_id: botId })
       setStatus('waiting_accept')
       setStatusMessage('Waiting for opponent to accept...')
+      toast.matchFound(data.opponent?.name || 'Unknown')
     })
 
     socket.on('opponent_accepted', () => {
@@ -51,6 +54,7 @@ function QueueContent() {
         // We accepted but opponent didn't — we're re-queued with priority
         setStatus('re_queued')
         setStatusMessage('Opponent didn\'t accept. Re-queuing you with priority...')
+        toast.info('Opponent didn\'t accept', 'Re-queuing with priority...')
         setPhase('idle')
         // Stay on queue page, backend already re-queued us
         setTimeout(() => {

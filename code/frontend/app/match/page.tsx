@@ -253,8 +253,8 @@ function MatchContent() {
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6">
       {/* Match Header */}
-      <div className="flex items-center justify-between mb-4">
-        <div className="flex items-center gap-2 text-sm text-gray-500 uppercase tracking-wide">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 uppercase tracking-wide">
           <Trophy className="w-4 h-4" />
           {matchData.match_type.replace('ranked_', '').replace(/^\w/, (c) => c.toUpperCase())} Ranked
         </div>
@@ -300,9 +300,9 @@ function MatchContent() {
       </div>
 
       {/* Bot Panels */}
-      <div className="grid grid-cols-2 gap-4 mb-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
         {/* My Bot Panel */}
-        <div className="bg-gray-900 rounded-xl border border-purple-800/30 p-4">
+        <div className="bg-gray-900 rounded-xl border border-purple-800/30 p-3 sm:p-4">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-800 rounded-lg flex items-center justify-center text-lg shadow-lg shadow-purple-500/10">
               🤖
@@ -342,7 +342,7 @@ function MatchContent() {
         </div>
 
         {/* Opponent Bot Panel */}
-        <div className="bg-gray-900 rounded-xl border border-red-800/30 p-4">
+        <div className="bg-gray-900 rounded-xl border border-red-800/30 p-3 sm:p-4">
           <div className="flex items-center gap-3 mb-3">
             <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-800 rounded-lg flex items-center justify-center text-lg shadow-lg shadow-red-500/10">
               👾
