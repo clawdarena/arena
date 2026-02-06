@@ -49,6 +49,8 @@ interface DirectInvite {
   createdAt: number
 }
 
+const ACCEPT_TIMEOUT_MS = 60_000  // 60 seconds to accept
+
 // ============================================================
 // State
 // ============================================================
@@ -167,10 +169,27 @@ export function setupMatchmaking(io: Server) {
       if (!isBot1 && !isBot2) return emitError(socket, 'NOT_IN_MATCH', 'Not in this match')
 
       const side = isBot1 ? 'bot1' : 'bot2'
+      const otherSide = isBot1 ? 'bot2' : 'bot1'
+
+      if ((match as any)[`${side}Ready`]) return  // Already accepted
+
       ;(match as any)[`${side}Ready`] = true
 
-      // Check if both ready
+      // Notify other player
+      io.to(match[otherSide].socketId).emit('opponent_accepted', {
+        match_id: match.id,
+      })
+
+      // Confirm acceptance to this player
+      socket.emit('ready_confirmed', {
+        match_id: match.id,
+        waiting_for_opponent: !(match as any)[`${otherSide}Ready`],
+      })
+
+      // Check if both ready → start match
       if ((match as any).bot1Ready && (match as any).bot2Ready) {
+        // Clear accept timer
+        if ((match as any).acceptTimer) clearTimeout((match as any).acceptTimer)
         startMatch(io, match)
       }
     })
@@ -461,12 +480,28 @@ async function createMatch(io: Server, entry1: QueueEntry, entry2: QueueEntry, m
     opponent: { name: bot1Data.name, elo: entry1.elo },
   })
 
-  // Auto-ready both (for bot matches — they ready immediately)
-  ;(match as any).bot1Ready = true
-  ;(match as any).bot2Ready = true
-  
-  // Small delay then start
-  setTimeout(() => startMatch(io, match), 2000)
+  // Initialize accept state
+  ;(match as any).bot1Ready = false
+  ;(match as any).bot2Ready = false
+
+  // 60s accept timeout
+  ;(match as any).acceptTimer = setTimeout(async () => {
+    const b1Ready = (match as any).bot1Ready
+    const b2Ready = (match as any).bot2Ready
+
+    if (b1Ready && b2Ready) return  // Already started
+
+    if (!b1Ready && !b2Ready) {
+      // Neither accepted → cancel match, refund both, go to neutral
+      await refundAndCancel(io, match, 'both')
+    } else if (b1Ready && !b2Ready) {
+      // Bot1 accepted, bot2 didn't → refund both, re-queue bot1
+      await refundAndCancel(io, match, 'bot2', entry1)
+    } else {
+      // Bot2 accepted, bot1 didn't → refund both, re-queue bot2
+      await refundAndCancel(io, match, 'bot1', entry2)
+    }
+  }, ACCEPT_TIMEOUT_MS)
 }
 
 // ============================================================
@@ -733,6 +768,75 @@ async function endMatch(io: Server, match: ActiveMatch, winner: 'bot1' | 'bot2' 
       }, 3000)
     }
   }
+}
+
+// ============================================================
+// Accept Timeout / Refund
+// ============================================================
+
+async function refundAndCancel(
+  io: Server,
+  match: ActiveMatch,
+  declinedBy: 'bot1' | 'bot2' | 'both',
+  reQueueEntry?: QueueEntry
+) {
+  const tier = getTierEconomics(match.matchType)
+
+  // Refund both players' entry fees
+  await Promise.all([
+    recordTransaction(match.bot1.userId, tier.entryFee, 'match_cancel_refund', match.id),
+    recordTransaction(match.bot2.userId, tier.entryFee, 'match_cancel_refund', match.id),
+  ])
+
+  // Cancel match in DB
+  await prisma.match.update({
+    where: { id: match.id },
+    data: { status: 'cancelled' },
+  }).catch(() => {})
+
+  // Notify players
+  if (declinedBy === 'both') {
+    io.to(match.bot1.socketId).emit('match_cancelled', {
+      match_id: match.id,
+      reason: 'Neither player accepted in time',
+      credits_refunded: tier.entryFee,
+    })
+    io.to(match.bot2.socketId).emit('match_cancelled', {
+      match_id: match.id,
+      reason: 'Neither player accepted in time',
+      credits_refunded: tier.entryFee,
+    })
+  } else {
+    const declinedSide = declinedBy
+    const acceptedSide = declinedBy === 'bot1' ? 'bot2' : 'bot1'
+
+    io.to(match[declinedSide].socketId).emit('match_cancelled', {
+      match_id: match.id,
+      reason: 'You did not accept in time',
+      credits_refunded: tier.entryFee,
+    })
+
+    io.to(match[acceptedSide].socketId).emit('match_cancelled', {
+      match_id: match.id,
+      reason: 'Opponent did not accept in time. Re-queuing you...',
+      credits_refunded: tier.entryFee,
+      re_queued: true,
+    })
+
+    // Re-queue the player who accepted
+    if (reQueueEntry) {
+      queueEntries.push(reQueueEntry)
+      io.to(match[acceptedSide].socketId).emit('queue_joined', {
+        queue_position: queueEntries.length,
+        estimated_wait_seconds: 30,
+      })
+      // Try matchmaking again
+      tryMatchmake(io, match.matchType)
+    }
+  }
+
+  // Cleanup
+  activeMatches.delete(match.id)
 }
 
 // ============================================================
