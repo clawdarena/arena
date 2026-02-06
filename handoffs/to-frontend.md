@@ -1,81 +1,84 @@
 # Messages for Frontend/Plugin Developer
 
-## 2026-02-06 — Backend API Ready
+## 2026-02-06 — FULL BACKEND COMPLETE 🚀
 
-### Auth API is LIVE (Tasks 001 + 003) ✅
+### All API Endpoints Ready
 
-Backend server scaffolded and auth endpoints ready:
+**Auth:**
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | /api/auth/register | No | Email + password + public_key |
+| POST | /api/auth/login | No | Email + password |
+| POST | /api/auth/login-username | No | Legacy username-only |
+| GET | /api/auth/me | Yes | Full profile + bots + skills |
 
-```
-POST /api/auth/register  — email + password + public_key → JWT + user + default bot
-POST /api/auth/login     — email + password → JWT + user
-POST /api/auth/login-username — username only (legacy) → JWT + user
-GET  /api/auth/me        — Bearer token → full profile + bots + skills
-```
+**Shop:**
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | /api/shop/items | No | List items (?category, ?rarity, ?available) |
+| POST | /api/shop/purchase | Yes | Buy item {item_id} |
+| GET | /api/inventory | Yes | User's owned items |
 
-**Server:** port 3001 (CORS enabled for localhost:3000)
-**Auth:** JWT Bearer tokens, 7-day expiry
+**Bots:**
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| POST | /api/bots/register | Yes | Create new bot {bot_name} |
+| GET | /api/bots/:bot_id | Yes | Get bot details |
+| POST | /api/bots/equip | Yes | Equip accessory/skin {bot_id, item_id} |
+| POST | /api/bots/unequip | Yes | Unequip {bot_id, item_id} |
+| POST | /api/bots/equip-skill | Yes | Equip skill {bot_id, skill_id, slot} |
+| POST | /api/bots/unequip-skill | Yes | Clear skill slot {bot_id, slot} |
+| POST | /api/bots/allocate-stat | Yes | Spend stat points {bot_id, stat} |
 
-**Registration creates:**
-- User account with 200 credit welcome bonus
-- Default bot (100 HP / 15 ATK / 10 DEF / 10 SPD)
-- 4 starter skills assigned (power_strike, shield_wall, overclock, scan)
+**Skills:**
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | /api/skills | No | List all skills |
+| GET | /api/skills/owned | Yes | User's owned skills |
+| POST | /api/skills/purchase | Yes | Buy skill {skill_id} |
 
-**Database ready with:**
-- 10 skills (4 starter + 6 shop)
-- 15 shop items (5 skins + 8 accessories + 2 emotes)
-- Full credit transaction ledger
+**Matches:**
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | /api/matches/history | Yes | Match history (?limit, ?offset, ?bot_id) |
+| GET | /api/matches/:match_id | No | Match details + replay |
 
-**To connect:** Point your API client to `http://localhost:3001`
+**Leaderboard:**
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | /api/leaderboard | No | Global rankings (?timeframe, ?limit) |
 
-**Still TODO from backend:**
-- [ ] Shop endpoints
-- [ ] Bot management endpoints
-- [ ] Skills endpoints
-- [ ] Matchmaking + WebSocket server
-- [ ] Leaderboard
+**PvE:**
+| Method | Path | Auth | Description |
+|--------|------|------|-------------|
+| GET | /api/pve/bots | No | List AI opponents |
+| POST | /api/pve/start | Yes | Start PvE match {bot_id, ai_bot_id} |
 
----
+### WebSocket Server Ready (same port: 3001)
 
-## 2025-02-06
+**Events:**
+| Direction | Event | Description |
+|-----------|-------|-------------|
+| C→S | join_queue | {bot_id, match_type, auto_queue?} |
+| C→S | leave_queue | {bot_id} |
+| C→S | ready | {match_id, bot_id} |
+| C→S | combat_action | {action, signature} — action only, no damage |
+| C→S | invite | {target_username, match_type, bot_id} |
+| S→C | match_found | Match details + opponent info |
+| S→C | match_start | Both bots' stats + first_mover |
+| S→C | round_start | Current state + previous round |
+| S→C | round_complete | Full round results |
+| S→C | match_end | Winner, ELO changes, XP, replay |
+| S→C | auto_queue_rejoin | Prompt to rejoin queue |
+| S→C | match_invite | Incoming invite from another user |
 
-### Contracts Updated — Ready for Review
+### Combat Engine
+- Full server-side resolution (Trusted Referee)
+- Damage formula, target modifiers, skill system
+- Status effects, cooldowns, mirror coat reflection
+- XP + level system with win quality bonuses
+- 3x timeout = forfeit, auto-defend on timeout
 
-1. **WebSocket events v0.2.0** — Fully aligned with Trusted Referee model:
-   - `combat_action` sends action choice only (no damage)
-   - All event payloads fully typed in `code/shared/types.ts`
-   - Plugin privacy boundary documented with correct/incorrect examples
-   - See `docs/WEBSOCKET_EVENTS.md`
-
-2. **Plugin privacy is critical** — Read the "Plugin Implementation Notes" section in WebSocket events:
-   - ✅ Pass only structured data to bot (numbers, enums)
-   - ❌ Never pass raw server strings into bot prompts
-   - Validate all incoming data against schemas
-   - Example code included
-
-3. **Mock server included** — WebSocket events doc has a mock server snippet for plugin development.
-
-4. **Shared types v0.2.0** — Import from `code/shared/types.ts`:
-   - `CombatAction` — what the plugin sends
-   - `SignedCombatAction` — signed wrapper
-   - `MatchFoundPayload`, `RoundStartPayload`, etc. — all event shapes
-
-### Combat System & Skills Now Specced
-- Full spec at `docs/COMBAT_SYSTEM.md`
-- 10 skills, 8 status effects — all with descriptions usable for UI
-- Skills endpoints added to API contract (list, purchase, equip, unequip)
-- `code/shared/types.ts` has all Skill/EquippedSkill/StatusEffect types
-
-### Open Items for Frontend/Plugin
-- [ ] How does the plugin spawn a local OpenClaw session? (needs design)
-- [ ] Bot prompt construction — how does the plugin turn game state into a prompt?
-- [ ] Skills UI — shop, equip/unequip, cooldown display in match
-
----
-
-## 2025-02-05
-
-### Architecture Updates — Read Before Starting
-
-1. **Read `docs/ARCHITECTURE.md`** — Server is a **Trusted Referee**. Plugin is the **trust boundary**.
-2. **Whitelist model** — Only explicitly listed data leaves the machine. Plugin enforces this.
+### What's Left
+- Integration testing between frontend/plugin and backend
+- Polish and bug fixes

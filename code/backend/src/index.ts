@@ -2,9 +2,17 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { serve } from '@hono/node-server'
+import { Server as SocketServer } from 'socket.io'
 import { connectDB } from './db'
 import { connectRedis } from './redis'
 import { authRoutes } from './routes/auth'
+import { shopRoutes } from './routes/shop'
+import { botRoutes } from './routes/bots'
+import { skillRoutes } from './routes/skills'
+import { matchRoutes } from './routes/matches'
+import { leaderboardRoutes } from './routes/leaderboard'
+import { pveRoutes } from './routes/pve'
+import { setupMatchmaking } from './ws/matchmaking'
 
 const app = new Hono()
 
@@ -30,15 +38,13 @@ app.get('/health', (c) => c.json({ status: 'ok' }))
 
 // API routes
 app.route('/api/auth', authRoutes)
-
-// TODO: Add more routes
-// app.route('/api/shop', shopRoutes)
-// app.route('/api/bots', botRoutes)
-// app.route('/api/matchmaking', matchmakingRoutes)
-// app.route('/api/matches', matchRoutes)
-// app.route('/api/leaderboard', leaderboardRoutes)
-// app.route('/api/skills', skillRoutes)
-// app.route('/api/pve', pveRoutes)
+app.route('/api/shop', shopRoutes)
+app.route('/api/bots', botRoutes)
+app.route('/api/skills', skillRoutes)
+app.route('/api/matches', matchRoutes)
+app.route('/api/leaderboard', leaderboardRoutes)
+app.route('/api/pve', pveRoutes)
+app.route('/api/inventory', shopRoutes)  // /api/inventory reuses shop's inventory endpoint
 
 // ============================================================
 // Error handling
@@ -61,17 +67,32 @@ async function start() {
   await connectDB()
   await connectRedis()
 
-  serve({
+  const server = serve({
     fetch: app.fetch,
     port: PORT,
   })
 
+  // WebSocket server (same port)
+  const io = new SocketServer(server, {
+    cors: {
+      origin: ['http://localhost:3000'],
+      credentials: true,
+    },
+  })
+
+  setupMatchmaking(io)
+
   console.log(`🚀 ClawdArena API running on http://localhost:${PORT}`)
-  console.log(`📖 Routes:`)
-  console.log(`   POST /api/auth/register`)
-  console.log(`   POST /api/auth/login`)
-  console.log(`   POST /api/auth/login-username`)
-  console.log(`   GET  /api/auth/me`)
+  console.log(`🔌 WebSocket server running on ws://localhost:${PORT}`)
+  console.log(`📖 API Routes:`)
+  console.log(`   Auth:        POST /api/auth/register, /login, GET /me`)
+  console.log(`   Shop:        GET /api/shop/items, POST /purchase, GET /inventory`)
+  console.log(`   Bots:        POST /api/bots/register, /equip, /equip-skill, /allocate-stat`)
+  console.log(`   Skills:      GET /api/skills, /owned, POST /purchase`)
+  console.log(`   Matches:     GET /api/matches/history, /:match_id`)
+  console.log(`   Leaderboard: GET /api/leaderboard`)
+  console.log(`   PvE:         GET /api/pve/bots, POST /start`)
+  console.log(`   WebSocket:   join_queue, leave_queue, ready, combat_action, invite`)
 }
 
 start().catch(console.error)
