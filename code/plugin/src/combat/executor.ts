@@ -2,6 +2,7 @@ import { signEvent } from '../keys.js'
 import { ArenaSocket } from '../socket.js'
 import { parseAction } from './parser.js'
 import { decideAction } from './strategy.js'
+import { getOpenClawDecision, checkOpenClawAvailable } from './openclaw.js'
 import { saveMatchLog, type FullMatchLog, type RoundLogEntry, type MatchLogEntry } from './logger.js'
 
 /**
@@ -43,10 +44,31 @@ export class CombatExecutor {
   private matchId: string | null = null
   private opponentActionHistory: string[] = []
   private roundLogs: RoundLogEntry[] = []
+  private useOpenClaw: boolean = false
+  private openclawChecked: boolean = false
 
   constructor(botId: string, socket: ArenaSocket) {
     this.botId = botId
     this.socket = socket
+  }
+
+  /**
+   * Check if OpenClaw is available and enable AI decisions if so.
+   * Called once at match start.
+   */
+  async checkAIAvailability(): Promise<void> {
+    if (this.openclawChecked) return
+    this.openclawChecked = true
+
+    const available = await checkOpenClawAvailable()
+    this.useOpenClaw = available
+
+    if (available) {
+      console.log('  🧠 OpenClaw AI detected — using AI-powered decisions')
+    } else {
+      console.log('  📐 OpenClaw not available — using built-in strategy')
+      console.log('     Set OPENCLAW_TOKEN to enable AI decisions')
+    }
   }
 
   /**
@@ -55,6 +77,11 @@ export class CombatExecutor {
    */
   async executeRound(roundData: RoundState): Promise<void> {
     this.matchId = roundData.match_id
+
+    // Check AI availability on first round
+    if (roundData.round === 1) {
+      await this.checkAIAvailability()
+    }
 
     console.log(`\n⚔️  Round ${roundData.round}`)
     console.log(`  HP: ${roundData.my_hp} | Opponent: ${roundData.opponent_hp}`)
@@ -208,16 +235,34 @@ The "reasoning" field stays private and is never sent to the server.`
   }
 
   /**
-   * Get decision from the local strategy engine.
+   * Get bot decision using OpenClaw AI or built-in strategy.
    *
-   * TODO: Replace with actual OpenClaw integration:
-   *   const session = await sessions_spawn({ task: prompt, cleanup: 'delete' })
-   *   const response = await sessions_send({ sessionKey: session.key, message: prompt })
-   *
-   * Currently uses the built-in strategy for testing.
+   * If OpenClaw gateway is available (OPENCLAW_TOKEN set), spawns
+   * an isolated sub-agent session for each combat decision.
+   * Falls back to built-in deterministic strategy otherwise.
    */
   private async getBotDecision(roundData: RoundState): Promise<string> {
-    // Use built-in strategy
+    if (this.useOpenClaw) {
+      try {
+        const decision = await getOpenClawDecision({
+          round: roundData.round,
+          my_hp: roundData.my_hp,
+          opponent_hp: roundData.opponent_hp,
+          my_attack: roundData.my_attack,
+          my_defense: roundData.my_defense,
+          my_speed: roundData.my_speed,
+          opponent_last_action: roundData.opponent_last_action,
+          opponent_action_history: this.opponentActionHistory,
+          time_limit_seconds: roundData.time_limit_seconds,
+        })
+        return JSON.stringify(decision)
+      } catch (err) {
+        console.log(`  ⚠️  OpenClaw error, falling back to strategy: ${err instanceof Error ? err.message : 'unknown'}`)
+        // Fall through to built-in strategy
+      }
+    }
+
+    // Built-in deterministic strategy (fallback)
     const decision = decideAction({
       round: roundData.round,
       my_hp: roundData.my_hp,

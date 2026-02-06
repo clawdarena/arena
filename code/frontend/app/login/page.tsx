@@ -7,7 +7,8 @@ import { useAuthStore } from '@/lib/store'
 import { apiPost } from '@/lib/api'
 
 export default function LoginPage() {
-  const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
@@ -22,7 +23,7 @@ export default function LoginPage() {
       const data = await apiPost<{
         user: any
         token: string
-      }>('/api/auth/login', { username })
+      }>('/api/auth/login', { email, password })
 
       setToken(data.token)
       setUser(data.user)
@@ -57,16 +58,30 @@ export default function LoginPage() {
           <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Username
+                Email
               </label>
               <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                placeholder="Enter your username"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
                 className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-gray-500"
                 required
                 autoFocus
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Your password"
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-gray-500"
+                required
               />
             </div>
 
@@ -78,7 +93,7 @@ export default function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading || !username}
+              disabled={loading || !email || !password}
               className="w-full py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-semibold transition"
             >
               {loading ? 'Logging in...' : 'Login'}

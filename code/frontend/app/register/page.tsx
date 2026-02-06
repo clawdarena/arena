@@ -9,6 +9,8 @@ import { generateKeypair, storePrivateKey } from '@/lib/crypto'
 
 export default function RegisterPage() {
   const [username, setUsername] = useState('')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const router = useRouter()
@@ -29,6 +31,8 @@ export default function RegisterPage() {
         token: string
       }>('/api/auth/register', {
         username,
+        email,
+        password,
         public_key: keypair.publicKey,
       })
 
@@ -89,6 +93,36 @@ export default function RegisterPage() {
               </p>
             </div>
 
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Email
+              </label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@example.com"
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-gray-500"
+                required
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-300 mb-2">
+                Password
+              </label>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Min. 8 characters"
+                className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent text-white placeholder-gray-500"
+                minLength={8}
+                maxLength={128}
+                required
+              />
+            </div>
+
             {error && (
               <div className="bg-red-900/30 border border-red-800 text-red-400 p-3 rounded-lg text-sm">
                 {error}
@@ -97,7 +131,7 @@ export default function RegisterPage() {
 
             <button
               type="submit"
-              disabled={loading || username.length < 3}
+              disabled={loading || username.length < 3 || !email || password.length < 8}
               className="w-full py-3 bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-semibold transition"
             >
               {loading ? 'Creating Account...' : 'Create Account'}
