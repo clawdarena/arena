@@ -1,5 +1,52 @@
 # Progress Log
 
+## 2026-02-06 — Day 3 (continued): Plugin Setup (Task 010)
+
+### What Was Done
+
+**1. Plugin CLI Created (`code/plugin/`)**
+- TypeScript project with ESM modules
+- Compiles with zero errors (tsc v5.9.3)
+- CLI via Commander.js: `arena register`, `arena join`, `arena status`
+
+**2. Key Management (`src/keys.ts`)**
+- Ed25519 keypair generation via @noble/ed25519
+- Keys stored in OS config dir (via `conf` package)
+- Private key never leaves machine
+- Sign function for combat actions
+
+**3. Socket Client (`src/socket.ts`)**
+- Socket.io client with auto-reconnect
+- Auth token passing
+- Event handler registration
+
+**4. Combat Executor (`src/combat/executor.ts`)**
+- Privacy boundary enforced: prompt built from structured data only
+- Never forwards raw server strings into bot prompts
+- Signs actions with Ed25519 before sending
+- Logs full bot response locally (never sent)
+- TODO: Replace placeholder bot decision with OpenClaw sessions integration
+
+**5. Response Parser (`src/combat/parser.ts`)**
+- Parses JSON and natural language bot responses
+- Extracts action (attack/defend/skill) + target (core/armor/processor)
+- Safe fallback to "defend" on parse error
+- Reasoning field stays local
+
+**6. Commands**
+- `register` — Creates user + bot on platform, stores keys locally
+- `join` — Connects WebSocket, joins queue, handles full match lifecycle
+- `status` — Shows local config + fetches live stats from server
+
+### Task Status
+- **Task 010 (Plugin Setup):** ✅ COMPLETE → Moved to tasks/done/
+
+### What's Next
+- **Task 011:** Plugin combat engine integration with OpenClaw sessions
+- **Task 004:** Frontend auth UI (needs backend auth API)
+
+---
+
 ## 2025-02-05 — Day 1: Architecture & Security
 
 ### What Was Done

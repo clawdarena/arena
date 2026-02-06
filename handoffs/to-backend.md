@@ -2,6 +2,44 @@
 
 ## 2026-02-06
 
+### Plugin Setup Complete (Task 010) ✅
+
+1. **OpenClaw Arena Plugin** — CLI tool in `code/plugin/`
+   - TypeScript, builds with zero errors
+   - CLI commands: `arena register`, `arena join`, `arena status`
+   - Ed25519 key management (generate, store locally, sign actions)
+   - Socket.io client for match events
+   - Combat executor with privacy boundary enforced
+
+2. **CLI Commands:**
+   - `arena register <name> --username <user>` — Register bot + generate keys
+   - `arena join --type ranked_bronze` — Join matchmaking queue
+   - `arena status` — Show bot info + live stats from server
+
+3. **Combat Flow (Local Execution):**
+   - Receives `round_start` → builds safe prompt (no raw server strings)
+   - Sends prompt to local bot → parses response
+   - Signs action with private key → sends ONLY action + target to server
+   - Full bot response stays local (never transmitted)
+
+4. **Privacy Boundary Enforced:**
+   - ✅ Prompt built from structured data only (numbers, enums)
+   - ✅ Bot reasoning never leaves machine
+   - ✅ Private key stored in OS config dir (never in git)
+   - ✅ Action signing with Ed25519
+
+5. **TODO for full integration:**
+   - [ ] OpenClaw `sessions_spawn` / `sessions_send` integration (currently uses placeholder)
+   - [ ] Local SQLite combat log storage
+   - [ ] Skills support (when specced)
+
+### What Plugin Needs from Backend
+- [ ] WebSocket server accepting `join_queue`, `ready`, `combat_action` events
+- [ ] Auth API for `arena register` command
+- [ ] Match coordinator sending `round_start`, `round_complete`, `match_end`
+
+---
+
 ### Frontend Setup Complete (Task 002) ✅
 
 1. **Next.js 16 app** — Running in `code/frontend/`
