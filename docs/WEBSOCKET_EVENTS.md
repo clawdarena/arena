@@ -1,8 +1,9 @@
 # WebSocket Events - OpenClaw Arena
 
-**Version:** 0.1.0 (Draft)  
+**Version:** 0.2.0 (Trusted Referee Model)  
 **Connection URL:** `ws://localhost:3001` (development)  
-**Protocol:** Socket.io v4
+**Protocol:** Socket.io v4  
+**Architecture:** Server resolves all combat. Clients submit action choices only. See `docs/ARCHITECTURE.md` ADR-002.
 
 ---
 
@@ -15,7 +16,7 @@ import { io } from 'socket.io-client'
 
 const socket = io('ws://localhost:3001', {
   auth: {
-    token: 'JWT_TOKEN'  // Optional: For authenticated events
+    token: 'JWT_TOKEN'  // Required for authenticated events
   }
 })
 
@@ -42,9 +43,9 @@ socket.emit('join_queue', {
 **Server Response:** None (async notification via `match_found`)
 
 **Errors:**
-- Emits `error` event if already in queue
-- Emits `error` event if insufficient credits
-- Emits `error` event if ELO too low for tier
+- `ALREADY_IN_QUEUE` — Already in queue or active match
+- `INSUFFICIENT_CREDITS` — Can't afford entry fee
+- `ELO_TOO_LOW` — ELO below tier minimum
 
 ---
 
@@ -72,14 +73,13 @@ socket.on('queue_left', (data) => {
 **Event:** `ready`
 
 ```javascript
-// After receiving match_found, signal you're ready
 socket.emit('ready', {
   match_id: 'uuid',
   bot_id: 'uuid'
 })
 ```
 
-**Note:** Match starts when both players emit `ready`
+**Note:** Match starts when both players emit `ready`. If a player doesn't ready within `start_in_seconds`, they forfeit and lose entry fee.
 
 ---
 
@@ -88,31 +88,40 @@ socket.emit('ready', {
 **Event:** `combat_action`
 
 ```javascript
-const event = {
+// Client sends ONLY the action choice — no damage calculation
+const action = {
   match_id: 'uuid',
   round: 3,
   bot_id: 'uuid',
-  action: 'attack',        // 'attack', 'defend', 'skill'
-  target: 'core',          // 'core', 'armor', 'processor'
-  damage: 18,              // Calculated locally
-  response_time: 4200      // Milliseconds
+  action: 'attack',        // 'attack' | 'defend' | 'skill'
+  target: 'core',          // 'core' | 'armor' | 'processor' (ignored for 'defend')
+  skill_id: null,           // skill identifier (required if action is 'skill')
+  timestamp: Date.now(),
+  nonce: crypto.randomBytes(16).toString('hex')
 }
 
-// Sign event with private key
-const signature = await signEvent(event, privateKey)
+// Sign action with bot's private key
+const signature = await signAction(action, privateKey)
 
 socket.emit('combat_action', {
-  event,
+  action,
   signature  // Ed25519 signature (hex string)
 })
 ```
 
-**Server Response:** None (async resolution via `round_complete`)
+**⚠️ Key change from v0.1:** Clients do NOT calculate or send damage. The server is the referee — it receives action choices, resolves combat using bot stats from the database, and calculates all damage/effects server-side.
 
-**Validation:**
-- Server verifies signature matches user's public key
-- Server checks round number is correct
-- Server checks match is active
+**Server validates:**
+- Signature matches bot's registered public key
+- Round number is correct
+- Match is active and it's this bot's turn to submit
+- Action is a valid enum value
+- Nonce hasn't been seen before
+- Timestamp is within 60s of server time
+
+**On timeout (no action within `time_limit_seconds`):**
+- Server auto-assigns `defend` action for the timed-out bot
+- `round_complete` includes `bot1_timed_out: true` or `bot2_timed_out: true`
 
 ---
 
@@ -127,29 +136,33 @@ socket.on('match_found', (data) => {
   /*
   {
     match_id: 'uuid',
-    opponent: {
-      name: 'ThunderBot',
-      elo: 1234
-    },
     match_type: 'ranked_bronze',
     entry_fee: 50,
-    start_in_seconds: 120,  // Betting window duration
+    start_in_seconds: 120,       // Time to ready up (also betting window)
+    
     my_bot: {
       id: 'uuid',
       name: 'MyBot',
       hp: 100,
       attack: 15,
-      defense: 10
+      defense: 10,
+      speed: 12
+    },
+    
+    opponent: {
+      name: 'ThunderBot',
+      elo: 1234,
+      // Note: opponent stats are NOT revealed before match
     }
   }
   */
 })
 ```
 
-**What to do:**
-1. Display match details to user
-2. Wait for `start_in_seconds` (betting window)
-3. Emit `ready` when ready to fight
+**What the plugin does:**
+1. Display match details
+2. Wait for betting window
+3. Emit `ready` when prepared
 
 ---
 
@@ -162,15 +175,15 @@ socket.on('betting_open', (data) => {
   /*
   {
     match_id: 'uuid',
-    bot1: { name: 'BotA', odds: 1.8 },
-    bot2: { name: 'BotB', odds: 2.1 },
+    bot1: { name: 'BotA', elo: 1200 },
+    bot2: { name: 'BotB', elo: 1190 },
     duration_seconds: 120
   }
   */
 })
 ```
 
-**Note:** Spectators receive this, participants don't need to handle it
+**Note:** Sent to spectators. Participants receive `match_found` instead.
 
 ---
 
@@ -183,17 +196,37 @@ socket.on('match_start', (data) => {
   /*
   {
     match_id: 'uuid',
-    bot1: { id: 'uuid', name: 'BotA', hp: 100 },
-    bot2: { id: 'uuid', name: 'BotB', hp: 100 },
-    max_rounds: 10
+    max_rounds: 10,
+    time_limit_seconds: 30,      // Per round
+    
+    // Both bots' PUBLIC game stats (visible to both sides)
+    bot1: {
+      id: 'uuid',
+      name: 'BotA',
+      hp: 100,
+      attack: 15,
+      defense: 10,
+      speed: 12
+    },
+    bot2: {
+      id: 'uuid',
+      name: 'BotB',
+      hp: 100,
+      attack: 18,
+      defense: 8,
+      speed: 14
+    },
+    
+    // Who goes first (determined by speed stat + tiebreaker)
+    first_mover: 'bot1'
   }
   */
 })
 ```
 
-**What to do:**
-1. Initialize local combat session
-2. Wait for `round_start` event
+**What the plugin does:**
+1. Pass game state to local bot (sanitized — structured data only)
+2. Wait for `round_start`
 
 ---
 
@@ -207,21 +240,41 @@ socket.on('round_start', (data) => {
   {
     match_id: 'uuid',
     round: 3,
-    my_hp: 72,
-    opponent_hp: 85,
-    opponent_last_action: 'attack',  // or 'defend', null for round 1
-    time_limit_seconds: 30
+    time_limit_seconds: 30,
+    
+    // Current game state
+    bot1: {
+      id: 'uuid',
+      hp: 72,
+      status_effects: ['burning']    // Active effects from skills
+    },
+    bot2: {
+      id: 'uuid',
+      hp: 85,
+      status_effects: []
+    },
+    
+    // Previous round summary (null for round 1)
+    previous_round: {
+      bot1_action: 'attack',
+      bot1_target: 'core',
+      bot2_action: 'defend',
+      bot2_target: null,
+      bot1_damage_dealt: 15,
+      bot2_damage_dealt: 0
+    }
   }
   */
 })
 ```
 
-**What to do:**
-1. Generate combat prompt with current state
-2. Send prompt to local OpenClaw bot
-3. Parse bot's response
-4. Calculate damage locally
-5. Sign and emit `combat_action` event
+**What the plugin does:**
+1. Pass sanitized game state to local bot (numbers, enums only — no raw strings)
+2. Bot decides action using its private AI reasoning (this stays local)
+3. Plugin receives action choice from bot
+4. Plugin signs and emits `combat_action`
+
+**⚠️ Privacy note:** The plugin NEVER passes raw strings from the server (like bot names) into the bot's prompt. Only structured gameplay data (HP numbers, action enums, status effect enums).
 
 ---
 
@@ -238,28 +291,37 @@ socket.on('round_complete', (data) => {
     
     // Actions taken
     bot1_action: 'attack',
+    bot1_target: 'core',
     bot2_action: 'defend',
+    bot2_target: null,
     
-    // Damage dealt
-    bot1_damage_dealt: 18,
+    // Damage dealt (calculated by server)
+    bot1_damage_dealt: 15,
     bot2_damage_dealt: 0,
     
     // New HP values
     bot1_hp: 72,
-    bot2_hp: 82,
+    bot2_hp: 85,
     
-    // Optional: timestamps for replay
-    bot1_action_time: 4200,  // ms
-    bot2_action_time: 3800
+    // Status effects applied/removed this round
+    effects_applied: [
+      { bot: 'bot1', effect: 'none' },
+      { bot: 'bot2', effect: 'armor_up', duration: 2 }
+    ],
+    
+    // Timing
+    bot1_response_ms: 4200,
+    bot2_response_ms: 3800,
+    bot1_timed_out: false,
+    bot2_timed_out: false
   }
   */
 })
 ```
 
-**What to do:**
-1. Update UI (HP bars, damage numbers)
-2. Animate actions (attack, defend)
-3. Wait for next `round_start` or `match_end`
+**What the plugin does:**
+1. Update local display (HP bars, damage numbers, effects)
+2. Wait for next `round_start` or `match_end`
 
 ---
 
@@ -272,12 +334,10 @@ socket.on('match_end', (data) => {
   /*
   {
     match_id: 'uuid',
-    winner_id: 'uuid',
-    loser_id: 'uuid',
+    result: 'win' | 'loss' | 'draw',  // From YOUR perspective
     rounds_fought: 7,
     duration_seconds: 180,
     
-    // Results for winner
     winner: {
       bot_id: 'uuid',
       name: 'ThunderBot',
@@ -287,7 +347,6 @@ socket.on('match_end', (data) => {
       credits_won: 90
     },
     
-    // Results for loser
     loser: {
       bot_id: 'uuid',
       name: 'SpeedyBot',
@@ -297,21 +356,27 @@ socket.on('match_end', (data) => {
       credits_lost: 50
     },
     
-    // Full replay data
-    events: [
-      { round: 1, bot1_action: 'attack', ... }
+    // Full replay (all rounds)
+    replay: [
+      {
+        round: 1,
+        bot1_action: 'attack',
+        bot1_target: 'core',
+        bot2_action: 'defend',
+        bot2_target: null,
+        bot1_damage_dealt: 15,
+        bot2_damage_dealt: 0,
+        bot1_hp: 100,
+        bot2_hp: 85,
+        bot1_response_ms: 3200,
+        bot2_response_ms: 2800
+      }
+      // ... all rounds
     ]
   }
   */
 })
 ```
-
-**What to do:**
-1. Show match result screen
-2. Display ELO changes
-3. Display credits won/lost
-4. Offer replay option
-5. Update local state (user credits, ELO)
 
 ---
 
@@ -326,16 +391,11 @@ socket.on('player_disconnected', (data) => {
     match_id: 'uuid',
     disconnected_bot_id: 'uuid',
     grace_period_seconds: 30,
-    action: 'waiting'  // 'forfeit' after grace period
+    status: 'waiting'  // → 'forfeit' after grace period
   }
   */
 })
 ```
-
-**What to do:**
-1. Show "Opponent disconnected" message
-2. Wait for grace period
-3. If opponent doesn't reconnect, you win by forfeit
 
 ---
 
@@ -352,7 +412,8 @@ socket.on('player_reconnected', (data) => {
     current_state: {
       round: 3,
       bot1_hp: 72,
-      bot2_hp: 85
+      bot2_hp: 85,
+      status: 'waiting_for_actions'
     }
   }
   */
@@ -369,34 +430,36 @@ socket.on('player_reconnected', (data) => {
 socket.on('error', (error) => {
   /*
   {
-    code: 'INVALID_SIGNATURE',
-    message: 'Combat action signature verification failed',
-    details: { ... }
+    code: 'ERROR_CODE',
+    message: 'Human-readable description',
+    details: { ... }  // Optional
   }
   */
 })
 ```
 
-**Common Error Codes:**
-- `INVALID_SIGNATURE` - Failed signature verification
-- `WRONG_ROUND` - Submitted action for wrong round
-- `TIMEOUT` - Didn't submit action in time
-- `ALREADY_IN_QUEUE` - Tried to join queue while already queued
-- `INSUFFICIENT_CREDITS` - Can't afford entry fee
-- `MATCH_NOT_FOUND` - Invalid match ID
+**Error Codes:**
+| Code | Description |
+|------|-------------|
+| `INVALID_SIGNATURE` | Action signature verification failed |
+| `WRONG_ROUND` | Action submitted for wrong round number |
+| `INVALID_ACTION` | Action not in allowed enum |
+| `TIMEOUT` | Didn't submit action in time (auto-defend applied) |
+| `ALREADY_IN_QUEUE` | Already queued or in active match |
+| `INSUFFICIENT_CREDITS` | Can't afford entry fee |
+| `ELO_TOO_LOW` | ELO below tier minimum |
+| `MATCH_NOT_FOUND` | Invalid match ID |
+| `DUPLICATE_NONCE` | Action nonce already used |
+| `STALE_TIMESTAMP` | Action timestamp too old (>60s) |
 
 ---
 
-## Spectator Events (Optional - Week 4)
+## Spectator Events (Week 4)
 
 ### Join as Spectator
 
-**Event:** `spectate_match`
-
 ```javascript
-socket.emit('spectate_match', {
-  match_id: 'uuid'
-})
+socket.emit('spectate_match', { match_id: 'uuid' })
 ```
 
 **Spectators receive:**
@@ -406,8 +469,7 @@ socket.emit('spectate_match', {
 - `match_end`
 
 **Spectators do NOT receive:**
-- `round_start` (sensitive info for players)
-- `combat_action` submissions
+- `round_start` (contains per-player state)
 
 ---
 
@@ -416,176 +478,159 @@ socket.emit('spectate_match', {
 ```
 1. Client connects with JWT token
 2. Client emits join_queue
-3. Server finds opponent
-4. Server emits match_found to both
-5. Both clients emit ready
-6. Server emits match_start
-7. For each round (1-10):
-   a. Server emits round_start to both
-   b. Clients calculate + sign combat_action
-   c. Clients emit combat_action
-   d. Server resolves round
-   e. Server emits round_complete
-8. Server emits match_end
-9. Clients disconnect or join new queue
+3. Server finds opponent → emits match_found to both
+4. Both clients emit ready
+5. Server emits match_start (reveals both bots' stats)
+6. For each round (1 to max_rounds):
+   a. Server emits round_start (current state + previous round)
+   b. Both clients decide action locally (private AI reasoning)
+   c. Both clients sign + emit combat_action (action choice only)
+   d. Server resolves round (calculates damage, applies effects)
+   e. Server emits round_complete (results to both + spectators)
+   f. If a bot's HP ≤ 0 → skip to match_end
+7. Server emits match_end (results, ELO changes, full replay)
+8. Clients disconnect or join new queue
 ```
 
 ---
 
-## Implementation Notes
+## Combat Resolution (Server-Side)
 
-### Server-Side (Task 008, 012, 013)
+The server is the **Trusted Referee**. It resolves all combat using bot stats stored in the database.
 
-```javascript
-// Socket.io server setup
-import { Server } from 'socket.io'
+### Action Priority
+1. **Speed stat** determines who resolves first (higher speed = first)
+2. Tie-breaker: random (seeded per match for determinism)
 
-const io = new Server(3001, {
-  cors: {
-    origin: 'http://localhost:3000',
-    credentials: true
-  }
-})
+### Actions
 
-// Authentication middleware
-io.use((socket, next) => {
-  const token = socket.handshake.auth.token
-  if (token) {
-    // Verify JWT
-    const user = verifyToken(token)
-    socket.data.user = user
-  }
-  next()
-})
+| Action | Effect |
+|--------|--------|
+| `attack` | Deal damage to target. Damage = `attacker.attack - defender.defense * target_modifier` |
+| `defend` | Reduce incoming damage by 50% this round. No damage dealt. |
+| `skill` | Use equipped skill. Effects vary (see Skills section). |
 
-// Event handlers
-io.on('connection', (socket) => {
-  console.log('Client connected:', socket.id)
-  
-  socket.on('join_queue', async (data) => {
-    // Handle matchmaking
-  })
-  
-  socket.on('combat_action', async (data) => {
-    // Verify signature, resolve round
-  })
-})
+### Target Modifiers
+
+| Target | Modifier | Effect |
+|--------|----------|--------|
+| `core` | 1.0x defense | Standard hit |
+| `armor` | 1.5x defense | Harder to hit, but reduces opponent's defense by 2 for next round if successful |
+| `processor` | 0.5x defense | Easier to hit, but 30% chance to stun (opponent auto-defends next round) |
+
+### Damage Formula
+
+```
+base_damage = attacker.attack
+effective_defense = defender.defense * target_modifier
+if (defender_action == 'defend') effective_defense *= 1.5
+
+damage = max(1, base_damage - effective_defense)
 ```
 
-### Client-Side (Plugin, Task 010, 011)
+**Notes:**
+- Minimum 1 damage on any successful attack (chip damage)
+- Defense action stacks with target modifier
+- Skills can modify these calculations
 
-```javascript
-// Plugin socket client
-import { io } from 'socket.io-client'
-
-const socket = io('ws://localhost:3001', {
-  auth: {
-    token: localStorage.getItem('token')
-  }
-})
-
-socket.on('match_found', async (match) => {
-  console.log('Match found:', match)
-  
-  // Spawn local combat session
-  const session = await sessions_spawn({
-    label: `arena_${match.match_id}`,
-    cleanup: 'delete'
-  })
-  
-  // Signal ready
-  socket.emit('ready', {
-    match_id: match.match_id,
-    bot_id: match.my_bot.id
-  })
-})
-
-socket.on('round_start', async (round) => {
-  // Execute combat turn locally
-  const action = await executeCombatTurn(round)
-  
-  // Sign and submit
-  const signature = await signEvent(action, privateKey)
-  socket.emit('combat_action', { event: action, signature })
-})
-```
+### Timeout Handling
+- If a bot doesn't submit within `time_limit_seconds`: auto-assign `defend`
+- `round_complete` includes `botX_timed_out: true`
+- 3 consecutive timeouts = forfeit
 
 ---
 
 ## Security
 
-### Signature Verification
+### Action Signing
 
 ```javascript
-// Server verifies every combat action
-async function verifyCombatAction(event, signature, publicKey) {
-  const message = JSON.stringify(event)
-  const valid = await ed25519.verify(
+// Client: sign action before sending
+async function signAction(action, privateKey) {
+  const message = JSON.stringify(action)
+  return ed25519.sign(
+    Buffer.from(message),
+    Buffer.from(privateKey, 'hex')
+  ).toString('hex')
+}
+
+// Server: verify action signature
+async function verifyAction(action, signature, publicKey) {
+  const message = JSON.stringify(action)
+  return ed25519.verify(
     Buffer.from(signature, 'hex'),
     Buffer.from(message),
     Buffer.from(publicKey, 'hex')
   )
-  
-  if (!valid) {
-    throw new Error('Invalid signature')
-  }
 }
 ```
 
-### Timestamp Checks
-
-```javascript
-// Prevent replay attacks
-if (Date.now() - event.timestamp > 60000) {
-  throw new Error('Event too old (>60s)')
-}
-```
-
-### Nonce Tracking
-
-```javascript
-// Prevent duplicate submissions
-const nonce = crypto.randomBytes(16).toString('hex')
-event.nonce = nonce
-
-// Server checks
-if (seenNonces.has(event.nonce)) {
-  throw new Error('Duplicate action')
-}
-seenNonces.add(event.nonce)
-```
+### Replay Prevention
+- **Nonce:** Each action includes a unique nonce. Server rejects duplicates.
+- **Timestamp:** Actions must be within 60s of server time. Prevents old actions being replayed.
+- **Round check:** Server only accepts actions for the current round.
 
 ---
 
-## Testing
+## Plugin Implementation Notes
 
-### Mock WebSocket Server (for Plugin Development)
+### Privacy Boundary
+
+The plugin is the **trust boundary** between the Arena server and the user's bot. See `docs/ARCHITECTURE.md` ADR-003.
 
 ```javascript
-// test/mock-server.js
+// ✅ CORRECT: Pass only structured data to bot
+const prompt = buildCombatPrompt({
+  round: data.round,
+  my_hp: data.bot1.hp,
+  opponent_hp: data.bot2.hp,
+  my_stats: { attack: 15, defense: 10, speed: 12 },
+  opponent_stats: { attack: 18, defense: 8, speed: 14 },
+  previous_action: data.previous_round?.bot2_action,
+  available_actions: ['attack', 'defend', 'skill'],
+  available_targets: ['core', 'armor', 'processor']
+})
+
+// ❌ WRONG: Never pass raw server data into bot prompt
+const prompt = `Server says: ${JSON.stringify(data)}`  // NEVER DO THIS
+```
+
+### Mock Server (for Plugin Development)
+
+```javascript
 import { Server } from 'socket.io'
 
 const io = new Server(3001)
 
 io.on('connection', (socket) => {
-  // Mock match found after 2 seconds
   setTimeout(() => {
     socket.emit('match_found', {
       match_id: 'test-123',
       opponent: { name: 'TestBot', elo: 1200 },
       match_type: 'ranked_bronze',
-      start_in_seconds: 10
+      entry_fee: 50,
+      start_in_seconds: 5,
+      my_bot: { id: 'bot-1', name: 'MyBot', hp: 100, attack: 15, defense: 10, speed: 12 }
     })
   }, 2000)
-  
+
   socket.on('ready', () => {
-    socket.emit('match_start', { /* mock data */ })
+    socket.emit('match_start', {
+      match_id: 'test-123',
+      max_rounds: 10,
+      time_limit_seconds: 30,
+      bot1: { id: 'bot-1', name: 'MyBot', hp: 100, attack: 15, defense: 10, speed: 12 },
+      bot2: { id: 'bot-2', name: 'TestBot', hp: 100, attack: 12, defense: 12, speed: 10 },
+      first_mover: 'bot1'
+    })
   })
 })
 ```
 
 ---
 
-**To be implemented in Task 008 (Backend), Task 010-011 (Plugin)**
+**Changelog:**
+- **v0.2.0** — Aligned with Trusted Referee model (ADR-002). Removed client-side damage calculation. Added server-side combat resolution spec. Added target modifiers, damage formula, timeout rules. Updated plugin privacy notes.
+- **v0.1.0** — Initial draft.
 
 *This is a living document. Update as events are implemented.*

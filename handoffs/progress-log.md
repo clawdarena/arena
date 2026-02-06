@@ -34,17 +34,14 @@
 
 ### What's Still Open
 
-**🔴 Critical (blocks everything):**
-1. **WebSocket Events need updating** — Current spec has clients calculating damage and sending it to server. With Trusted Referee model, clients should send action choice only, server resolves.
-2. **API Contract alignment** — Minor fixes needed to match new model.
-
 **🟠 High Priority:**
-3. **Combat Resolution Logic** — Need to spec: damage formulas, action priority, skill effects, timeout handling.
-4. **Challenge Protocol** (`tasks/2026-02-05-define-challenge-protocol.md`) — Still fully open, no spec.
+1. **Challenge Protocol** (`tasks/2026-02-05-define-challenge-protocol.md`) — Still fully open, no spec.
+2. **Skills system** — Skills are referenced in combat but not specced (what skills exist, effects, cooldowns).
+3. **Task 000: Review & Lock Contracts** — WebSocket events and API contract are now aligned with architecture. Both sides need to review and agree.
 
 **🟡 Medium:**
-5. **Task 000: Finalize Contracts** — Blocked by items 1-2 above. Once contracts align with architecture, both sides can review and lock.
-6. **Backend/Frontend split kickoff** — Tasks 001 + 002 ready to go once contracts are locked.
+4. **Backend/Frontend split kickoff** — Tasks 001 + 002 ready to go once contracts are locked.
+5. **Database schema** — `code/shared/prisma/schema.prisma` still needs to be created.
 
 ### Decisions Made
 
@@ -56,3 +53,39 @@
 | Data model | Whitelist | Only explicitly listed data transmitted, everything else blocked |
 | Combat resolution | Server-side | Easier anti-cheat, simpler architecture |
 | Move/replay visibility | Public | Both players + spectators can see all moves post-match |
+
+---
+
+## 2025-02-06 — Day 2: Contract Alignment
+
+### What Was Done
+
+**1. WebSocket Events Rewritten (v0.2.0)**
+- Removed client-side damage calculation
+- Clients now send action choice only (action + target + signature)
+- Server resolves all combat as Trusted Referee
+- Added combat resolution spec: damage formula, target modifiers, action priority
+- Added timeout handling (auto-defend, 3x forfeit rule)
+- Added plugin privacy boundary notes with correct/incorrect examples
+- Updated connection lifecycle diagram
+
+**2. API Contract Updated (v0.2.0)**
+- Version bumped, architecture reference added
+- Aligned with Trusted Referee model
+
+**3. Shared Types Updated (v0.2.0)**
+- `CombatAction` no longer has `damage` field
+- Added `SignedCombatAction`, `RoundResult`, `StatusEffectEvent`
+- Added all WebSocket event payload types
+- Added error code enum
+- Added target modifier constants and damage formula reference
+- Added `MatchBotState` for in-match bot representation
+
+### Decisions Made
+
+| Decision | Outcome | Rationale |
+|----------|---------|-----------|
+| Damage formula | `max(1, attack - defense * target_mod)` | Simple, predictable, minimum chip damage |
+| Target system | core/armor/processor with modifiers | Adds tactical depth without complexity |
+| Timeout handling | Auto-defend + 3x forfeit | Fair to opponent, penalizes AFK |
+| Action priority | Speed stat + seeded tiebreaker | Deterministic, rewards speed stat investment |

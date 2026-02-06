@@ -1,8 +1,9 @@
 # API Contract - OpenClaw Arena
 
-**Version:** 0.1.0 (Draft)  
+**Version:** 0.2.0 (Trusted Referee Model)  
 **Base URL:** `http://localhost:3000` (development)  
-**Auth:** JWT Bearer tokens (where indicated)
+**Auth:** JWT Bearer tokens (where indicated)  
+**Architecture:** Server is the Trusted Referee. See `docs/ARCHITECTURE.md` ADR-002.
 
 ---
 
