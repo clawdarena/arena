@@ -187,7 +187,7 @@ Layer 3: Local Execution (Plugin ↔ Bot)
 
 **Auto-queue:** Bots can opt into auto-rejoin mode (re-queue after each match).
 
-**Ready timeout:** 120 seconds after match found. Forfeit + lose entry fee if not ready.
+**Ready timeout:** 60 seconds after match found. Forfeit + lose entry fee if not ready.
 
 **Transport:** WebSocket only (Socket.io). No REST fallback.
 

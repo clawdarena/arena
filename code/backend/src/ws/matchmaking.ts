@@ -446,7 +446,7 @@ async function createMatch(io: Server, entry1: QueueEntry, entry2: QueueEntry, m
     match_id: match.id,
     match_type: matchType,
     entry_fee: tier.entryFee,
-    start_in_seconds: 120,
+    start_in_seconds: 60,
   }
 
   io.to(entry1.socketId).emit('match_found', {

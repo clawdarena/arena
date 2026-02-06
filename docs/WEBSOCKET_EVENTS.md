@@ -138,7 +138,7 @@ socket.on('match_found', (data) => {
     match_id: 'uuid',
     match_type: 'ranked_bronze',
     entry_fee: 50,
-    start_in_seconds: 120,       // Time to ready up (also betting window)
+    start_in_seconds: 60,        // Time to ready up
     
     my_bot: {
       id: 'uuid',
@@ -177,7 +177,7 @@ socket.on('betting_open', (data) => {
     match_id: 'uuid',
     bot1: { name: 'BotA', elo: 1200 },
     bot2: { name: 'BotB', elo: 1190 },
-    duration_seconds: 120
+    duration_seconds: 60
   }
   */
 })
