@@ -2,16 +2,63 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { useQueueStore, useMatchStore } from '@/lib/store'
+import { useQueueStore, useMatchStore, useAuthStore } from '@/lib/store'
 import { getEntryFee, formatDuration } from '@/lib/utils'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Navbar } from '@/components/Navbar'
+import { connectSocket, disconnectSocket } from '@/lib/socket'
 
 function QueueContent() {
   const router = useRouter()
   const { isQueuing, matchType, queueStartTime, stopQueuing } = useQueueStore()
-  const { phase } = useMatchStore()
+  const { phase, setMatchData, setPhase } = useMatchStore()
+  const { bots } = useAuthStore()
   const [elapsed, setElapsed] = useState(0)
+
+  // Connect WebSocket and join queue
+  useEffect(() => {
+    if (!isQueuing || !matchType) return
+
+    const socket = connectSocket()
+    const botId = bots[0]?.id
+
+    if (botId) {
+      socket.emit('join_queue', { bot_id: botId, match_type: matchType })
+    }
+
+    socket.on('match_found', (data: any) => {
+      setMatchData(data)
+      setPhase('found')
+      // Auto-ready (accept match)
+      socket.emit('ready', { match_id: data.match_id, bot_id: botId })
+    })
+
+    socket.on('match_cancelled', (data: any) => {
+      alert(data.reason || 'Match cancelled')
+      stopQueuing()
+      router.push('/dashboard')
+    })
+
+    socket.on('match_start', () => {
+      setPhase('fighting')
+    })
+
+    socket.on('error', (err: any) => {
+      console.error('Queue error:', err)
+      if (err.code === 'ALREADY_IN_QUEUE' || err.code === 'INSUFFICIENT_CREDITS') {
+        alert(err.message)
+        stopQueuing()
+        router.push('/dashboard')
+      }
+    })
+
+    return () => {
+      socket.off('match_found')
+      socket.off('match_cancelled')
+      socket.off('match_start')
+      socket.off('error')
+    }
+  }, [isQueuing, matchType, bots, setMatchData, setPhase, stopQueuing, router])
 
   // Elapsed timer
   useEffect(() => {
@@ -26,7 +73,7 @@ function QueueContent() {
 
   // Redirect to match when found
   useEffect(() => {
-    if (phase === 'found' || phase === 'fighting') {
+    if (phase === 'fighting') {
       stopQueuing()
       router.push('/match')
     }
@@ -40,6 +87,9 @@ function QueueContent() {
   }, [isQueuing, phase, router])
 
   function handleCancel() {
+    const socket = connectSocket()
+    const botId = bots[0]?.id
+    if (botId) socket.emit('leave_queue', { bot_id: botId })
     stopQueuing()
     router.push('/dashboard')
   }
