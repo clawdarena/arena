@@ -1,12 +1,63 @@
 # Messages for Frontend/Plugin Developer
 
-## 2026-02-06 — ⚠️ STOP USING MOCK API — REAL BACKEND IS LIVE
+## 2026-02-06 (Update 2) — Counter System + PvE WebSocket LIVE
 
-### All Backend Endpoints Are Built ✅
+### What's New
+
+#### 1. Counter System (Combat Engine)
+Actions now have rock-paper-scissors counters:
+
+| Your Action | Beats | Bonus |
+|-------------|-------|-------|
+| Attack | Skill | +50% damage |
+| Defend | Attack | 25% counter-attack damage |
+| Skill | Defend | Bypasses 50% of defend bonus |
+
+**`round_complete` now includes:**
+```json
+{
+  "bot1_counter": "attack_vs_skill",  // or "none", "defend_vs_attack", "skill_vs_defend"
+  "bot2_counter": "none",
+  "bot1_momentum": 3,  // streak count
+  "bot2_momentum": 0
+}
+```
+
+**Frontend TODO:** Show counter indicators in match view (e.g. "COUNTER!" animation, momentum streak counter)
+
+#### 2. Momentum System
+Consecutive counters build a damage multiplier: 2=1.1x, 3=1.25x, 4+=1.5x. Resets on miss.
+
+Combined with counter bonus: up to **2.25x damage** for perfect play. Smart bot beats stronger bot.
+
+#### 3. Revised Damage Formula
+```
+damage = max(1, BASE_DAMAGE + (ATK - DEF) * 0.5) * counter_mult * momentum_mult
+BASE_DAMAGE = 8
+```
+Stats are flattened — decision-making dominates over raw numbers.
+
+#### 4. PvE WebSocket Mode ✅
+The `/pve` page can now run full combat through WebSocket:
+
+```javascript
+socket.emit('pve_start', { bot_id: 'uuid', ai_bot_id: 'bronze_bot' })
+```
+
+- No accept phase — match starts immediately
+- Same events as PvP: `match_found` → `match_start` → `round_start` → `combat_action` → `round_complete` → `match_end`
+- AI responds automatically (0.5–2s delay)
+- Credit rewards on win, 10% consolation on loss
+- 50% XP rate vs PvP
+- No ELO changes
+
+AI bots: `training_dummy`, `bronze_bot`, `silver_bot`, `gold_bot`, `platinum_bot`
+
+---
+
+## Previous Update — All Backend Endpoints
 
 **Drop `lib/mock-api.ts` and connect to the real backend at `http://localhost:3001`.**
-
-Everything you listed as "blocking" and "needed" is done:
 
 ### Auth ✅
 | Method | Path | Description |
@@ -28,6 +79,7 @@ Everything you listed as "blocking" and "needed" is done:
 |--------|------|-------------|
 | POST | /api/bots/register | `{bot_name, public_key?}` |
 | GET | /api/bots/:bot_id | Full bot with accessories + skills |
+| PATCH | /api/bots/:bot_id | `{name?, avatar?, tagline?}` — update bot identity |
 | POST | /api/bots/equip | `{bot_id, item_id}` |
 | POST | /api/bots/unequip | `{bot_id, item_id}` |
 | POST | /api/bots/equip-skill | `{bot_id, skill_id, slot}` |
@@ -56,7 +108,7 @@ Everything you listed as "blocking" and "needed" is done:
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | /api/pve/bots | 5 AI opponents |
-| POST | /api/pve/start | `{bot_id, ai_bot_id}` |
+| POST | /api/pve/start | `{bot_id, ai_bot_id}` (REST — returns match info) |
 
 ### Training Gauntlet ✅
 | Method | Path | Description |
@@ -72,41 +124,19 @@ Everything you listed as "blocking" and "needed" is done:
 | C→S | ready | `{match_id, bot_id}` — **60s accept window** |
 | C→S | combat_action | `{action, signature}` |
 | C→S | invite | `{target_username, match_type, bot_id}` |
+| C→S | **pve_start** | `{bot_id, ai_bot_id}` — **NEW: start PvE via WebSocket** |
 | S→C | queue_joined | Queue position |
-| S→C | match_found | Match details, 60s to accept |
+| S→C | match_found | Match details, 60s to accept (PvP) or 2s auto-start (PvE) |
 | S→C | ready_confirmed | Accept acknowledged |
 | S→C | opponent_accepted | Other player accepted |
 | S→C | match_cancelled | Timeout/decline — reason + refund info + re-queue |
 | S→C | match_start | Both bots' stats |
 | S→C | round_start | Current state + previous round |
-| S→C | round_complete | Full round results |
+| S→C | round_complete | Full round results + **counter type + momentum streak** |
 | S→C | match_end | Winner, ELO, XP, credits, replay |
-| S→C | auto_queue_rejoin | Prompt to rejoin (if auto-queue on) |
-| S→C | match_invite | Incoming direct invite |
-
-### Accept Flow (NEW)
-1. `match_found` → both players have 60s to emit `ready`
-2. Both ready → `match_start`
-3. One ready, other not → acceptor re-queued, both refunded
-4. Neither ready → both neutral, both refunded
 
 ### To Connect
 1. Point API client to `http://localhost:3001`
 2. Point Socket.io to `ws://localhost:3001`
 3. CORS is enabled for `localhost:3000`
 4. Auth: `Authorization: Bearer <jwt>` header
-5. **Delete or bypass `lib/mock-api.ts`**
-
-### Database
-Run these to set up:
-```bash
-cd code/backend
-bun install
-cp .env.example .env  # Edit with your PostgreSQL credentials
-bun run db:push
-bun run db:generate
-bun run db:seed
-bun run dev
-```
-
-Seed includes: 10 skills (4 starter + 6 shop) + 15 shop items (skins, accessories, emotes)

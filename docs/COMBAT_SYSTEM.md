@@ -90,36 +90,80 @@ When attacking, the bot chooses a target zone. Each zone has different risk/rewa
 
 ---
 
+## Counter System (Rock-Paper-Scissors)
+
+Actions have natural counters that reward smart reads:
+
+| Your Action | Beats | Bonus |
+|-------------|-------|-------|
+| **Attack** | Skill | +50% damage (caught them casting) |
+| **Defend** | Attack | Counter-attack: deal 25% of blocked damage back |
+| **Skill** | Defend | Skills bypass 50% of defend bonus |
+
+**Why this matters:** A bot that reads opponent patterns and counters correctly gains massive advantage regardless of raw stats. This is the primary skill differentiator.
+
+---
+
+## Momentum System
+
+Consecutive successful counters build a streak multiplier:
+
+| Streak | Multiplier | Effect |
+|--------|-----------|--------|
+| 0–1 | 1.0x | No bonus |
+| 2 | 1.1x | Building momentum |
+| 3 | 1.25x | Strong momentum |
+| 4+ | 1.5x (cap) | Maximum momentum |
+
+Missing a counter resets the streak to 0. Momentum applies to all damage dealt that round.
+
+**Combined with counters:** A bot with a 4-streak counter deals `1.5 (counter) × 1.5 (momentum) = 2.25x` damage. This means smart play can more than double your damage output.
+
+---
+
 ## Damage Formula
 
 ```
-base_damage = attacker.attack
-target_mod = TARGET_MODIFIERS[target].defense_mult
+BASE_DAMAGE = 8  (everyone deals meaningful damage)
+
 effective_defense = defender.defense * target_mod
 
 if defender_action == 'defend':
-    effective_defense *= 1.5
+    if counter_type == 'skill_vs_defend':
+        effective_defense *= 1.25  (skill bypasses half of defend bonus)
+    else:
+        effective_defense *= 1.5
 
 if defender has 'armor_broken' status:
     effective_defense -= 2
 
-damage = max(1, base_damage - effective_defense)
+choice_multiplier = 1.0  (default)
+if counter_type == 'attack_vs_skill':
+    choice_multiplier = 1.5
+
+momentum_multiplier = getMomentumMultiplier(streak)
+
+damage = max(1, round(BASE_DAMAGE + (attack - effective_defense) * 0.5) * choice_multiplier * momentum_multiplier)
 ```
 
-**Example:**
+**Example — Equal stats, no counter:**
 - Attacker: 15 attack, targets `core`
-- Defender: 10 defense, action = `attack` (not defending)
-- Damage = max(1, 15 - 10 * 1.0) = **5 damage**
+- Defender: 10 defense, action = `attack`
+- Damage = max(1, round(8 + (15 - 10) * 0.5)) = **11 damage**
 
-**Example with defend:**
-- Same stats, but defender chose `defend`
-- Damage = max(1, 15 - 10 * 1.0 * 1.5) = max(1, 15 - 15) = **1 damage** (chip)
+**Example — Counter (attack vs skill):**
+- Same stats, but attacker caught defender casting a skill
+- Damage = max(1, round(11 * 1.5)) = **17 damage** (+54%)
 
-**Example targeting processor:**
-- Attacker: 15 attack, targets `processor`
-- Defender: 10 defense
-- Damage = max(1, 15 - 10 * 0.5) = max(1, 15 - 5) = **10 damage**
-- Plus 30% stun chance
+**Example — Counter with momentum streak of 3:**
+- Damage = max(1, round(11 * 1.5 * 1.25)) = **21 damage** (+91%)
+
+**Example — Stat disadvantage but perfect play:**
+- Fresh bot (15 ATK) vs maxed bot (13 DEF), counter + 4 streak
+- Fresh: 8 + (15-13)*0.5 = 9 → 9 * 1.5 * 1.5 = **20 damage**
+- Maxed bot (18 ATK) vs fresh (10 DEF), no counter, no momentum
+- Maxed: 8 + (18-10)*0.5 = **12 damage**
+- **Smart bot wins despite worse stats.**
 
 ---
 

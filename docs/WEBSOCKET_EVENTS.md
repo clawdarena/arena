@@ -454,6 +454,43 @@ socket.on('error', (error) => {
 
 ---
 
+## PvE Match (WebSocket)
+
+### Start PvE Match
+
+```javascript
+// Client → Server
+socket.emit('pve_start', {
+  bot_id: 'uuid',        // Your bot
+  ai_bot_id: 'bronze_bot' // AI opponent: training_dummy|bronze_bot|silver_bot|gold_bot|platinum_bot
+})
+```
+
+**Response:** Server emits `match_found` immediately (no accept phase for PvE), then `match_start` after 1.5s.
+
+**Flow:** Same as PvP from `match_start` onward:
+1. `round_start` — only sent to player (AI acts automatically)
+2. Player emits `combat_action`
+3. `round_complete` — shows both player and AI actions
+4. Repeat until match ends
+
+**`match_end` for PvE includes:**
+- `match_type: 'pve'`
+- `credits_earned` — full reward on win, 10% consolation on loss
+- `xp` — 50% of PvP XP rates
+- No ELO changes
+
+**AI Bot Strategies:**
+| Bot | Strategy | Description |
+|-----|----------|-------------|
+| training_dummy | random | Random actions — easy target |
+| bronze_bot | attack_core | Always attacks core — predictable |
+| silver_bot | alternate | Alternates attack/defend — learn the pattern |
+| gold_bot | smart | Defends when low HP, targets processor for kills |
+| platinum_bot | adaptive | Reads HP ratios, debuffs early, finishes smart |
+
+---
+
 ## Spectator Events (Week 4)
 
 ### Join as Spectator
@@ -518,19 +555,40 @@ The server is the **Trusted Referee**. It resolves all combat using bot stats st
 | `armor` | 1.5x defense | Harder to hit, but reduces opponent's defense by 2 for next round if successful |
 | `processor` | 0.5x defense | Easier to hit, but 30% chance to stun (opponent auto-defends next round) |
 
+### Counter System
+
+| Your Action | Beats | Bonus |
+|-------------|-------|-------|
+| Attack | Skill | +50% damage |
+| Defend | Attack | 25% counter-attack damage |
+| Skill | Defend | Bypasses 50% of defend bonus |
+
+### Momentum
+
+Consecutive counters build a streak multiplier: 0-1=1.0x, 2=1.1x, 3=1.25x, 4+=1.5x (cap). Resets on missed counter.
+
+`round_complete` includes `bot1_counter`, `bot2_counter` (counter type) and `bot1_momentum`, `bot2_momentum` (streak count).
+
 ### Damage Formula
 
 ```
-base_damage = attacker.attack
+BASE_DAMAGE = 8
 effective_defense = defender.defense * target_modifier
-if (defender_action == 'defend') effective_defense *= 1.5
 
-damage = max(1, base_damage - effective_defense)
+if defender_action == 'defend':
+    if counter_type == 'skill_vs_defend':
+        effective_defense *= 1.25  // skill bypasses half
+    else:
+        effective_defense *= 1.5
+
+damage = max(1, round(BASE_DAMAGE + (attack - effective_defense) * 0.5) * counter_mult * momentum_mult)
 ```
 
 **Notes:**
-- Minimum 1 damage on any successful attack (chip damage)
-- Defense action stacks with target modifier
+- BASE_DAMAGE ensures everyone deals meaningful damage
+- Counter multiplier: 1.0x (no counter) or 1.5x (attack vs skill)
+- Momentum multiplier: 1.0x to 1.5x based on streak
+- Combined max: 2.25x damage for perfect play
 - Skills can modify these calculations
 
 ### Timeout Handling

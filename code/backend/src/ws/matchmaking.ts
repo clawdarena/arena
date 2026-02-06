@@ -5,6 +5,7 @@ import { verifySignature } from '../utils/crypto'
 import { calculateElo, getTierEconomics } from '../utils/elo'
 import { recordTransaction } from '../utils/credits'
 import { resolveRound, calculateXp, getLevelFromXp, type BotCombatState, type CombatAction, type RoundResult } from '../utils/combat'
+import { getPveAction } from '../routes/pve'
 
 // ============================================================
 // Types
@@ -279,6 +280,118 @@ export function setupMatchmaking(io: Server) {
     })
 
     // ============================================================
+    // PvE Match (WebSocket)
+    // ============================================================
+
+    socket.on('pve_start', async (data: { bot_id: string; ai_bot_id: string }) => {
+      const PVE_BOTS: Record<string, { name: string; hp: number; attack: number; defense: number; speed: number; strategy: string; reward: number }> = {
+        training_dummy: { name: 'Training Dummy', hp: 50, attack: 5, defense: 5, speed: 5, strategy: 'random', reward: 10 },
+        bronze_bot:     { name: 'Bronze Bot',     hp: 80, attack: 10, defense: 8, speed: 8, strategy: 'attack_core', reward: 25 },
+        silver_bot:     { name: 'Silver Bot',      hp: 100, attack: 15, defense: 12, speed: 10, strategy: 'alternate', reward: 50 },
+        gold_bot:       { name: 'Gold Bot',        hp: 120, attack: 20, defense: 15, speed: 15, strategy: 'smart', reward: 100 },
+        platinum_bot:   { name: 'Platinum Bot',    hp: 150, attack: 25, defense: 20, speed: 20, strategy: 'adaptive', reward: 200 },
+      }
+
+      const aiBot = PVE_BOTS[data.ai_bot_id]
+      if (!aiBot) return emitError(socket, 'INVALID_AI_BOT', 'AI bot not found')
+
+      const userBot = await prisma.bot.findFirst({
+        where: { id: data.bot_id, user_id: user.userId },
+        include: {
+          accessories: { include: { item: true } },
+          equipped_skills: { include: { skill: true } },
+        },
+      })
+      if (!userBot) return emitError(socket, 'BOT_NOT_FOUND', 'Bot not found')
+
+      const calcStats = (bot: typeof userBot) => ({
+        hp: bot.base_hp + bot.accessories.reduce((s, a) => s + a.item.hp_bonus, 0),
+        attack: bot.base_attack + bot.accessories.reduce((s, a) => s + a.item.attack_bonus, 0),
+        defense: bot.base_defense + bot.accessories.reduce((s, a) => s + a.item.defense_bonus, 0),
+        speed: bot.base_speed + bot.accessories.reduce((s, a) => s + a.item.speed_bonus, 0),
+      })
+
+      const stats = calcStats(userBot)
+      const matchId = `pve_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`
+
+      const match: ActiveMatch = {
+        id: matchId,
+        matchType: 'pve',
+        matchSeed: Date.now(),
+        maxRounds: 10,
+        currentRound: 0,
+        timeLimit: 30,
+        bot1: {
+          socketId: socket.id,
+          userId: user.userId,
+          botId: userBot.id,
+          state: {
+            id: userBot.id,
+            name: userBot.name,
+            hp: stats.hp,
+            maxHp: stats.hp,
+            attack: stats.attack,
+            defense: stats.defense,
+            speed: stats.speed,
+            statusEffects: [],
+            skillCooldowns: new Map(),
+            equippedSkills: userBot.equipped_skills.map((s) => ({
+              id: s.skill_id,
+              slot: s.slot,
+              cooldown: s.skill.cooldown,
+              effect_data: s.skill.effect_data as Record<string, any>,
+            })),
+            timedOutConsecutive: 0,
+            momentumStreak: 0,
+          },
+        },
+        bot2: {
+          socketId: '__pve__',
+          userId: '__pve__',
+          botId: data.ai_bot_id,
+          state: {
+            id: data.ai_bot_id,
+            name: aiBot.name,
+            hp: aiBot.hp,
+            maxHp: aiBot.hp,
+            attack: aiBot.attack,
+            defense: aiBot.defense,
+            speed: aiBot.speed,
+            statusEffects: [],
+            skillCooldowns: new Map(),
+            equippedSkills: [],
+            timedOutConsecutive: 0,
+            momentumStreak: 0,
+          },
+        },
+        pendingActions: {},
+        roundStartTime: 0,
+        rounds: [],
+        startedAt: Date.now(),
+      }
+
+      // Store AI strategy for action generation
+      ;(match as any).pveStrategy = aiBot.strategy
+      ;(match as any).pveReward = aiBot.reward
+      ;(match as any).isPve = true
+
+      activeMatches.set(matchId, match)
+
+      // Emit match_found + auto-start (no accept phase for PvE)
+      socket.emit('match_found', {
+        match_id: matchId,
+        match_type: 'pve',
+        entry_fee: 0,
+        start_in_seconds: 2,
+        my_bot: { id: userBot.id, name: userBot.name, ...stats },
+        opponent: { name: aiBot.name, elo: 0, is_ai: true },
+      })
+
+      // Start immediately
+      setTimeout(() => startMatch(io, match), 1500)
+    })
+
+    // ============================================================
     // Disconnect
     // ============================================================
 
@@ -427,6 +540,7 @@ async function createMatch(io: Server, entry1: QueueEntry, entry2: QueueEntry, m
           effect_data: s.skill.effect_data as Record<string, any>,
         })),
         timedOutConsecutive: 0,
+        momentumStreak: 0,
       },
     },
     bot2: {
@@ -450,6 +564,7 @@ async function createMatch(io: Server, entry1: QueueEntry, entry2: QueueEntry, m
           effect_data: s.skill.effect_data as Record<string, any>,
         })),
         timedOutConsecutive: 0,
+        momentumStreak: 0,
       },
     },
     pendingActions: {},
@@ -553,7 +668,30 @@ function startRound(io: Server, match: ActiveMatch) {
   }
 
   io.to(match.bot1.socketId).emit('round_start', payload)
-  io.to(match.bot2.socketId).emit('round_start', payload)
+  if (!(match as any).isPve) {
+    io.to(match.bot2.socketId).emit('round_start', payload)
+  }
+
+  // PvE: auto-submit AI action after short delay
+  if ((match as any).isPve) {
+    const strategy = (match as any).pveStrategy || 'random'
+    const aiAction = getPveAction(strategy, match.currentRound, s2.hp, s1.hp)
+    const delay = 500 + Math.random() * 1500  // 0.5-2s "thinking"
+    setTimeout(() => {
+      if (!match.pendingActions.bot2) {
+        match.pendingActions.bot2 = {
+          action: { action: aiAction.action, target: aiAction.target } as CombatAction,
+          responseMs: delay,
+          timedOut: false,
+        }
+        // If player already submitted, resolve
+        if (match.pendingActions.bot1) {
+          if (match.roundTimer) clearTimeout(match.roundTimer)
+          resolveAndAdvance(io, match)
+        }
+      }
+    }, delay)
+  }
 
   // Round timeout
   match.roundTimer = setTimeout(() => {
@@ -594,10 +732,12 @@ function resolveAndAdvance(io: Server, match: ActiveMatch) {
   match.bot1.state.timedOutConsecutive = a1.timedOut ? match.bot1.state.timedOutConsecutive + 1 : 0
   match.bot2.state.timedOutConsecutive = a2.timedOut ? match.bot2.state.timedOutConsecutive + 1 : 0
 
-  // Emit round_complete
+  // Emit round_complete (skip PvE bot's fake socket)
   const payload = { match_id: match.id, ...result }
   io.to(match.bot1.socketId).emit('round_complete', payload)
-  io.to(match.bot2.socketId).emit('round_complete', payload)
+  if (match.bot2.socketId !== '__pve__') {
+    io.to(match.bot2.socketId).emit('round_complete', payload)
+  }
 
   // Check forfeit by timeout
   if (match.bot1.state.timedOutConsecutive >= 3) return endMatch(io, match, 'bot2')
@@ -622,17 +762,52 @@ function resolveAndAdvance(io: Server, match: ActiveMatch) {
 async function endMatch(io: Server, match: ActiveMatch, winner: 'bot1' | 'bot2' | 'draw') {
   if (match.roundTimer) clearTimeout(match.roundTimer)
 
+  const isPve = !!(match as any).isPve
   const tier = getTierEconomics(match.matchType)
   const duration = Math.round((Date.now() - match.startedAt) / 1000)
 
-  // Calculate ELO
-  const eloResult = winner === 'draw'
-    ? calculateElo(match.bot1.state.hp, match.bot2.state.hp, 0.5) // use HP as proxy for draw ELO
-    : calculateElo(
-        winner === 'bot1' ? 1200 : 1200, // placeholder — use actual ELO
-        winner === 'bot1' ? 1200 : 1200,
-        winner === 'bot1' ? 1 : 0
-      )
+  // ── PvE End ──────────────────────────────────────
+  if (isPve) {
+    const pveReward = (match as any).pveReward || 0
+    const playerWon = winner === 'bot1'
+    const creditReward = playerWon ? pveReward : Math.round(pveReward * 0.1)
+
+    await recordTransaction(match.bot1.userId, creditReward, playerWon ? 'pve_win' : 'pve_loss', match.id)
+
+    const xp = calculateXp(
+      playerWon, winner === 'draw',
+      match.currentRound,
+      match.bot1.state.hp, match.bot1.state.maxHp, match.bot2.state.maxHp,
+      Math.min(...match.rounds.map((r) => r.bot1_hp))
+    )
+    xp.totalXp = Math.round(xp.totalXp * 0.5)  // 50% XP from PvE
+
+    const bot = await prisma.bot.findUnique({ where: { id: match.bot1.botId } })
+    if (bot) {
+      const newXp = bot.xp + xp.totalXp
+      const { level } = getLevelFromXp(newXp)
+      await prisma.bot.update({ where: { id: bot.id }, data: { xp: newXp, level } })
+    }
+
+    io.to(match.bot1.socketId).emit('match_end', {
+      match_id: match.id,
+      match_type: 'pve',
+      rounds_fought: match.currentRound,
+      duration_seconds: duration,
+      result: playerWon ? 'win' : (winner === 'draw' ? 'draw' : 'loss'),
+      winner: playerWon
+        ? { bot_id: match.bot1.botId, name: match.bot1.state.name, credits_won: creditReward }
+        : { bot_id: match.bot2.botId, name: match.bot2.state.name, is_ai: true },
+      credits_earned: creditReward,
+      xp,
+      replay: match.rounds,
+    })
+
+    activeMatches.delete(match.id)
+    return
+  }
+
+  // ── PvP End ──────────────────────────────────────
 
   // Get actual ELOs from DB
   const [user1, user2] = await Promise.all([

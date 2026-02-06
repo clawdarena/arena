@@ -143,6 +143,11 @@ export interface RoundResult {
   bot1_timed_out: boolean
   bot2_timed_out: boolean
   effects_applied: StatusEffectEvent[]
+  // Counter system
+  bot1_counter: 'none' | 'attack_vs_skill' | 'defend_vs_attack' | 'skill_vs_defend'
+  bot2_counter: 'none' | 'attack_vs_skill' | 'defend_vs_attack' | 'skill_vs_defend'
+  bot1_momentum: number
+  bot2_momentum: number
 }
 
 /** Status effects from skills */

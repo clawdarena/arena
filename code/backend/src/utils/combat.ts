@@ -19,6 +19,9 @@ export interface BotCombatState {
   skillCooldowns: Map<string, number>  // skill_id → rounds remaining
   equippedSkills: SkillData[]
   timedOutConsecutive: number
+  // Counter system
+  lastAction?: CombatAction
+  momentumStreak: number  // consecutive successful counters
 }
 
 export interface ActiveEffect {
@@ -55,6 +58,11 @@ export interface RoundResult {
   bot1_timed_out: boolean
   bot2_timed_out: boolean
   effects_applied: Array<{ bot: string; effect: string; duration: number }>
+  // Counter system
+  bot1_counter: string   // 'none', 'attack_vs_skill', 'defend_vs_attack', 'skill_vs_defend'
+  bot2_counter: string
+  bot1_momentum: number  // current streak
+  bot2_momentum: number
 }
 
 export interface MatchResult {
@@ -75,21 +83,75 @@ const TARGET_MODIFIERS: Record<string, { defenseMult: number }> = {
 }
 
 // ============================================================
+// Counter System (Rock-Paper-Scissors)
+// ============================================================
+
+/**
+ * Attack beats Skill (+50% damage — caught them casting)
+ * Defend beats Attack (counter-attack: deal 25% of blocked damage back)
+ * Skill beats Defend (skills bypass 50% of defend bonus)
+ */
+function detectCounter(myAction: CombatAction, opponentAction: CombatAction): { isCounter: boolean; type: string } {
+  if (myAction.action === 'attack' && opponentAction.action === 'skill') {
+    return { isCounter: true, type: 'attack_vs_skill' }
+  }
+  if (myAction.action === 'defend' && opponentAction.action === 'attack') {
+    return { isCounter: true, type: 'defend_vs_attack' }
+  }
+  if (myAction.action === 'skill' && opponentAction.action === 'defend') {
+    return { isCounter: true, type: 'skill_vs_defend' }
+  }
+  return { isCounter: false, type: 'none' }
+}
+
+/**
+ * Momentum multiplier from consecutive successful counters
+ * 0 counters = 1.0x
+ * 1 counter  = 1.0x (first one just starts the streak)
+ * 2 in a row = 1.1x
+ * 3 in a row = 1.25x
+ * 4+ in a row = 1.5x (cap)
+ */
+function getMomentumMultiplier(streak: number): number {
+  if (streak <= 1) return 1.0
+  if (streak === 2) return 1.1
+  if (streak === 3) return 1.25
+  return 1.5  // cap at 4+
+}
+
+// ============================================================
 // Damage Calculation
 // ============================================================
+
+/**
+ * Revised damage formula (skill-weighted):
+ *   damage = max(1, BASE_DAMAGE + (ATK - DEF) * 0.5) * choice_multiplier * momentum
+ * 
+ * BASE_DAMAGE ensures everyone deals meaningful damage regardless of stats.
+ * choice_multiplier rewards counters (up to 1.5x).
+ * momentum rewards consecutive good reads (up to 1.5x).
+ * Combined max: 1.5 * 1.5 = 2.25x for perfect play.
+ */
+const BASE_DAMAGE = 8
 
 function calculateDamage(
   attacker: BotCombatState,
   defender: BotCombatState,
   target: string,
-  defenderAction: string
+  defenderAction: string,
+  counterType: string = 'none',
+  momentumStreak: number = 0
 ): number {
   const targetMod = TARGET_MODIFIERS[target]?.defenseMult ?? 1.0
   let effectiveDefense = defender.defense * targetMod
 
-  // Defend action bonus
+  // Defend action bonus (reduced if countered by skill)
   if (defenderAction === 'defend') {
-    effectiveDefense *= 1.5
+    if (counterType === 'skill_vs_defend') {
+      effectiveDefense *= 1.25  // Skill bypasses half of defend bonus (1.5 → 1.25)
+    } else {
+      effectiveDefense *= 1.5
+    }
   }
 
   // Armor broken status
@@ -98,7 +160,18 @@ function calculateDamage(
     effectiveDefense = Math.max(0, effectiveDefense - 2)
   }
 
-  return Math.max(1, Math.round(attacker.attack - effectiveDefense))
+  // Base damage formula (stat-flattened)
+  let damage = Math.max(1, BASE_DAMAGE + (attacker.attack - effectiveDefense) * 0.5)
+
+  // Counter bonus: attack vs skill = +50% damage
+  if (counterType === 'attack_vs_skill') {
+    damage *= 1.5
+  }
+
+  // Momentum multiplier
+  damage *= getMomentumMultiplier(momentumStreak)
+
+  return Math.max(1, Math.round(damage))
 }
 
 // ============================================================
@@ -282,6 +355,22 @@ export function resolveRound(
   let bot1Damage = 0
   let bot2Damage = 0
 
+  // 4b. Detect counters
+  const counter1 = detectCounter(action1, action2)
+  const counter2 = detectCounter(action2, action1)
+
+  // Update momentum streaks
+  if (counter1.isCounter) {
+    bot1.momentumStreak = (bot1.momentumStreak || 0) + 1
+  } else {
+    bot1.momentumStreak = 0
+  }
+  if (counter2.isCounter) {
+    bot2.momentumStreak = (bot2.momentumStreak || 0) + 1
+  } else {
+    bot2.momentumStreak = 0
+  }
+
   // 5. Resolve skills first
   if (action1.action === 'skill' && action1.skill_id) {
     const result = resolveSkill(bot1, bot2, action1.skill_id)
@@ -299,7 +388,7 @@ export function resolveRound(
     // Check shield wall
     const shieldWall2 = action2.action === 'skill' && bot2.statusEffects.some((e) => e.type === 'shield_wall' || (e.data && e.data.block))
     if (!shieldWall2) {
-      bot1Damage += calculateDamage(bot1, bot2, action1.target, action2.action)
+      bot1Damage += calculateDamage(bot1, bot2, action1.target, action2.action, counter1.type, bot1.momentumStreak)
 
       // Processor stun chance
       if (action1.target === 'processor' && seededRandom(matchSeed + round + 100) < 0.3) {
@@ -315,10 +404,18 @@ export function resolveRound(
     }
   }
 
+  // Defend counter-attack: deal 25% of blocked damage back
+  if (counter1.type === 'defend_vs_attack' && action2.action === 'attack' && action2.target) {
+    const blockedDamage = calculateDamage(bot2, bot1, action2.target, 'defend', 'none', 0)
+    const counterDamage = Math.max(1, Math.round(blockedDamage * 0.25 * getMomentumMultiplier(bot1.momentumStreak)))
+    bot1Damage += counterDamage
+    effects.push({ bot: bot1.id, effect: 'counter_attack', duration: 0 })
+  }
+
   if (action2.action === 'attack' && action2.target) {
     const shieldWall1 = action1.action === 'skill' && bot1.statusEffects.some((e) => e.type === 'shield_wall' || (e.data && e.data.block))
     if (!shieldWall1) {
-      bot2Damage += calculateDamage(bot2, bot1, action2.target, action1.action)
+      bot2Damage += calculateDamage(bot2, bot1, action2.target, action1.action, counter2.type, bot2.momentumStreak)
 
       if (action2.target === 'processor' && seededRandom(matchSeed + round + 200) < 0.3) {
         bot1.statusEffects.push({ type: 'stunned', duration: 1, data: {} })
@@ -330,6 +427,14 @@ export function resolveRound(
         effects.push({ bot: bot1.id, effect: 'armor_broken', duration: 1 })
       }
     }
+  }
+
+  // Defend counter-attack for bot2
+  if (counter2.type === 'defend_vs_attack' && action1.action === 'attack' && action1.target) {
+    const blockedDamage = calculateDamage(bot1, bot2, action1.target, 'defend', 'none', 0)
+    const counterDamage = Math.max(1, Math.round(blockedDamage * 0.25 * getMomentumMultiplier(bot2.momentumStreak)))
+    bot2Damage += counterDamage
+    effects.push({ bot: bot2.id, effect: 'counter_attack', duration: 0 })
   }
 
   // 7. Mirror coat reflection
@@ -362,6 +467,10 @@ export function resolveRound(
     if (v > 0) bot2.skillCooldowns.set(k, v - 1)
   })
 
+  // Store last actions for next round reference
+  bot1.lastAction = action1
+  bot2.lastAction = action2
+
   return {
     round,
     bot1_action: action1.action,
@@ -377,6 +486,10 @@ export function resolveRound(
     bot1_timed_out: timed1,
     bot2_timed_out: timed2,
     effects_applied: effects,
+    bot1_counter: counter1.type,
+    bot2_counter: counter2.type,
+    bot1_momentum: bot1.momentumStreak,
+    bot2_momentum: bot2.momentumStreak,
   }
 }
 
