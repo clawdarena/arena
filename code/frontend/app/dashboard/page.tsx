@@ -1,18 +1,126 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuthStore, useQueueStore } from '@/lib/store'
-import { formatCredits, formatELO, getELORank, getEntryFee } from '@/lib/utils'
+import { formatCredits, formatELO, getELORank, getEntryFee, timeAgo } from '@/lib/utils'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Navbar } from '@/components/Navbar'
+import {
+  MOCK_USER,
+  MOCK_BOT,
+  MOCK_MATCH_HISTORY,
+  ALL_SKILLS,
+  loadMockData,
+  type MatchHistoryEntry,
+} from '@/lib/mock-api'
+import type { Skill, SkillId } from '../../../shared/types'
+import { Swords, Shield, Zap, Heart, TrendingUp, TrendingDown, Minus, ChevronRight, Trophy, Flame, Activity } from 'lucide-react'
+
+function StatBar({ label, value, max, color, icon }: {
+  label: string
+  value: number
+  max: number
+  color: string
+  icon: React.ReactNode
+}) {
+  const pct = Math.min(100, (value / max) * 100)
+  return (
+    <div className="flex items-center gap-3">
+      <div className="w-5 text-center">{icon}</div>
+      <span className="text-xs text-gray-400 w-8">{label}</span>
+      <div className="flex-1 h-2.5 bg-gray-800 rounded-full overflow-hidden">
+        <div
+          className={`h-full rounded-full transition-all duration-700 ease-out ${color}`}
+          style={{ width: `${pct}%` }}
+        />
+      </div>
+      <span className="text-xs font-mono text-gray-300 w-8 text-right">{value}</span>
+    </div>
+  )
+}
+
+function SkillBadge({ skillId }: { skillId: string }) {
+  const skill = ALL_SKILLS[skillId as SkillId]
+  if (!skill) return null
+
+  const rarityColors: Record<string, string> = {
+    common: 'border-gray-600 bg-gray-800/50 text-gray-300',
+    rare: 'border-blue-600/50 bg-blue-900/20 text-blue-400',
+    epic: 'border-purple-600/50 bg-purple-900/20 text-purple-400',
+    legendary: 'border-yellow-600/50 bg-yellow-900/20 text-yellow-400',
+  }
+
+  return (
+    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border ${rarityColors[skill.rarity] || rarityColors.common}`}>
+      <span className="text-sm">✨</span>
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium truncate">{skill.name}</div>
+        <div className="text-xs opacity-60">{skill.cooldown}r cooldown</div>
+      </div>
+    </div>
+  )
+}
+
+function MatchHistoryRow({ match }: { match: MatchHistoryEntry }) {
+  const isWin = match.winner_id === match.my_bot.id
+  const isDraw = match.winner_id === null
+  const eloChange = match.my_bot.elo_after - match.my_bot.elo_before
+
+  return (
+    <div className="flex items-center gap-3 py-2.5 px-3 rounded-lg hover:bg-gray-800/50 transition group">
+      {/* Result indicator */}
+      <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+        isDraw ? 'bg-gray-700/50 text-gray-400' :
+        isWin ? 'bg-green-900/30 text-green-400' : 'bg-red-900/30 text-red-400'
+      }`}>
+        {isDraw ? 'D' : isWin ? 'W' : 'L'}
+      </div>
+
+      {/* Opponent info */}
+      <div className="flex-1 min-w-0">
+        <div className="text-sm font-medium text-gray-200 truncate">
+          vs {match.opponent.name}
+        </div>
+        <div className="text-xs text-gray-500">
+          {match.rounds_fought} rounds · {timeAgo(match.created_at)}
+        </div>
+      </div>
+
+      {/* ELO change */}
+      <div className={`flex items-center gap-1 text-sm font-mono ${
+        eloChange > 0 ? 'text-green-400' : eloChange < 0 ? 'text-red-400' : 'text-gray-500'
+      }`}>
+        {eloChange > 0 ? <TrendingUp className="w-3.5 h-3.5" /> :
+         eloChange < 0 ? <TrendingDown className="w-3.5 h-3.5" /> :
+         <Minus className="w-3.5 h-3.5" />}
+        {eloChange > 0 ? '+' : ''}{eloChange}
+      </div>
+
+      {/* Credits */}
+      {match.credits_won > 0 && (
+        <span className="text-xs text-yellow-400 font-medium">+{match.credits_won} AC</span>
+      )}
+    </div>
+  )
+}
 
 function DashboardContent() {
   const router = useRouter()
-  const { user, bots } = useAuthStore()
+  const { user, bots, setUser, setBots, setToken } = useAuthStore()
   const { isQueuing, startQueuing, stopQueuing } = useQueueStore()
   const [selectedTier, setSelectedTier] = useState('ranked_bronze')
+
+  // Load mock data if no real user
+  useEffect(() => {
+    if (!user) {
+      const mock = loadMockData()
+      setUser(mock.user)
+      setBots(mock.bots)
+      setToken(mock.token)
+    }
+  }, [user, setUser, setBots, setToken])
 
   if (!user) return null
 
@@ -21,12 +129,15 @@ function DashboardContent() {
     ? ((user.wins / user.total_matches) * 100).toFixed(1)
     : '0.0'
 
+  const bot = bots[0] || MOCK_BOT
+  const recentMatches = MOCK_MATCH_HISTORY.slice(0, 5)
+
   const tiers = [
     { id: 'ranked_bronze', name: 'Bronze', fee: 50, minElo: 0 },
-    { id: 'ranked_silver', name: 'Silver', fee: 100, minElo: 0 },
-    { id: 'ranked_gold', name: 'Gold', fee: 250, minElo: 0 },
-    { id: 'ranked_platinum', name: 'Platinum', fee: 500, minElo: 0 },
-    { id: 'ranked_legend', name: 'Legend', fee: 1000, minElo: 1600 },
+    { id: 'ranked_silver', name: 'Silver', fee: 100, minElo: 1200 },
+    { id: 'ranked_gold', name: 'Gold', fee: 200, minElo: 1400 },
+    { id: 'ranked_platinum', name: 'Platinum', fee: 400, minElo: 1600 },
+    { id: 'ranked_legend', name: 'Legend', fee: 800, minElo: 1800 },
   ]
 
   function handleFindMatch() {
@@ -46,137 +157,223 @@ function DashboardContent() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto px-8 py-8">
-      {/* Welcome + Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-8 py-8">
+      {/* Top Row: Profile + Credits + Peak */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
         {/* Profile Card */}
         <div className="md:col-span-2 bg-gray-900 rounded-xl border border-gray-800 p-6">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="w-16 h-16 bg-purple-600 rounded-full flex items-center justify-center text-2xl">
+          <div className="flex items-center gap-4 mb-5">
+            <div className="w-16 h-16 bg-gradient-to-br from-purple-600 to-pink-600 rounded-full flex items-center justify-center text-2xl shadow-lg shadow-purple-500/20">
               🤖
             </div>
             <div>
               <h2 className="text-xl font-bold">{user.username}</h2>
-              <p className={`text-sm font-medium ${rank.color}`}>
-                {rank.name} — {formatELO(user.current_elo)} ELO
-              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <Trophy className={`w-4 h-4 ${rank.color}`} />
+                <span className={`text-sm font-semibold ${rank.color}`}>
+                  {rank.name}
+                </span>
+                <span className="text-sm text-gray-500">·</span>
+                <span className="text-sm text-gray-300 font-mono">{formatELO(user.current_elo)} ELO</span>
+              </div>
             </div>
           </div>
           <div className="grid grid-cols-3 gap-4 text-center">
-            <div>
+            <div className="bg-gray-800/50 rounded-lg py-3">
               <div className="text-2xl font-bold text-green-400">{user.wins}</div>
-              <div className="text-xs text-gray-500">Wins</div>
+              <div className="text-xs text-gray-500 mt-0.5">Wins</div>
             </div>
-            <div>
+            <div className="bg-gray-800/50 rounded-lg py-3">
               <div className="text-2xl font-bold text-red-400">{user.losses}</div>
-              <div className="text-xs text-gray-500">Losses</div>
+              <div className="text-xs text-gray-500 mt-0.5">Losses</div>
             </div>
-            <div>
+            <div className="bg-gray-800/50 rounded-lg py-3">
               <div className="text-2xl font-bold text-blue-400">{winRate}%</div>
-              <div className="text-xs text-gray-500">Win Rate</div>
+              <div className="text-xs text-gray-500 mt-0.5">Win Rate</div>
             </div>
           </div>
         </div>
 
         {/* Credits Card */}
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-          <div className="text-sm text-gray-500 mb-1">Credits</div>
-          <div className="text-3xl font-bold text-yellow-400">
-            {formatCredits(user.credits)}
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 flex flex-col justify-between">
+          <div>
+            <div className="text-sm text-gray-500 mb-1">Credits</div>
+            <div className="text-3xl font-bold text-yellow-400">
+              {formatCredits(user.credits)}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">Arena Credits</div>
           </div>
-          <div className="text-xs text-gray-500 mt-1">Arena Credits</div>
           <Link
             href="/shop"
-            className="inline-block mt-3 text-xs text-purple-400 hover:text-purple-300 transition"
+            className="inline-flex items-center gap-1 mt-3 text-xs text-purple-400 hover:text-purple-300 transition"
           >
-            Visit shop →
+            Visit shop <ChevronRight className="w-3 h-3" />
           </Link>
         </div>
 
         {/* Peak ELO Card */}
-        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-          <div className="text-sm text-gray-500 mb-1">Peak ELO</div>
-          <div className="text-3xl font-bold">{formatELO(user.peak_elo)}</div>
-          <div className="text-xs text-gray-500 mt-1">All-time best</div>
-          <div className="mt-3 text-xs text-gray-600">
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 flex flex-col justify-between">
+          <div>
+            <div className="text-sm text-gray-500 mb-1">Peak ELO</div>
+            <div className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-400 bg-clip-text text-transparent">
+              {formatELO(user.peak_elo)}
+            </div>
+            <div className="text-xs text-gray-500 mt-1">All-time best</div>
+          </div>
+          <div className="mt-3 text-xs text-gray-600 flex items-center gap-1">
+            <Activity className="w-3 h-3" />
             {user.total_matches} matches played
           </div>
         </div>
       </div>
 
-      {/* Match Finder */}
-      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6 mb-8">
-        <h3 className="text-lg font-semibold mb-4">⚔️ Find a Match</h3>
-
-        {/* Tier Selection */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-4">
-          {tiers.map((tier) => (
-            <button
-              key={tier.id}
-              onClick={() => setSelectedTier(tier.id)}
-              className={`p-3 rounded-lg border text-center transition ${
-                selectedTier === tier.id
-                  ? 'border-purple-500 bg-purple-900/30'
-                  : 'border-gray-700 hover:border-gray-600'
-              } ${
-                user.current_elo < tier.minElo
-                  ? 'opacity-50 cursor-not-allowed'
-                  : ''
-              }`}
-              disabled={user.current_elo < tier.minElo}
-            >
-              <div className="text-sm font-medium">{tier.name}</div>
-              <div className="text-xs text-gray-500">{tier.fee} AC</div>
-            </button>
-          ))}
-        </div>
-
-        {/* Queue Button */}
-        <button
-          onClick={handleFindMatch}
-          className={`w-full py-4 rounded-lg font-semibold text-lg transition ${
-            isQueuing
-              ? 'bg-red-600 hover:bg-red-700'
-              : 'bg-purple-600 hover:bg-purple-700'
-          }`}
-        >
-          {isQueuing ? '⏳ Searching... (Click to cancel)' : `🎮 Find Match (${getEntryFee(selectedTier)} AC)`}
-        </button>
-      </div>
-
-      {/* Bot Info */}
-      {bots.length > 0 && (
+      {/* Middle Row: Bot Stats + Skills + Match Finder */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+        {/* Bot Stats */}
         <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
-          <h3 className="text-lg font-semibold mb-4">🤖 Your Bot</h3>
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 bg-gray-800 rounded-lg flex items-center justify-center text-xl">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-10 h-10 bg-gray-800 rounded-lg flex items-center justify-center text-lg">
               🤖
             </div>
             <div>
-              <div className="font-medium">{bots[0].name}</div>
-              <div className="text-xs text-gray-500">Level {bots[0].level}</div>
-            </div>
-            <div className="ml-auto grid grid-cols-4 gap-4 text-center">
-              <div>
-                <div className="text-sm font-medium text-red-400">{bots[0].base_hp}</div>
-                <div className="text-xs text-gray-500">HP</div>
-              </div>
-              <div>
-                <div className="text-sm font-medium text-orange-400">{bots[0].base_attack}</div>
-                <div className="text-xs text-gray-500">ATK</div>
-              </div>
-              <div>
-                <div className="text-sm font-medium text-blue-400">{bots[0].base_defense}</div>
-                <div className="text-xs text-gray-500">DEF</div>
-              </div>
-              <div>
-                <div className="text-sm font-medium text-green-400">{bots[0].base_speed}</div>
-                <div className="text-xs text-gray-500">SPD</div>
-              </div>
+              <div className="font-semibold">{bot.name}</div>
+              <div className="text-xs text-gray-500">Level {bot.level} · {bot.xp} XP</div>
             </div>
           </div>
+          <div className="space-y-3">
+            <StatBar
+              label="HP"
+              value={bot.base_hp}
+              max={200}
+              color="bg-red-500"
+              icon={<Heart className="w-3.5 h-3.5 text-red-400" />}
+            />
+            <StatBar
+              label="ATK"
+              value={bot.base_attack}
+              max={50}
+              color="bg-orange-500"
+              icon={<Swords className="w-3.5 h-3.5 text-orange-400" />}
+            />
+            <StatBar
+              label="DEF"
+              value={bot.base_defense}
+              max={40}
+              color="bg-blue-500"
+              icon={<Shield className="w-3.5 h-3.5 text-blue-400" />}
+            />
+            <StatBar
+              label="SPD"
+              value={bot.base_speed}
+              max={30}
+              color="bg-green-500"
+              icon={<Zap className="w-3.5 h-3.5 text-green-400" />}
+            />
+          </div>
         </div>
-      )}
+
+        {/* Equipped Skills */}
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+          <h3 className="text-sm font-semibold text-gray-400 mb-4 flex items-center gap-2">
+            <Flame className="w-4 h-4" />
+            Equipped Skills
+          </h3>
+          <div className="space-y-3">
+            {bot.skills.length > 0 ? (
+              bot.skills.map((equipped) => (
+                <SkillBadge key={equipped.slot} skillId={equipped.skill_id} />
+              ))
+            ) : (
+              <p className="text-sm text-gray-600 text-center py-4">
+                No skills equipped. Visit the shop!
+              </p>
+            )}
+          </div>
+          {bot.skills.length < 2 && (
+            <div className="mt-3 pt-3 border-t border-gray-800">
+              <p className="text-xs text-gray-600">
+                {2 - bot.skills.length} skill slot{2 - bot.skills.length > 1 ? 's' : ''} available
+              </p>
+            </div>
+          )}
+          <Link
+            href="/shop"
+            className="inline-flex items-center gap-1 mt-4 text-xs text-purple-400 hover:text-purple-300 transition"
+          >
+            Browse skills <ChevronRight className="w-3 h-3" />
+          </Link>
+        </div>
+
+        {/* Match Finder */}
+        <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+          <h3 className="text-sm font-semibold text-gray-400 mb-4 flex items-center gap-2">
+            <Swords className="w-4 h-4" />
+            Find a Match
+          </h3>
+
+          <div className="space-y-2 mb-4">
+            {tiers.map((tier) => {
+              const locked = user.current_elo < tier.minElo
+              return (
+                <button
+                  key={tier.id}
+                  onClick={() => !locked && setSelectedTier(tier.id)}
+                  className={`w-full flex items-center justify-between p-2.5 rounded-lg border text-sm transition ${
+                    selectedTier === tier.id
+                      ? 'border-purple-500 bg-purple-900/30 text-white'
+                      : locked
+                      ? 'border-gray-800 bg-gray-800/20 text-gray-600 cursor-not-allowed'
+                      : 'border-gray-700 hover:border-gray-600 text-gray-300'
+                  }`}
+                  disabled={locked}
+                >
+                  <span className="font-medium">{tier.name}</span>
+                  <span className="text-xs text-gray-500">
+                    {locked ? `🔒 ${tier.minElo}+ ELO` : `${tier.fee} AC`}
+                  </span>
+                </button>
+              )
+            })}
+          </div>
+
+          <button
+            onClick={handleFindMatch}
+            className={`w-full py-3 rounded-lg font-semibold transition ${
+              isQueuing
+                ? 'bg-red-600 hover:bg-red-700'
+                : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'
+            }`}
+          >
+            {isQueuing ? '⏳ Cancel Search' : '⚔️ Find Match'}
+          </button>
+        </div>
+      </div>
+
+      {/* Bottom Row: Recent Matches */}
+      <div className="bg-gray-900 rounded-xl border border-gray-800 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-gray-400 flex items-center gap-2">
+            📜 Recent Matches
+          </h3>
+          <Link
+            href="/history"
+            className="text-xs text-purple-400 hover:text-purple-300 transition flex items-center gap-1"
+          >
+            View all <ChevronRight className="w-3 h-3" />
+          </Link>
+        </div>
+        {recentMatches.length > 0 ? (
+          <div className="divide-y divide-gray-800/50">
+            {recentMatches.map((match) => (
+              <MatchHistoryRow key={match.id} match={match} />
+            ))}
+          </div>
+        ) : (
+          <p className="text-sm text-gray-600 text-center py-6">
+            No matches yet. Jump into the arena!
+          </p>
+        )}
+      </div>
     </div>
   )
 }

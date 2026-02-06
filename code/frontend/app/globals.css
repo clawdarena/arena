@@ -1,8 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #0a0a0a;
+  --foreground: #ededed;
 }
 
 @theme inline {
@@ -10,13 +10,21 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-}
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  /* Custom animation keyframes */
+  --animate-lunge-left: lunge-left 0.4s ease-out;
+  --animate-lunge-right: lunge-right 0.4s ease-out;
+  --animate-defend: defend-pulse 0.6s ease-in-out;
+  --animate-cast: cast-glow 0.6s ease-in-out;
+  --animate-heal: heal-pulse 0.8s ease-in-out;
+  --animate-slash: slash-appear 0.5s ease-out forwards;
+  --animate-projectile-right: projectile-right 0.5s ease-in;
+  --animate-projectile-left: projectile-left 0.5s ease-in;
+  --animate-float-up: float-up 1.2s ease-out forwards;
+  --animate-shake: shake 0.2s ease-in-out;
+  --animate-emp-flash: emp-flash 0.6s ease-out forwards;
+  --animate-pulse-fast: pulse-fast 0.4s ease-in-out infinite;
+  --animate-bounce-slow: bounce-slow 1.5s ease-in-out infinite;
 }
 
 body {
@@ -24,3 +32,108 @@ body {
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
 }
+
+/* Scrollbar styling */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 2px;
+}
+
+/* ============================
+   Arena Animation Keyframes
+   ============================ */
+
+@keyframes lunge-left {
+  0% { transform: translateX(0); }
+  40% { transform: translateX(60px); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes lunge-right {
+  0% { transform: translateX(0); }
+  40% { transform: translateX(-60px); }
+  100% { transform: translateX(0); }
+}
+
+@keyframes defend-pulse {
+  0% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.05); filter: brightness(1.3) drop-shadow(0 0 10px rgba(59, 130, 246, 0.5)); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+@keyframes cast-glow {
+  0% { transform: scale(1); filter: brightness(1); }
+  30% { transform: scale(1.1); filter: brightness(1.5) drop-shadow(0 0 15px rgba(168, 85, 247, 0.6)); }
+  60% { transform: scale(1.05); }
+  100% { transform: scale(1); filter: brightness(1); }
+}
+
+@keyframes heal-pulse {
+  0% { filter: brightness(1); }
+  50% { filter: brightness(1.3) drop-shadow(0 0 12px rgba(34, 197, 94, 0.5)); }
+  100% { filter: brightness(1); }
+}
+
+@keyframes slash-appear {
+  0% { opacity: 0; transform: scale(0.3) rotate(-45deg); }
+  50% { opacity: 1; transform: scale(1.2) rotate(0deg); }
+  100% { opacity: 0; transform: scale(0.5) rotate(15deg); }
+}
+
+@keyframes projectile-right {
+  0% { transform: translateX(0) scale(1); opacity: 1; }
+  100% { transform: translateX(200px) scale(0.8); opacity: 0; }
+}
+
+@keyframes projectile-left {
+  0% { transform: translateX(0) scale(1); opacity: 1; }
+  100% { transform: translateX(-200px) scale(0.8); opacity: 0; }
+}
+
+@keyframes float-up {
+  0% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(-60px); opacity: 0; }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-4px); }
+  75% { transform: translateX(4px); }
+}
+
+@keyframes emp-flash {
+  0% { opacity: 0; }
+  30% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+@keyframes pulse-fast {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+@keyframes bounce-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-4px); }
+}
+
+/* Animation utility classes */
+.animate-lunge-left { animation: lunge-left 0.4s ease-out; }
+.animate-lunge-right { animation: lunge-right 0.4s ease-out; }
+.animate-defend { animation: defend-pulse 0.6s ease-in-out; }
+.animate-cast { animation: cast-glow 0.6s ease-in-out; }
+.animate-heal { animation: heal-pulse 0.8s ease-in-out; }
+.animate-slash { animation: slash-appear 0.5s ease-out forwards; }
+.animate-projectile-right { animation: projectile-right 0.5s ease-in; }
+.animate-projectile-left { animation: projectile-left 0.5s ease-in; }
+.animate-float-up { animation: float-up 1.2s ease-out forwards; }
+.animate-shake { animation: shake 0.2s ease-in-out; }
+.animate-emp-flash { animation: emp-flash 0.6s ease-out forwards; }
+.animate-pulse-fast { animation: pulse-fast 0.4s ease-in-out infinite; }
+.animate-bounce-slow { animation: bounce-slow 1.5s ease-in-out infinite; }
