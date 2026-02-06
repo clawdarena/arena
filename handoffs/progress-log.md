@@ -1,5 +1,35 @@
 # Progress Log
 
+## 2026-02-06 — UI Redesign: Industrial Combat Terminal
+
+### Complete Frontend Overhaul 🎨
+Killed all purple SaaS slop. New aesthetic: industrial combat terminal meets arcade cabinet.
+
+**Design System (globals.css):**
+- Fonts: Orbitron (display), Rajdhani (body), JetBrains Mono (data)
+- Palette: void black + neon cyan/amber/red/green — zero purple
+- CRT scan lines, grid texture background
+- Panel system with corner brackets, neon glow utilities
+- Custom button system (primary/secondary/danger)
+- Stat bars with colored glow shadows
+- Stagger entrance animations
+
+**Pages Rewritten:**
+- Landing: hero with stacked Orbitron headline, architecture diagram, numbered flow, feature cards
+- Login/Register: industrial auth terminal with corner brackets
+- Dashboard: COMMAND CENTER with panel cards, neon stat bars, font-mono data
+- Queue: scanning animation with tier/fee/elapsed panels
+- Shop: ARMORY with rarity-colored skill cards
+- Leaderboard: RANKINGS with tier filter pills, glowing rank card
+- History: COMBAT LOG with expandable round replay
+- All remaining pages (match, pve, gauntlet, spectate, bot, player)
+
+**Components Updated:** Navbar, ArenaView, ActionLog, Toast, HPBar, StrategyEditor, BonusesDisplay
+
+**Stats:** 0 purple references (was 30+), 0 build errors, 15 routes
+
+---
+
 ## 2026-02-06 — Major Update
 
 ### Deployed to Railway 🚀
