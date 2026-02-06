@@ -5,16 +5,13 @@ import { useAuthStore } from '@/lib/store'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Navbar } from '@/components/Navbar'
 import {
-  MOCK_LEADERBOARD,
-  MOCK_USER,
-  MOCK_BOT,
-  loadMockData,
   getEloTier,
   TIER_COLORS,
   TIER_BG_COLORS,
   type LeaderboardEntry,
   type EloTier,
 } from '@/lib/mock-api'
+import { api } from '@/lib/api'
 import { formatELO, getELORank } from '@/lib/utils'
 import {
   Trophy,
@@ -134,22 +131,48 @@ function LeaderboardRow({
 function LeaderboardContent() {
   const { user, setUser, setBots, setToken } = useAuthStore()
   const [filter, setFilter] = useState<TierFilter>('all')
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [myRank, setMyRank] = useState<LeaderboardEntry | null>(null)
+  const [totalPlayers, setTotalPlayers] = useState(0)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!user) {
-      const mock = loadMockData()
-      setUser(mock.user)
-      setBots(mock.bots)
-      setToken(mock.token)
+    async function fetchData() {
+      try {
+        const res = await api<{ leaderboard: any[]; my_rank?: number; total_players: number }>('/api/leaderboard?limit=100')
+        const entries: LeaderboardEntry[] = (res.leaderboard || []).map((e: any, i: number) => ({
+          rank: e.rank || i + 1,
+          user: { id: e.user?.id || e.id, username: e.user?.username || e.username },
+          elo: e.elo || e.current_elo,
+          wins: e.wins,
+          losses: e.losses,
+          win_rate: e.win_rate ?? (e.wins + e.losses > 0 ? e.wins / (e.wins + e.losses) : 0),
+        }))
+        setLeaderboard(entries)
+        setTotalPlayers(res.total_players || entries.length)
+
+        if (user) {
+          const me = entries.find((e) => e.user.id === user.id)
+          if (me) setMyRank(me)
+        }
+      } catch (err) {
+        console.error('Failed to fetch leaderboard:', err)
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [user, setUser, setBots, setToken])
+    fetchData()
+  }, [user])
+
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="text-gray-500">Loading leaderboard...</div>
+    </div>
+  )
 
   const filteredLeaderboard = filter === 'all'
-    ? MOCK_LEADERBOARD
-    : MOCK_LEADERBOARD.filter((entry) => getEloTier(entry.elo) === filter)
-
-  const myRank = MOCK_LEADERBOARD.find((e) => e.user.id === 'usr_001')
-  const totalPlayers = MOCK_LEADERBOARD.length
+    ? leaderboard
+    : leaderboard.filter((entry) => getEloTier(entry.elo) === filter)
 
   const tierFilters: Array<{ id: TierFilter; label: string; emoji: string }> = [
     { id: 'all', label: 'All', emoji: '🌍' },

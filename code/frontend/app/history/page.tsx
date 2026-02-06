@@ -7,15 +7,12 @@ import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Navbar } from '@/components/Navbar'
 import { HPBar } from '@/components/HPBar'
 import {
-  MOCK_MATCH_HISTORY,
-  MOCK_USER,
-  MOCK_BOT,
-  loadMockData,
   getEloTier,
   TIER_COLORS,
   type MatchHistoryEntry,
   type EloTier,
 } from '@/lib/mock-api'
+import { api } from '@/lib/api'
 import { timeAgo, formatDuration } from '@/lib/utils'
 import type { MatchType, RoundResult } from '../../../shared/types'
 import {
@@ -169,23 +166,36 @@ function MatchRow({ match }: { match: MatchHistoryEntry }) {
 function HistoryContent() {
   const { user, setUser, setBots, setToken } = useAuthStore()
   const [filter, setFilter] = useState<'all' | MatchType>('all')
+  const [matchHistory, setMatchHistory] = useState<MatchHistoryEntry[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!user) {
-      const mock = loadMockData()
-      setUser(mock.user)
-      setBots(mock.bots)
-      setToken(mock.token)
+    async function fetchData() {
+      try {
+        const res = await api<{ matches: MatchHistoryEntry[] }>('/api/matches/history?limit=50')
+        setMatchHistory(res.matches || [])
+      } catch (err) {
+        console.error('Failed to fetch match history:', err)
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [user, setUser, setBots, setToken])
+    fetchData()
+  }, [])
+
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="text-gray-500">Loading history...</div>
+    </div>
+  )
 
   const filteredMatches = filter === 'all'
-    ? MOCK_MATCH_HISTORY
-    : MOCK_MATCH_HISTORY.filter((m) => m.match_type === filter)
+    ? matchHistory
+    : matchHistory.filter((m) => m.match_type === filter)
 
-  const wins = MOCK_MATCH_HISTORY.filter((m) => m.winner_id === m.my_bot.id).length
-  const losses = MOCK_MATCH_HISTORY.filter((m) => m.winner_id !== null && m.winner_id !== m.my_bot.id).length
-  const draws = MOCK_MATCH_HISTORY.filter((m) => m.winner_id === null).length
+  const wins = matchHistory.filter((m) => m.winner_id === m.my_bot.id).length
+  const losses = matchHistory.filter((m) => m.winner_id !== null && m.winner_id !== m.my_bot.id).length
+  const draws = matchHistory.filter((m) => m.winner_id === null).length
 
   const tierFilters: Array<{ id: 'all' | MatchType; label: string }> = [
     { id: 'all', label: 'All Tiers' },

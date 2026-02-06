@@ -8,12 +8,9 @@ import { Navbar } from '@/components/Navbar'
 import {
   ALL_SKILLS,
   SKILL_LIST,
-  MOCK_SHOP_ITEMS,
-  MOCK_BOT,
-  MOCK_USER,
-  loadMockData,
   RARITY_COLORS,
 } from '@/lib/mock-api'
+import { api } from '@/lib/api'
 import { formatCredits } from '@/lib/utils'
 import type { Skill, SkillId, ShopItem } from '../../../shared/types'
 import {
@@ -220,29 +217,67 @@ function ItemCard({
 function ShopContent() {
   const { user, bots, setUser, setBots, setToken } = useAuthStore()
   const [tab, setTab] = useState<ShopTab>('skills')
-  const [ownedSkills, setOwnedSkills] = useState<Set<string>>(
-    new Set(['power_strike', 'shield_wall', 'overclock', 'scan', 'fireball'])
-  )
-  const [equippedSkills, setEquippedSkills] = useState<Set<string>>(
-    new Set(['fireball', 'shield_wall'])
-  )
+  const [ownedSkills, setOwnedSkills] = useState<Set<string>>(new Set())
+  const [equippedSkills, setEquippedSkills] = useState<Set<string>>(new Set())
+  const [shopItems, setShopItems] = useState<ShopItem[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!user) {
-      const mock = loadMockData()
-      setUser(mock.user)
-      setBots(mock.bots)
-      setToken(mock.token)
+    async function fetchData() {
+      try {
+        const me = await api<any>('/api/auth/me')
+        setUser({
+          id: me.id, username: me.username, credits: me.credits,
+          current_elo: me.current_elo, peak_elo: me.peak_elo,
+          total_matches: me.total_matches, wins: me.wins, losses: me.losses,
+          created_at: me.created_at,
+        })
+        if (me.bots?.length) {
+          setBots(me.bots)
+          const bot = me.bots[0]
+          if (bot.skills) {
+            setEquippedSkills(new Set(bot.skills.map((s: any) => s.skill_id)))
+          }
+        }
+
+        // Fetch owned skills
+        try {
+          const owned = await api<{ skills: any[] }>('/api/skills/owned')
+          setOwnedSkills(new Set(owned.skills.map((s: any) => s.skill_id || s.id)))
+        } catch { /* starter skills fallback */ }
+
+        // Fetch shop items
+        try {
+          const items = await api<{ items: ShopItem[] }>('/api/shop/items')
+          setShopItems(items.items || [])
+        } catch { /* no items */ }
+      } catch (err) {
+        console.error('Failed to fetch shop data:', err)
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [user, setUser, setBots, setToken])
+    fetchData()
+  }, [setUser, setBots, setToken])
+
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="text-gray-500">Loading shop...</div>
+    </div>
+  )
 
   if (!user) return null
 
-  function handlePurchaseSkill(skillId: string) {
+  async function handlePurchaseSkill(skillId: string) {
     const skill = ALL_SKILLS[skillId as SkillId]
     if (!skill || user!.credits < skill.price) return
-    setOwnedSkills((prev) => new Set([...prev, skillId]))
-    // In real app, would deduct credits via API
+    try {
+      await api('/api/skills/purchase', { method: 'POST', body: JSON.stringify({ skill_id: skillId }) })
+      setOwnedSkills((prev) => new Set([...prev, skillId]))
+      setUser({ ...user!, credits: user!.credits - skill.price })
+    } catch (err: any) {
+      alert(err.message || 'Purchase failed')
+    }
   }
 
   function handleEquipSkill(skillId: string) {
@@ -270,7 +305,7 @@ function ShopContent() {
     return (rarityOrder[a.rarity] ?? 99) - (rarityOrder[b.rarity] ?? 99)
   })
 
-  const sortedItems = [...MOCK_SHOP_ITEMS].sort((a, b) => {
+  const sortedItems = [...shopItems].sort((a, b) => {
     return (rarityOrder[a.rarity] ?? 99) - (rarityOrder[b.rarity] ?? 99)
   })
 
@@ -310,7 +345,7 @@ function ShopContent() {
           }`}
         >
           <Package className="w-4 h-4" />
-          Items ({MOCK_SHOP_ITEMS.length})
+          Items ({shopItems.length})
         </button>
       </div>
 

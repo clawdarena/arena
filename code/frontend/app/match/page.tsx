@@ -12,9 +12,6 @@ import { ArenaView } from '@/components/ArenaView'
 import {
   MOCK_LIVE_MATCH_ROUNDS,
   MOCK_MATCH_END,
-  MOCK_USER,
-  MOCK_BOT,
-  loadMockData,
 } from '@/lib/mock-api'
 import type { RoundResult, RoundCompletePayload, MatchFoundPayload } from '../../../shared/types'
 import { Shield, Swords, Zap, Timer, Trophy } from 'lucide-react'
@@ -48,12 +45,12 @@ function useMockMatchSimulation() {
       entry_fee: 200,
       start_in_seconds: 3,
       my_bot: {
-        id: MOCK_BOT.id,
-        name: MOCK_BOT.name,
-        hp: MOCK_BOT.base_hp,
-        attack: MOCK_BOT.base_attack,
-        defense: MOCK_BOT.base_defense,
-        speed: MOCK_BOT.base_speed,
+        id: 'demo_bot',
+        name: 'MyBot',
+        hp: 100,
+        attack: 15,
+        defense: 10,
+        speed: 10,
         status_effects: [],
       },
       opponent: {
@@ -145,16 +142,6 @@ function MatchContent() {
     onAnimationComplete,
     timer,
   } = useMockMatchSimulation()
-
-  // Load mock user if needed
-  useEffect(() => {
-    if (!user) {
-      const mock = loadMockData()
-      setUser(mock.user)
-      setBots(mock.bots)
-      setToken(mock.token)
-    }
-  }, [user, setUser, setBots, setToken])
 
   // On mount, clean previous match and start demo
   useEffect(() => {

@@ -7,14 +7,8 @@ import { useAuthStore, useQueueStore } from '@/lib/store'
 import { formatCredits, formatELO, getELORank, getEntryFee, timeAgo } from '@/lib/utils'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Navbar } from '@/components/Navbar'
-import {
-  MOCK_USER,
-  MOCK_BOT,
-  MOCK_MATCH_HISTORY,
-  ALL_SKILLS,
-  loadMockData,
-  type MatchHistoryEntry,
-} from '@/lib/mock-api'
+import { ALL_SKILLS, type MatchHistoryEntry } from '@/lib/mock-api'
+import { api } from '@/lib/api'
 import type { Skill, SkillId } from '../../../shared/types'
 import { Swords, Shield, Zap, Heart, TrendingUp, TrendingDown, Minus, ChevronRight, Trophy, Flame, Activity } from 'lucide-react'
 
@@ -111,16 +105,50 @@ function DashboardContent() {
   const { user, bots, setUser, setBots, setToken } = useAuthStore()
   const { isQueuing, startQueuing, stopQueuing } = useQueueStore()
   const [selectedTier, setSelectedTier] = useState('ranked_bronze')
+  const [recentMatches, setRecentMatches] = useState<MatchHistoryEntry[]>([])
+  const [loading, setLoading] = useState(true)
 
-  // Load mock data if no real user
+  // Fetch real user data from backend
   useEffect(() => {
-    if (!user) {
-      const mock = loadMockData()
-      setUser(mock.user)
-      setBots(mock.bots)
-      setToken(mock.token)
+    async function fetchData() {
+      try {
+        const me = await api<any>('/api/auth/me')
+        setUser({
+          id: me.id,
+          username: me.username,
+          credits: me.credits,
+          current_elo: me.current_elo,
+          peak_elo: me.peak_elo,
+          total_matches: me.total_matches,
+          wins: me.wins,
+          losses: me.losses,
+          created_at: me.created_at,
+        })
+        if (me.bots?.length) {
+          setBots(me.bots)
+        }
+
+        // Fetch match history
+        try {
+          const historyRes = await api<{ matches: MatchHistoryEntry[] }>('/api/matches/history?limit=5')
+          setRecentMatches(historyRes.matches || [])
+        } catch {
+          // No matches yet — that's fine
+        }
+      } catch (err) {
+        console.error('Failed to fetch user data:', err)
+      } finally {
+        setLoading(false)
+      }
     }
-  }, [user, setUser, setBots, setToken])
+    fetchData()
+  }, [setUser, setBots])
+
+  if (loading) return (
+    <div className="flex items-center justify-center min-h-[60vh]">
+      <div className="text-gray-500">Loading...</div>
+    </div>
+  )
 
   if (!user) return null
 
@@ -129,8 +157,7 @@ function DashboardContent() {
     ? ((user.wins / user.total_matches) * 100).toFixed(1)
     : '0.0'
 
-  const bot = bots[0] || MOCK_BOT
-  const recentMatches = MOCK_MATCH_HISTORY.slice(0, 5)
+  const bot = bots[0]
 
   const tiers = [
     { id: 'ranked_bronze', name: 'Bronze', fee: 50, minElo: 0 },
