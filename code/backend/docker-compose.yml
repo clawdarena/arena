@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: clawdarena
+      POSTGRES_USER: arena
+      POSTGRES_PASSWORD: arena_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  api:
+    build: .
+    ports:
+      - "3001:3001"
+    environment:
+      DATABASE_URL: postgresql://arena:arena_dev_password@postgres:5432/clawdarena
+      REDIS_URL: redis://redis:6379
+      JWT_SECRET: dev-secret-change-in-production-32chars
+      PORT: "3001"
+      NODE_ENV: development
+    depends_on:
+      - postgres
+      - redis
+    command: >
+      sh -c "bunx prisma db push && bun run seeds/seed.ts && bun run src/index.ts"
+
+volumes:
+  postgres_data:
