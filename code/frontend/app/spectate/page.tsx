@@ -108,7 +108,7 @@ function MatchCard({
         {/* Bot 1 */}
         <div>
           <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-7 h-7 bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-md flex items-center justify-center text-xs ">
+            <div className="w-7 h-7 bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-sm flex items-center justify-center text-xs ">
               🤖
             </div>
             <span className="text-sm font-semibold text-[var(--neon-cyan)] truncate flex-1">
@@ -125,7 +125,7 @@ function MatchCard({
         {/* Bot 2 */}
         <div>
           <div className="flex items-center gap-2 mb-1.5">
-            <div className="w-7 h-7 bg-gradient-to-br from-red-600 to-red-800 rounded-md flex items-center justify-center text-xs shadow-lg shadow-red-500/10">
+            <div className="w-7 h-7 bg-[var(--bg-raised)] border border-red-800/30 rounded-sm flex items-center justify-center text-xs ">
               👾
             </div>
             <span className="text-sm font-semibold text-red-300 truncate flex-1">
@@ -323,7 +323,7 @@ function WatchingView({
         {/* Bot 2 */}
         <div className="bg-[var(--bg-panel)] rounded-sm border border-red-800/30 p-5">
           <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-800 rounded-sm flex items-center justify-center text-lg shadow-lg shadow-red-500/10">
+            <div className="w-10 h-10 bg-[var(--bg-raised)] border border-red-800/30 rounded-sm flex items-center justify-center text-lg ">
               👾
             </div>
             <div className="flex-1 min-w-0">
@@ -344,7 +344,7 @@ function WatchingView({
         </h3>
         <div
           ref={scrollRef}
-          className="max-h-80 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-gray-700"
+          className="max-h-80 overflow-y-auto space-y-2 scrollbar-thin scrollbar-thumb-[var(--border-mid)]"
         >
           {rounds.length === 0 && (
             <p className="text-sm text-[var(--text-muted)] text-center py-6">
