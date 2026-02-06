@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useMatchStore, useAuthStore } from '@/lib/store'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
@@ -9,122 +9,161 @@ import { HPBar } from '@/components/HPBar'
 import { ActionLog } from '@/components/ActionLog'
 import { MatchResult } from '@/components/MatchResult'
 import { ArenaView } from '@/components/ArenaView'
-import {
-  MOCK_LIVE_MATCH_ROUNDS,
-  MOCK_MATCH_END,
-} from '@/lib/mock-api'
-import type { RoundResult, RoundCompletePayload, MatchFoundPayload } from '../../../shared/types'
-import { Shield, Swords, Zap, Timer, Trophy } from 'lucide-react'
+import { connectSocket } from '@/lib/socket'
+import type {
+  RoundResult,
+  RoundCompletePayload,
+  RoundStartPayload,
+  MatchStartPayload,
+  MatchEndPayload,
+} from '../../../shared/types'
+import { Shield, Swords, Zap, Timer, Trophy, Wifi, WifiOff } from 'lucide-react'
 
-// For demo: simulate a live match by feeding rounds one at a time
-function useMockMatchSimulation() {
+// ============================================================
+// Live Match WebSocket Hook
+// ============================================================
+
+function useLiveMatch() {
   const {
     phase,
+    matchData,
+    roundHistory,
     setPhase,
-    setMatchData,
     setCurrentRound,
     setRoundResult,
     setMatchResult,
-    roundHistory,
-    matchData,
-    matchResult,
   } = useMatchStore()
 
   const [currentAnimRound, setCurrentAnimRound] = useState<RoundResult | null>(null)
   const [previousAnimRound, setPreviousAnimRound] = useState<RoundResult | null>(null)
   const [isAnimating, setIsAnimating] = useState(false)
-  const [demoIndex, setDemoIndex] = useState(0)
-  const [demoStarted, setDemoStarted] = useState(false)
   const [timer, setTimer] = useState(30)
+  const [timeLimit, setTimeLimit] = useState(30)
+  const [connected, setConnected] = useState(false)
+  const [matchStartData, setMatchStartData] = useState<MatchStartPayload | null>(null)
+  const roundQueueRef = useRef<RoundCompletePayload[]>([])
+  const processingRef = useRef(false)
 
-  // Initialize demo match data
-  const startDemo = useCallback(() => {
-    const mockMatchFound: MatchFoundPayload = {
-      match_id: 'match_live_001',
-      match_type: 'ranked_gold',
-      entry_fee: 200,
-      start_in_seconds: 3,
-      my_bot: {
-        id: 'demo_bot',
-        name: 'MyBot',
-        hp: 100,
-        attack: 15,
-        defense: 10,
-        speed: 10,
-        status_effects: [],
-      },
-      opponent: {
-        name: 'ChromeReaper',
-        elo: 1540,
-      },
-    }
-    setMatchData(mockMatchFound)
-    setDemoStarted(true)
-    setDemoIndex(0)
+  // Process queued rounds one at a time (with animation delay)
+  const processNextRound = useCallback(() => {
+    if (processingRef.current || roundQueueRef.current.length === 0) return
+    processingRef.current = true
 
-    // Start feeding rounds after a delay
-    setTimeout(() => {
-      setPhase('fighting')
-    }, 1500)
-  }, [setMatchData, setPhase])
+    const round = roundQueueRef.current.shift()!
+    const prevRounds = useMatchStore.getState().roundHistory
+    const prev = prevRounds.length > 0 ? prevRounds[prevRounds.length - 1] : null
 
-  // Feed rounds one by one
-  useEffect(() => {
-    if (!demoStarted || phase !== 'fighting') return
-    if (demoIndex >= MOCK_LIVE_MATCH_ROUNDS.length) {
-      // Match over
-      setTimeout(() => {
-        setMatchResult(MOCK_MATCH_END)
-      }, 1000)
-      return
-    }
-
-    const timeout = setTimeout(() => {
-      const round = MOCK_LIVE_MATCH_ROUNDS[demoIndex]
-      setPreviousAnimRound(demoIndex > 0 ? MOCK_LIVE_MATCH_ROUNDS[demoIndex - 1] : null)
-      setCurrentAnimRound(round)
-      setIsAnimating(true)
-      setTimer(30)
-
-      // Also push to store
-      const payload: RoundCompletePayload = {
-        ...round,
-        match_id: 'match_live_001',
-      }
-      setRoundResult(payload)
-    }, demoIndex === 0 ? 500 : 2500)
-
-    return () => clearTimeout(timeout)
-  }, [demoStarted, phase, demoIndex, setRoundResult, setMatchResult])
+    setPreviousAnimRound(prev)
+    setCurrentAnimRound(round)
+    setIsAnimating(true)
+    setRoundResult(round)
+  }, [setRoundResult])
 
   const onAnimationComplete = useCallback(() => {
     setIsAnimating(false)
-    setDemoIndex((prev) => prev + 1)
-  }, [])
+    processingRef.current = false
+    // Process next queued round if any
+    setTimeout(() => {
+      if (roundQueueRef.current.length > 0) {
+        processNextRound()
+      }
+    }, 300)
+  }, [processNextRound])
+
+  // Connect to WebSocket and listen for combat events
+  useEffect(() => {
+    if (!matchData) return
+
+    const socket = connectSocket()
+    setConnected(socket.connected)
+
+    socket.on('connect', () => setConnected(true))
+    socket.on('disconnect', () => setConnected(false))
+
+    // Match officially starts (both players ready)
+    socket.on('match_start', (data: MatchStartPayload) => {
+      setMatchStartData(data)
+      setTimeLimit(data.time_limit_seconds)
+      setTimer(data.time_limit_seconds)
+      setPhase('fighting')
+    })
+
+    // New round begins
+    socket.on('round_start', (data: RoundStartPayload) => {
+      setCurrentRound(data)
+      setTimer(data.time_limit_seconds)
+    })
+
+    // Round resolved by server
+    socket.on('round_complete', (data: RoundCompletePayload) => {
+      roundQueueRef.current.push(data)
+      processNextRound()
+    })
+
+    // Match ended
+    socket.on('match_end', (data: MatchEndPayload) => {
+      // Small delay so last round animation can finish
+      setTimeout(() => {
+        setMatchResult(data)
+      }, isAnimating ? 2000 : 500)
+    })
+
+    // Opponent disconnected
+    socket.on('player_disconnected', (data: any) => {
+      console.log('Opponent disconnected, grace period:', data.grace_period_seconds)
+    })
+
+    // Error
+    socket.on('error', (err: any) => {
+      console.error('Match error:', err)
+    })
+
+    return () => {
+      socket.off('connect')
+      socket.off('disconnect')
+      socket.off('match_start')
+      socket.off('round_start')
+      socket.off('round_complete')
+      socket.off('match_end')
+      socket.off('player_disconnected')
+      socket.off('error')
+    }
+  }, [matchData, setPhase, setCurrentRound, setRoundResult, setMatchResult, processNextRound, isAnimating])
 
   // Timer countdown
   useEffect(() => {
-    if (phase !== 'fighting' || !demoStarted) return
+    if (phase !== 'fighting') return
     const interval = setInterval(() => {
       setTimer((t) => Math.max(0, t - 1))
     }, 1000)
     return () => clearInterval(interval)
-  }, [phase, demoStarted, demoIndex])
+  }, [phase, roundHistory.length])
+
+  // Reset timer when new round starts
+  useEffect(() => {
+    if (roundHistory.length > 0) {
+      setTimer(timeLimit)
+    }
+  }, [roundHistory.length, timeLimit])
 
   return {
-    startDemo,
-    demoStarted,
     currentAnimRound,
     previousAnimRound,
     isAnimating,
     onAnimationComplete,
     timer,
+    connected,
+    matchStartData,
   }
 }
 
+// ============================================================
+// Match Page Content
+// ============================================================
+
 function MatchContent() {
   const router = useRouter()
-  const { user, setUser, setBots, setToken } = useAuthStore()
+  const { user } = useAuthStore()
   const {
     phase,
     matchData,
@@ -134,19 +173,24 @@ function MatchContent() {
   } = useMatchStore()
 
   const {
-    startDemo,
-    demoStarted,
     currentAnimRound,
     previousAnimRound,
     isAnimating,
     onAnimationComplete,
     timer,
-  } = useMockMatchSimulation()
+    connected,
+    matchStartData,
+  } = useLiveMatch()
 
-  // On mount, clean previous match and start demo
+  // If no match data, redirect to dashboard
   useEffect(() => {
-    reset()
-    startDemo()
+    if (!matchData && phase === 'idle') {
+      router.push('/dashboard')
+    }
+  }, [matchData, phase, router])
+
+  // Cleanup on unmount
+  useEffect(() => {
     return () => { reset() }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -163,11 +207,12 @@ function MatchContent() {
   const myBotId = myBot.id
   const latestRound = roundHistory.length > 0 ? roundHistory[roundHistory.length - 1] : null
   const roundNumber = latestRound?.round ?? 0
+  const maxRounds = matchStartData?.max_rounds ?? 10
 
   // Get current HP from latest round
   const myHp = latestRound ? latestRound.bot1_hp : myBot.hp
-  const oppHp = latestRound ? latestRound.bot2_hp : 100
-  const oppMaxHp = 100
+  const oppHp = latestRound ? latestRound.bot2_hp : (matchStartData?.bot2.hp ?? 100)
+  const oppMaxHp = matchStartData?.bot2.hp ?? 100
 
   // Status effects from latest round
   const myEffects: string[] = latestRound
@@ -214,9 +259,13 @@ function MatchContent() {
           {matchData.match_type.replace('ranked_', '').replace(/^\w/, (c) => c.toUpperCase())} Ranked
         </div>
         <div className="flex items-center gap-3">
+          {/* Connection indicator */}
+          <div className={`flex items-center gap-1 text-xs ${connected ? 'text-green-500' : 'text-red-500'}`}>
+            {connected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
+          </div>
           <div className="bg-gray-900 rounded-lg border border-gray-800 px-3 py-1.5 flex items-center gap-2">
             <span className="text-xs text-gray-500">Round</span>
-            <span className="text-lg font-bold text-purple-400 font-mono">{roundNumber}/10</span>
+            <span className="text-lg font-bold text-purple-400 font-mono">{roundNumber}/{maxRounds}</span>
           </div>
           {phase === 'fighting' && (
             <div className={`bg-gray-900 rounded-lg border px-3 py-1.5 flex items-center gap-2 ${
@@ -304,8 +353,24 @@ function MatchContent() {
             </div>
           </div>
           <HPBar current={oppHp} max={oppMaxHp} label="HP" />
+          {matchStartData && (
+            <div className="grid grid-cols-3 gap-2 mt-3 text-center">
+              <div className="bg-gray-800/50 rounded py-1.5">
+                <div className="text-xs font-medium text-orange-400">{matchStartData.bot2.attack}</div>
+                <div className="text-[10px] text-gray-600">ATK</div>
+              </div>
+              <div className="bg-gray-800/50 rounded py-1.5">
+                <div className="text-xs font-medium text-blue-400">{matchStartData.bot2.defense}</div>
+                <div className="text-[10px] text-gray-600">DEF</div>
+              </div>
+              <div className="bg-gray-800/50 rounded py-1.5">
+                <div className="text-xs font-medium text-green-400">{matchStartData.bot2.speed}</div>
+                <div className="text-[10px] text-gray-600">SPD</div>
+              </div>
+            </div>
+          )}
           {oppEffects.length > 0 && (
-            <div className="mt-3 flex flex-wrap gap-1">
+            <div className="mt-2 flex flex-wrap gap-1">
               {oppEffects.map((effect, i) => (
                 <span
                   key={i}
@@ -324,7 +389,7 @@ function MatchContent() {
         <div className="text-center mb-4">
           <div className="inline-flex items-center gap-2 bg-purple-900/20 border border-purple-700/30 rounded-lg px-5 py-3 animate-pulse">
             <Swords className="w-5 h-5 text-purple-400" />
-            <span className="text-purple-300 font-medium">Match starting...</span>
+            <span className="text-purple-300 font-medium">Waiting for opponent to accept...</span>
           </div>
         </div>
       )}
