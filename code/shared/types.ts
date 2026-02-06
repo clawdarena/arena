@@ -233,25 +233,29 @@ export interface RoundCompletePayload extends RoundResult {
 
 export interface MatchEndPayload {
   match_id: string
+  match_type?: string
   result: 'win' | 'loss' | 'draw'
   rounds_fought: number
   duration_seconds: number
   winner: {
     bot_id: string
     name: string
-    elo_before: number
-    elo_after: number
-    elo_change: number
-    credits_won: number
-  }
+    elo_before?: number
+    elo_after?: number
+    elo_change?: number
+    credits_won?: number
+    is_ai?: boolean
+  } | null
   loser: {
     bot_id: string
     name: string
-    elo_before: number
-    elo_after: number
-    elo_change: number
-    credits_lost: number
-  }
+    elo_before?: number
+    elo_after?: number
+    elo_change?: number
+    credits_lost?: number
+  } | null
+  credits_earned?: number
+  xp?: { totalXp: number; [key: string]: any }
   replay: RoundResult[]
 }
 

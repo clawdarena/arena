@@ -1,87 +1,114 @@
 'use client'
 
 import { useRouter } from 'next/navigation'
-import type { MatchEndPayload } from '../../shared/types'
 
 interface MatchResultProps {
-  result: MatchEndPayload
+  result: any  // MatchEndPayload — but PvE has different shape
   myBotId: string
 }
 
 /**
  * Victory/Defeat overlay shown when a match ends.
- * Displays ELO change and credits won/lost.
+ * Handles both PvP (with ELO) and PvE (no ELO) payloads.
  */
 export function MatchResult({ result, myBotId }: MatchResultProps) {
   const router = useRouter()
-  const isWinner = result.winner.bot_id === myBotId
-  const isDraw = result.result === 'draw'
 
-  const myData = isWinner ? result.winner : result.loser
-  const eloChange = isWinner ? result.winner.elo_change : result.loser.elo_change
-  const creditsChange = isWinner ? result.winner.credits_won : -result.loser.credits_lost
+  const isPve = result.match_type === 'pve'
+  const isDraw = result.result === 'draw'
+  const isWinner = result.result === 'win'
+
+  // Safely extract ELO data (missing in PvE)
+  const winner = result.winner || {}
+  const loser = result.loser || {}
+  const myData = isWinner ? winner : loser
+  const eloChange = myData?.elo_change ?? null
+  const creditsWon = result.credits_earned ?? winner?.credits_won ?? 0
+  const creditsLost = loser?.credits_lost ?? 0
+  const creditsChange = isWinner ? creditsWon : -creditsLost
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-mid)] p-8 max-w-md w-full mx-4 text-center animate-in fade-in zoom-in duration-300">
+      <div className="panel p-8 max-w-md w-full mx-4 text-center corner-brackets stagger-1">
         {/* Result Header */}
         <div className="mb-6">
           {isDraw ? (
             <>
-              <div className="text-6xl mb-3">🤝</div>
-              <h2 className="text-4xl font-bold text-[var(--text-primary)]">DRAW</h2>
+              <div className="text-5xl mb-3">🤝</div>
+              <h2 className="arena-title text-3xl text-[var(--text-primary)]">DRAW</h2>
             </>
           ) : isWinner ? (
             <>
-              <div className="text-6xl mb-3">🏆</div>
-              <h2 className="text-4xl font-bold text-yellow-400">VICTORY</h2>
+              <div className="text-5xl mb-3">🏆</div>
+              <h2 className="arena-title text-3xl text-[var(--neon-amber)] glow-amber">VICTORY</h2>
             </>
           ) : (
             <>
-              <div className="text-6xl mb-3">💀</div>
-              <h2 className="text-4xl font-bold text-red-400">DEFEAT</h2>
+              <div className="text-5xl mb-3">💀</div>
+              <h2 className="arena-title text-3xl text-[var(--neon-red)] glow-red">DEFEAT</h2>
             </>
+          )}
+          {isPve && (
+            <span className="arena-subtitle text-[10px] text-[var(--text-muted)] mt-2 block">PVE TRAINING</span>
           )}
         </div>
 
         {/* Match Stats */}
-        <div className="space-y-3 mb-6">
-          <div className="flex items-center justify-between bg-[var(--bg-raised)] rounded-sm px-4 py-3">
-            <span className="text-[var(--text-secondary)]">Rounds</span>
-            <span className="font-medium">{result.rounds_fought}</span>
+        <div className="space-y-1.5 mb-6">
+          <div className="flex items-center justify-between bg-[var(--bg-void)] border border-[var(--border-dim)] rounded-sm px-4 py-2.5">
+            <span className="arena-subtitle text-[10px] text-[var(--text-muted)]">ROUNDS</span>
+            <span className="font-mono font-bold text-sm">{result.rounds_fought}</span>
           </div>
-          <div className="flex items-center justify-between bg-[var(--bg-raised)] rounded-sm px-4 py-3">
-            <span className="text-[var(--text-secondary)]">Duration</span>
-            <span className="font-medium">{result.duration_seconds}s</span>
+          <div className="flex items-center justify-between bg-[var(--bg-void)] border border-[var(--border-dim)] rounded-sm px-4 py-2.5">
+            <span className="arena-subtitle text-[10px] text-[var(--text-muted)]">DURATION</span>
+            <span className="font-mono font-bold text-sm">{result.duration_seconds}s</span>
           </div>
-          <div className="flex items-center justify-between bg-[var(--bg-raised)] rounded-sm px-4 py-3">
-            <span className="text-[var(--text-secondary)]">ELO</span>
-            <span className={`font-medium ${eloChange >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-              {myData.elo_before} → {myData.elo_after}{' '}
-              ({eloChange >= 0 ? '+' : ''}{eloChange})
-            </span>
-          </div>
-          <div className="flex items-center justify-between bg-[var(--bg-raised)] rounded-sm px-4 py-3">
-            <span className="text-[var(--text-secondary)]">Credits</span>
-            <span className={`font-medium ${creditsChange >= 0 ? 'text-yellow-400' : 'text-red-400'}`}>
-              {creditsChange >= 0 ? '+' : ''}{creditsChange} AC
-            </span>
-          </div>
+
+          {/* ELO — only show for PvP */}
+          {eloChange !== null && (
+            <div className="flex items-center justify-between bg-[var(--bg-void)] border border-[var(--border-dim)] rounded-sm px-4 py-2.5">
+              <span className="arena-subtitle text-[10px] text-[var(--text-muted)]">ELO</span>
+              <span className={`font-mono font-bold text-sm ${eloChange >= 0 ? 'text-[var(--neon-green)]' : 'text-[var(--neon-red)]'}`}>
+                {myData.elo_before} → {myData.elo_after}{' '}
+                ({eloChange >= 0 ? '+' : ''}{eloChange})
+              </span>
+            </div>
+          )}
+
+          {/* Credits */}
+          {(creditsChange !== 0 || creditsWon > 0) && (
+            <div className="flex items-center justify-between bg-[var(--bg-void)] border border-[var(--border-dim)] rounded-sm px-4 py-2.5">
+              <span className="arena-subtitle text-[10px] text-[var(--text-muted)]">CREDITS</span>
+              <span className={`font-mono font-bold text-sm ${creditsChange >= 0 ? 'text-[var(--neon-amber)]' : 'text-[var(--neon-red)]'}`}>
+                {creditsChange >= 0 ? '+' : ''}{creditsChange || creditsWon} CR
+              </span>
+            </div>
+          )}
+
+          {/* XP — show if present */}
+          {result.xp?.totalXp && (
+            <div className="flex items-center justify-between bg-[var(--bg-void)] border border-[var(--border-dim)] rounded-sm px-4 py-2.5">
+              <span className="arena-subtitle text-[10px] text-[var(--text-muted)]">XP EARNED</span>
+              <span className="font-mono font-bold text-sm text-[var(--neon-cyan)]">
+                +{result.xp.totalXp}
+              </span>
+            </div>
+          )}
         </div>
 
         {/* Actions */}
-        <div className="flex gap-3">
+        <div className="flex gap-2">
           <button
             onClick={() => router.push('/dashboard')}
-            className="flex-1 py-3 bg-[var(--bg-raised)] hover:bg-[var(--bg-hover)] rounded-sm font-medium transition"
+            className="btn-secondary flex-1 py-3"
           >
-            Dashboard
+            HQ
           </button>
           <button
-            onClick={() => router.push('/queue')}
-            className="flex-1 py-3 bg-[var(--neon-cyan)] hover:bg-[var(--neon-cyan)] rounded-sm font-medium transition"
+            onClick={() => router.push(isPve ? '/pve' : '/queue')}
+            className="btn-primary flex-1 py-3"
           >
-            Play Again
+            {isPve ? 'TRAIN AGAIN' : 'FIGHT AGAIN'}
           </button>
         </div>
       </div>
