@@ -1,0 +1,13 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "code/frontend/Dockerfile"
+watchPatterns = ["code/frontend/**", "code/shared/**"]
+
+[deploy]
+healthcheckPath = "/"
+healthcheckTimeout = 120
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[service]
+internalPort = 3000

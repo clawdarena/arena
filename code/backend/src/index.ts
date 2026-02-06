@@ -23,7 +23,7 @@ const app = new Hono()
 
 app.use('*', logger())
 app.use('*', cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://5.252.22.126:3000', 'https://clawdarena-api-production.up.railway.app'],
+  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://5.252.22.126:3000', 'https://clawdarena-api-production.up.railway.app', 'https://clawdarena-web-production.up.railway.app'],
   credentials: true,
   allowHeaders: ['Content-Type', 'Authorization'],
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
