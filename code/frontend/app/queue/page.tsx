@@ -9,6 +9,83 @@ import { Navbar } from '@/components/Navbar'
 import { useToast } from '@/components/Toast'
 import { connectSocket, disconnectSocket } from '@/lib/socket'
 
+function TierSelectUI() {
+  const router = useRouter()
+  const { user, bots } = useAuthStore()
+  const { startQueuing } = useQueueStore()
+  const [selectedTier, setSelectedTier] = useState('ranked_bronze')
+
+  const tiers = [
+    { id: 'ranked_bronze', name: 'BRONZE', fee: 50, minElo: 0 },
+    { id: 'ranked_silver', name: 'SILVER', fee: 100, minElo: 1200 },
+    { id: 'ranked_gold', name: 'GOLD', fee: 200, minElo: 1400 },
+    { id: 'ranked_platinum', name: 'PLATINUM', fee: 400, minElo: 1600 },
+    { id: 'ranked_legend', name: 'LEGEND', fee: 800, minElo: 1800 },
+  ]
+
+  const elo = user?.current_elo ?? 1200
+  const credits = user?.credits ?? 0
+
+  function handleStart() {
+    const tier = tiers.find(t => t.id === selectedTier)
+    if (!tier) return
+    if (credits < tier.fee) {
+      alert(`Need ${tier.fee} CR. You have ${credits}.`)
+      return
+    }
+    startQueuing(selectedTier)
+  }
+
+  return (
+    <div className="max-w-md mx-auto px-6 py-16">
+      <div className="panel p-8 corner-brackets">
+        <h2 className="arena-title text-xl text-center mb-2">FIND MATCH</h2>
+        <p className="text-[var(--text-muted)] text-sm text-center mb-6">Select a tier and enter the queue</p>
+
+        <div className="space-y-1.5 mb-6">
+          {tiers.map((tier) => {
+            const locked = elo < tier.minElo
+            const cantAfford = credits < tier.fee
+            return (
+              <button
+                key={tier.id}
+                onClick={() => !locked && setSelectedTier(tier.id)}
+                className={`w-full flex items-center justify-between p-3 rounded-sm border text-sm transition ${
+                  selectedTier === tier.id
+                    ? 'border-[var(--neon-cyan)] bg-[var(--neon-cyan-dim)] text-[var(--text-primary)]'
+                    : locked
+                    ? 'border-[var(--border-dim)] bg-[var(--bg-void)] text-[var(--text-muted)] cursor-not-allowed opacity-40'
+                    : 'border-[var(--border-dim)] hover:border-[var(--border-mid)] text-[var(--text-secondary)]'
+                }`}
+                disabled={locked}
+              >
+                <span className="arena-subtitle text-[10px]">{tier.name}</span>
+                <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                  {locked ? `🔒 ${tier.minElo}+ ELO` : cantAfford ? `⚠ ${tier.fee} CR` : `${tier.fee} CR`}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+
+        <button onClick={handleStart} className="btn-primary w-full py-3 mb-4">
+          ⚔️ JOIN QUEUE →
+        </button>
+
+        <div className="h-px bg-[var(--border-dim)] my-4" />
+
+        <div className="text-center">
+          <p className="text-[var(--text-muted)] text-xs mb-3">Or train solo against AI</p>
+          <div className="flex gap-2 justify-center">
+            <a href="/pve" className="btn-secondary py-2 px-4 text-xs">PVE ARENA</a>
+            <a href="/gauntlet" className="btn-secondary py-2 px-4 text-xs">GAUNTLET</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function QueueContent() {
   const router = useRouter()
   const { isQueuing, matchType, queueStartTime, stopQueuing } = useQueueStore()
@@ -108,11 +185,7 @@ function QueueContent() {
     }
   }, [phase, router, stopQueuing])
 
-  useEffect(() => {
-    if (!isQueuing && phase === 'idle') {
-      router.push('/dashboard')
-    }
-  }, [isQueuing, phase, router])
+  // Don't auto-redirect — show tier selection instead
 
   function handleCancel() {
     const socket = connectSocket()
@@ -124,6 +197,11 @@ function QueueContent() {
 
   const entryFee = matchType ? getEntryFee(matchType) : 0
   const tierName = matchType?.replace('ranked_', '').toUpperCase() ?? 'UNKNOWN'
+
+  // ── Not queuing: show tier selection ──
+  if (!isQueuing) {
+    return <TierSelectUI />
+  }
 
   return (
     <div className="max-w-md mx-auto px-6 py-16">
