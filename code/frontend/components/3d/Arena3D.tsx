@@ -210,7 +210,6 @@ function ArenaScene({
         position={[-1.5, -0.2, 0]}
         rotation={[0, 0.3, 0]}
         color="#00f0ff"
-        bodyColor="#0a0a1a"
         scale={1.2}
         animation={bot1Anim}
         hpPercent={bot1HpPct}
@@ -222,7 +221,6 @@ function ArenaScene({
         position={[1.5, -0.2, 0]}
         rotation={[0, -0.3 + Math.PI, 0]}
         color="#ff4040"
-        bodyColor="#1a0a0a"
         scale={1.2}
         animation={bot2Anim}
         hpPercent={bot2HpPct}
