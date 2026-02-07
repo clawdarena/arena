@@ -13,6 +13,7 @@ import { matchRoutes } from './routes/matches'
 import { leaderboardRoutes } from './routes/leaderboard'
 import { pveRoutes } from './routes/pve'
 import { gauntletRoutes } from './routes/gauntlet'
+import { playerRoutes } from './routes/players'
 import { setupMatchmaking } from './ws/matchmaking'
 
 const app = new Hono()
@@ -46,6 +47,7 @@ app.route('/api/matches', matchRoutes)
 app.route('/api/leaderboard', leaderboardRoutes)
 app.route('/api/pve', pveRoutes)
 app.route('/api/gauntlet', gauntletRoutes)
+app.route('/api/players', playerRoutes)
 app.route('/api/inventory', shopRoutes)  // /api/inventory reuses shop's inventory endpoint
 
 // ============================================================

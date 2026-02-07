@@ -77,6 +77,42 @@ matchRoutes.get('/history', authMiddleware, async (c) => {
 })
 
 // ============================================================
+// GET /api/matches/active — Live matches for spectators
+// ============================================================
+
+matchRoutes.get('/active', async (c) => {
+  const matches = await prisma.match.findMany({
+    where: {
+      status: 'in_progress',
+    },
+    include: {
+      bot1: { select: { id: true, name: true, base_hp: true } },
+      bot2: { select: { id: true, name: true, base_hp: true } },
+    },
+    orderBy: { started_at: 'desc' },
+    take: 20,
+  })
+
+  return c.json({
+    matches: matches.map((m) => ({
+      id: m.id,
+      match_type: m.match_type,
+      bot1: {
+        name: m.bot1.name,
+        hp: m.bot1.base_hp,   // Current HP would come from Redis in real-time
+      },
+      bot2: {
+        name: m.bot2.name,
+        hp: m.bot2.base_hp,
+      },
+      round: m.rounds_fought || 1,
+      started_at: m.started_at,
+    })),
+    total: matches.length,
+  })
+})
+
+// ============================================================
 // GET /api/matches/:match_id
 // ============================================================
 
