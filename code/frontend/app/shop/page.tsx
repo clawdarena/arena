@@ -216,7 +216,7 @@ function ItemCard({
 
 function ShopContent() {
   const { user, bots, setUser, setBots, setToken } = useAuthStore()
-  const [tab, setTab] = useState<ShopTab>('skills')
+  const [tab, setTab] = useState<ShopTab>('items')
   const [ownedSkills, setOwnedSkills] = useState<Set<string>>(new Set())
   const [equippedSkills, setEquippedSkills] = useState<Set<string>>(new Set())
   const [shopItems, setShopItems] = useState<ShopItem[]>([])
@@ -354,7 +354,7 @@ function ShopContent() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <h1 className="arena-title text-xl text-[var(--text-primary)]">ARMORY</h1>
+          <h1 className="arena-title text-xl text-[var(--text-primary)]">SHOP</h1>
           <div className="h-px flex-1 bg-[var(--border-dim)] min-w-8" />
         </div>
         <div className="flex items-center gap-2 panel-raised px-3 py-1.5">
@@ -363,94 +363,23 @@ function ShopContent() {
         </div>
       </div>
 
-      {/* Tab Switcher */}
-      <div className="flex gap-1 mb-6">
-        <button
-          onClick={() => setTab('skills')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-sm text-xs transition ${
-            tab === 'skills'
-              ? 'btn-primary'
-              : 'bg-[var(--bg-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-dim)]'
-          }`}
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          SKILLS ({SKILL_LIST.length})
-        </button>
-        <button
-          onClick={() => setTab('items')}
-          className={`flex items-center gap-2 px-4 py-2 rounded-sm text-xs transition ${
-            tab === 'items'
-              ? 'btn-primary'
-              : 'bg-[var(--bg-raised)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] border border-[var(--border-dim)]'
-          }`}
-        >
-          <Package className="w-3.5 h-3.5" />
-          ITEMS ({shopItems.length})
-        </button>
-      </div>
-
-      {/* Equipped skills banner */}
-      {tab === 'skills' && (
-        <div className="panel p-4 mb-6">
-          <h3 className="arena-subtitle text-[10px] text-[var(--text-muted)] mb-3">
-            EQUIPPED ({equippedSkills.size}/2 SLOTS)
-          </h3>
-          <div className="flex gap-2">
-            {[...equippedSkills].map((sid) => {
-              const s = ALL_SKILLS[sid as SkillId]
-              if (!s) return null
-              const rc = RARITY_COLORS[s.rarity]
-              return (
-                <div
-                  key={sid}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-sm border ${rc.border} ${rc.bg}`}
-                >
-                  <span className="text-sm">✨</span>
-                  <span className={`text-sm font-semibold ${rc.text}`}>{s.name}</span>
-                </div>
-              )
-            })}
-            {equippedSkills.size < 2 && (
-              <div className="flex items-center gap-2 px-3 py-2 rounded-sm border border-dashed border-[var(--border-mid)] text-[var(--text-muted)]">
-                <CircleDot className="w-3.5 h-3.5" />
-                <span className="text-xs font-mono">EMPTY</span>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
-      {/* Skills Grid */}
-      {tab === 'skills' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {sortedSkills.map((skill) => (
-            <SkillCard
-              key={skill.id}
-              skill={skill}
-              owned={ownedSkills.has(skill.id)}
-              equipped={equippedSkills.has(skill.id)}
-              onPurchase={() => handlePurchaseSkill(skill.id)}
-              onEquip={() => handleEquipSkill(skill.id)}
-              onUnequip={() => handleUnequipSkill(skill.id)}
-              canAfford={user.credits >= skill.price}
-            />
-          ))}
-        </div>
-      )}
-
       {/* Items Grid */}
-      {tab === 'items' && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-          {sortedItems.map((item) => (
-            <ItemCard
-              key={item.id}
-              item={item}
-              onPurchase={() => {/* mock */}}
-              canAfford={user.credits >= item.price}
-            />
-          ))}
-        </div>
-      )}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+        {sortedItems.length > 0 ? sortedItems.map((item) => (
+          <ItemCard
+            key={item.id}
+            item={item}
+            onPurchase={() => {/* mock */}}
+            canAfford={user.credits >= item.price}
+          />
+        )) : (
+          <div className="col-span-full panel p-12 text-center">
+            <Package className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-3" />
+            <p className="text-[var(--text-secondary)] text-sm">No items available yet.</p>
+            <p className="text-[var(--text-muted)] text-xs mt-1">Cosmetics coming soon — skins, emotes, arena themes.</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

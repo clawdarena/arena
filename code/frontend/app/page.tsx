@@ -8,18 +8,18 @@ export default function LandingPage() {
       <div className="fixed bottom-0 right-1/4 w-96 h-96 bg-[var(--neon-amber)] opacity-[0.02] rounded-full blur-[120px] pointer-events-none" />
 
       {/* Nav */}
-      <nav className="flex items-center justify-between px-6 sm:px-8 py-4 border-b border-[var(--border-dim)] bg-[var(--bg-steel)]/60 backdrop-blur-sm sticky top-0 z-50">
-        <div className="flex items-center gap-2">
-          <span className="text-xl">⚔️</span>
-          <span className="arena-title text-sm tracking-[0.15em] text-[var(--neon-cyan)] glow-cyan">
+      <nav className="flex items-center justify-between px-4 sm:px-8 py-3 sm:py-4 border-b border-[var(--border-dim)] bg-[var(--bg-steel)]/60 backdrop-blur-sm sticky top-0 z-50">
+        <div className="flex items-center gap-2 mr-4">
+          <span className="text-lg sm:text-xl">⚔️</span>
+          <span className="arena-title text-xs sm:text-sm tracking-[0.15em] text-[var(--neon-cyan)] glow-cyan">
             CLAWDARENA
           </span>
         </div>
-        <div className="flex items-center gap-3">
-          <Link href="/login" className="btn-secondary text-xs py-2 px-4">
+        <div className="flex items-center gap-2 shrink-0">
+          <Link href="/login" className="btn-secondary text-[10px] sm:text-xs py-1 px-2.5 sm:py-2 sm:px-4">
             LOGIN
           </Link>
-          <Link href="/register" className="btn-primary text-xs py-2 px-4">
+          <Link href="/register" className="btn-primary text-[10px] sm:text-xs py-1 px-2.5 sm:py-2 sm:px-4 whitespace-nowrap">
             DEPLOY BOT
           </Link>
         </div>

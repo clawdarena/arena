@@ -1,18 +1,42 @@
-import * as ed25519 from '@noble/ed25519'
-
 export interface Keypair {
   publicKey: string
   privateKey: string
 }
 
 /**
+ * Check if WebCrypto (crypto.subtle) is available.
+ * It's only available in secure contexts (HTTPS) or localhost.
+ */
+function hasWebCrypto(): boolean {
+  return typeof globalThis.crypto !== 'undefined' && typeof globalThis.crypto.subtle !== 'undefined'
+}
+
+/**
  * Generate a new Ed25519 keypair.
  * Private key stays in localStorage, public key goes to server.
+ *
+ * Falls back to random hex keys when crypto.subtle is unavailable (HTTP).
+ * Real Ed25519 signing happens in the plugin (Node.js) where crypto.subtle
+ * is always available.
  */
 export async function generateKeypair(): Promise<Keypair> {
-  const privateKeyBytes = ed25519.utils.randomSecretKey()
-  const publicKeyBytes = await ed25519.getPublicKeyAsync(privateKeyBytes)
+  if (hasWebCrypto()) {
+    // Full Ed25519 key generation when WebCrypto is available
+    const ed25519 = await import('@noble/ed25519')
+    const privateKeyBytes = ed25519.utils.randomSecretKey()
+    const publicKeyBytes = await ed25519.getPublicKeyAsync(privateKeyBytes)
+    return {
+      privateKey: bytesToHex(privateKeyBytes),
+      publicKey: bytesToHex(publicKeyBytes),
+    }
+  }
 
+  // Fallback: generate random keys for registration
+  // Combat signing uses the plugin (Node.js), not the browser
+  const privateKeyBytes = new Uint8Array(32)
+  globalThis.crypto.getRandomValues(privateKeyBytes)
+  const publicKeyBytes = new Uint8Array(32)
+  globalThis.crypto.getRandomValues(publicKeyBytes)
   return {
     privateKey: bytesToHex(privateKeyBytes),
     publicKey: bytesToHex(publicKeyBytes),
@@ -21,9 +45,13 @@ export async function generateKeypair(): Promise<Keypair> {
 
 /**
  * Sign a message with the user's private key.
- * Used for signing combat actions.
+ * Used for signing combat actions. Requires WebCrypto (HTTPS).
  */
 export async function signMessage(message: string, privateKeyHex: string): Promise<string> {
+  if (!hasWebCrypto()) {
+    throw new Error('Combat signing requires HTTPS or the Arena plugin (Node.js)')
+  }
+  const ed25519 = await import('@noble/ed25519')
   const messageBytes = new TextEncoder().encode(message)
   const privateKeyBytes = hexToBytes(privateKeyHex)
 
