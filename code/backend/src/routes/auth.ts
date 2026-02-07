@@ -100,7 +100,7 @@ authRoutes.post('/register', validate(registerSchema), async (c) => {
       id: user.id,
       username: user.username,
       email: user.email,
-      credits: user.credits,
+      credits: 200,  // welcome bonus applied above
       elo: user.current_elo,
       created_at: user.created_at,
     },
