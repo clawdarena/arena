@@ -7,10 +7,9 @@ import { useAuthStore, useQueueStore } from '@/lib/store'
 import { formatCredits, formatELO, getELORank, getEntryFee, timeAgo } from '@/lib/utils'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Navbar } from '@/components/Navbar'
-import { ALL_SKILLS, type MatchHistoryEntry } from '@/lib/constants'
+import { type MatchHistoryEntry } from '@/lib/constants'
 import { api } from '@/lib/api'
-import type { Skill, SkillId } from '../../../shared/types'
-import { Swords, Shield, Zap, Heart, TrendingUp, TrendingDown, Minus, ChevronRight, Trophy, Flame, Activity } from 'lucide-react'
+import { Swords, Shield, Zap, Heart, TrendingUp, TrendingDown, Minus, ChevronRight, Trophy, Activity } from 'lucide-react'
 
 function StatBar({ label, value, max, color, icon }: {
   label: string
@@ -31,28 +30,6 @@ function StatBar({ label, value, max, color, icon }: {
         />
       </div>
       <span className="text-xs font-mono text-[var(--text-primary)] w-8 text-right">{value}</span>
-    </div>
-  )
-}
-
-function SkillBadge({ skillId }: { skillId: string }) {
-  const skill = ALL_SKILLS[skillId as SkillId]
-  if (!skill) return null
-
-  const rarityColors: Record<string, string> = {
-    common: 'border-[var(--border-bright)] bg-[var(--bg-raised)] text-[var(--text-primary)]',
-    rare: 'border-blue-600/50 bg-blue-900/20 text-blue-400',
-    epic: 'border-[var(--neon-cyan)] bg-[var(--neon-cyan-dim)] text-[var(--neon-cyan)]',
-    legendary: 'border-[var(--neon-amber)] bg-[var(--neon-amber-dim)] text-[var(--neon-amber)]',
-  }
-
-  return (
-    <div className={`flex items-center gap-2 px-3 py-2 rounded-sm border ${rarityColors[skill.rarity] || rarityColors.common}`}>
-      <span className="text-sm">✨</span>
-      <div className="flex-1 min-w-0">
-        <div className="text-sm font-semibold truncate">{skill.name}</div>
-        <div className="text-[10px] text-[var(--text-muted)] font-mono">{skill.cooldown}r cooldown</div>
-      </div>
     </div>
   )
 }
@@ -104,7 +81,6 @@ function DashboardContent() {
   const router = useRouter()
   const { user, bots, setUser, setBots, setToken } = useAuthStore()
   const { isQueuing, startQueuing, stopQueuing } = useQueueStore()
-  const [selectedTier, setSelectedTier] = useState('ranked_bronze')
   const [recentMatches, setRecentMatches] = useState<MatchHistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -170,13 +146,16 @@ function DashboardContent() {
     </div>
   )
 
-  const tiers = [
-    { id: 'ranked_bronze', name: 'BRONZE', fee: 50, minElo: 0 },
-    { id: 'ranked_silver', name: 'SILVER', fee: 100, minElo: 1200 },
-    { id: 'ranked_gold', name: 'GOLD', fee: 200, minElo: 1400 },
-    { id: 'ranked_platinum', name: 'PLATINUM', fee: 400, minElo: 1600 },
-    { id: 'ranked_legend', name: 'LEGEND', fee: 800, minElo: 1800 },
-  ]
+  // Auto-detect tier from ELO
+  function getAutoTier(elo: number): string {
+    if (elo >= 1800) return 'ranked_legend'
+    if (elo >= 1600) return 'ranked_platinum'
+    if (elo >= 1400) return 'ranked_gold'
+    if (elo >= 1200) return 'ranked_silver'
+    return 'ranked_bronze'
+  }
+
+  const autoTier = getAutoTier(user.current_elo)
 
   function handleFindMatch() {
     if (isQueuing) {
@@ -184,13 +163,10 @@ function DashboardContent() {
       return
     }
 
-    const fee = getEntryFee(selectedTier)
-    if (user && user.credits < fee) {
-      alert(`Insufficient credits. Need ${fee} AC.`)
-      return
-    }
+    const fee = getEntryFee(autoTier)
+    if (user && user.credits < fee) return
 
-    startQueuing(selectedTier)
+    startQueuing(autoTier)
     router.push('/queue')
   }
 
@@ -274,8 +250,8 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* Middle Row: Bot Stats + Skills + Match Finder */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
+      {/* Middle Row: Bot Stats + Match Finder */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
         {/* Bot Stats */}
         <div className="panel p-6">
           <div className="flex items-center gap-3 mb-5">
@@ -295,76 +271,48 @@ function DashboardContent() {
           </div>
         </div>
 
-        {/* Equipped Skills */}
-        <div className="panel p-6">
-          <h3 className="arena-subtitle text-[10px] text-[var(--text-muted)] mb-4 flex items-center gap-2">
-            <Flame className="w-3.5 h-3.5 text-[var(--neon-amber)]" />
-            EQUIPPED SKILLS
-          </h3>
-          <div className="space-y-2">
-            {bot.skills.length > 0 ? (
-              bot.skills.map((equipped) => (
-                <SkillBadge key={equipped.slot} skillId={equipped.skill_id} />
-              ))
-            ) : (
-              <p className="text-sm text-[var(--text-muted)] text-center py-6 font-mono">
-                // no skills equipped
-              </p>
-            )}
-          </div>
-          {bot.skills.length < 2 && (
-            <div className="mt-3 pt-3 border-t border-[var(--border-dim)]">
-              <p className="text-[10px] text-[var(--text-muted)] font-mono">
-                {2 - bot.skills.length} slot{2 - bot.skills.length > 1 ? 's' : ''} available
-              </p>
-            </div>
-          )}
-          <Link
-            href="/shop"
-            className="inline-flex items-center gap-1 mt-4 text-xs text-[var(--neon-cyan)] hover:underline"
-          >
-            <span className="arena-subtitle text-[10px]">BROWSE SKILLS</span> <ChevronRight className="w-3 h-3" />
-          </Link>
-        </div>
-
-        {/* Match Finder */}
-        <div className="panel p-6 corner-brackets">
+        {/* Match Finder — ELO auto-tier */}
+        <div className="panel p-6 corner-brackets flex flex-col">
           <h3 className="arena-subtitle text-[10px] text-[var(--text-muted)] mb-4 flex items-center gap-2">
             <Swords className="w-3.5 h-3.5 text-[var(--neon-red)]" />
             FIND MATCH
           </h3>
 
-          <div className="space-y-1.5 mb-4">
-            {tiers.map((tier) => {
-              const locked = user.current_elo < tier.minElo
-              return (
-                <button
-                  key={tier.id}
-                  onClick={() => !locked && setSelectedTier(tier.id)}
-                  className={`w-full flex items-center justify-between p-2.5 rounded-sm border text-sm transition ${
-                    selectedTier === tier.id
-                      ? 'border-[var(--neon-cyan)] bg-[var(--neon-cyan-dim)] text-[var(--text-primary)]'
-                      : locked
-                      ? 'border-[var(--border-dim)] bg-[var(--bg-void)] text-[var(--text-muted)] cursor-not-allowed opacity-40'
-                      : 'border-[var(--border-dim)] hover:border-[var(--border-mid)] text-[var(--text-secondary)]'
-                  }`}
-                  disabled={locked}
-                >
-                  <span className="arena-subtitle text-[10px]">{tier.name}</span>
-                  <span className="text-[10px] font-mono text-[var(--text-muted)]">
-                    {locked ? `🔒 ${tier.minElo}+` : `${tier.fee} CR`}
-                  </span>
-                </button>
-              )
-            })}
+          {/* Current tier display */}
+          <div className="flex-1 flex flex-col items-center justify-center py-4">
+            <div className="text-[10px] text-[var(--text-muted)] font-mono mb-2">YOUR TIER</div>
+            <div className={`text-2xl font-bold arena-title ${rank.color}`}>
+              {rank.name.toUpperCase()}
+            </div>
+            <div className="text-sm font-mono text-[var(--neon-cyan)] mt-1">
+              {formatELO(user.current_elo)} ELO
+            </div>
+            <div className="mt-4 flex items-center gap-4 text-center">
+              <div>
+                <div className="text-lg font-mono font-bold text-[var(--neon-amber)]">{getEntryFee(autoTier)} CR</div>
+                <div className="text-[9px] text-[var(--text-muted)] font-mono">ENTRY FEE</div>
+              </div>
+              <div className="w-px h-8 bg-[var(--border-dim)]" />
+              <div>
+                <div className="text-lg font-mono font-bold text-[var(--neon-green)]">{getEntryFee(autoTier) * 2} CR</div>
+                <div className="text-[9px] text-[var(--text-muted)] font-mono">WIN PAYOUT</div>
+              </div>
+            </div>
           </div>
+
+          {user.credits < getEntryFee(autoTier) && (
+            <div className="text-[10px] text-[var(--neon-red)] font-mono text-center mb-3">
+              ⚠ INSUFFICIENT CREDITS — NEED {getEntryFee(autoTier)} CR
+            </div>
+          )}
 
           <button
             onClick={handleFindMatch}
+            disabled={user.credits < getEntryFee(autoTier)}
             className={`w-full py-3 font-semibold transition ${
               isQueuing
                 ? 'btn-danger'
-                : 'btn-primary'
+                : 'btn-primary disabled:opacity-40 disabled:cursor-not-allowed'
             }`}
           >
             {isQueuing ? '⏳ CANCEL SEARCH' : '⚔️ FIND MATCH →'}
