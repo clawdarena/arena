@@ -22,7 +22,7 @@ const NAV_ITEMS = [
   { href: '/bot', label: 'Bot', icon: Bot },
   { href: '/shop', label: 'Shop', icon: ShoppingBag },
   { href: '/leaderboard', label: 'Ranks', icon: Trophy },
-  { href: '/history', label: 'Log', icon: ScrollText },
+  { href: '/history', label: 'Match History', icon: ScrollText },
   { href: '/gauntlet', label: 'Gauntlet', icon: Shield },
 ]
 
