@@ -9,6 +9,7 @@ import { HPBar } from '@/components/HPBar'
 import { ActionLog } from '@/components/ActionLog'
 import { MatchResult } from '@/components/MatchResult'
 import { ArenaView } from '@/components/ArenaView'
+import { Arena3DView } from '@/components/3d/Arena3DWrapper'
 import { connectSocket } from '@/lib/socket'
 import type {
   RoundResult,
@@ -337,9 +338,9 @@ function MatchContent() {
         </div>
       </div>
 
-      {/* Arena Visualization */}
+      {/* 3D Arena Visualization */}
       <div className="mb-4">
-        <ArenaView
+        <Arena3DView
           bot1Name={myBot.name}
           bot2Name={matchData.opponent.name}
           bot1MaxHp={myBot.hp}
