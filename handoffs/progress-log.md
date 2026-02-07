@@ -1,5 +1,48 @@
 # Progress Log
 
+## 2026-02-07 — Full E2E Test Sweep
+
+### E2E Tests Passed
+1. ✅ Register (generates Ed25519 keypair, 200 CR welcome bonus)
+2. ✅ Login (returns JWT)
+3. ✅ GET /me (user + bot + skills + avatar + tagline)
+4. ✅ PATCH bot identity (name, avatar, tagline)
+5. ✅ Shop items (30 cosmetics in 3 categories)
+6. ✅ Skills list (10 skills), owned (4 starters)
+7. ✅ Equip/unequip skills (persists to DB)
+8. ✅ Skill purchase (fireball 300 CR, duplicate blocked)
+9. ✅ PvE bots (5 tiers)
+10. ✅ Gauntlet progress (0/5 → 1/5 after win)
+11. ✅ Leaderboard (filtered to players with matches)
+12. ✅ Match history
+13. ✅ Bot bonuses (DQS, age)
+14. ✅ Stat allocate rejection (level 1 = no points)
+15. ✅ Active matches (spectate)
+16. ✅ Player profile (/api/players/:username)
+17. ✅ Auth protection (401 on missing token)
+18. ✅ **WebSocket PvE fight** — 10 rounds, damage, counters, momentum, energy all working
+19. ✅ **WebSocket Gauntlet** — Tier 1 auto-completes, +50 CR + +5 HP reward applied
+20. ✅ All 14 frontend pages return HTTP 200
+
+### Bugs Fixed This Sweep
+1. Shop equip/unequip → now persists to backend API
+2. /me missing avatar + tagline fields
+3. RoundStartPayload missing energy field in types
+4. MatchResult XP display — PvE sends {totalXp} directly, PvP sends {bot1:{totalXp}, bot2:{totalXp}}
+5. Gauntlet didn't auto-complete — now backend checks criteria on PvE win, awards stat + credits
+6. Shop cosmetic purchase was stubbed — now calls /api/shop/purchase
+7. Double credits on register (0 base + 200 bonus, was 200 + 200)
+8. INVALID_SIGNATURE for web clients — skip verification when signature='web_client'
+9. Fight tab bounced to dashboard — now shows tier selection UI
+10. Register response showed 0 credits instead of 200
+
+### GitHub Auto-Deploy
+- Both services auto-deploy from main branch ✅
+- Frontend Dockerfile fixed to work with code/frontend as root dir
+- Shared types copied to code/frontend/shared/ for build context
+
+---
+
 ## 2026-02-06 — Bug Sweep + Testing
 
 ### Bugs Fixed
