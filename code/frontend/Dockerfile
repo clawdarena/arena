@@ -1,7 +1,7 @@
 FROM node:20-alpine
 WORKDIR /app
 
-# Copy shared types first (referenced by frontend)
+# Copy shared types first (referenced by frontend via relative imports)
 COPY code/shared ./code/shared
 
 # Install frontend dependencies
