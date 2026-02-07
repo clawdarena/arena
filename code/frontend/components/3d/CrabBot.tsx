@@ -17,15 +17,124 @@ interface CrabBotProps {
 
 useGLTF.preload('/models/crabbot.glb')
 
+// Simple seeded hash for deterministic noise
+function hash3(x: number, y: number, z: number): number {
+  let h = x * 374761393 + y * 668265263 + z * 1274126177
+  h = Math.abs(h)
+  h = ((h >> 13) ^ h) * 1274126177
+  return (Math.abs(h) % 10000) / 10000
+}
+
 /**
- * GLB CrabBot with custom shader for multi-tone armor coloring.
- * Uses vertex position + normals to create:
- *   - Bright armor plates on outward-facing surfaces
- *   - Dark metallic joints in recesses / underside
- *   - Neon Fresnel rim glow on edges
- *   - Glowing eye accents
- * Inspired by weathered mech / power-armor aesthetic.
+ * Paints vertex colors onto geometry based on position + normals.
+ * Creates distinct zones: bright armor plates, dark joints, accent seams.
  */
+function paintVertexColors(geo: THREE.BufferGeometry, isCyan: boolean, accentColor: THREE.Color) {
+  const positions = geo.attributes.position
+  const normals = geo.attributes.normal
+  const count = positions.count
+  const colors = new Float32Array(count * 3)
+
+  // Palette
+  const armorBright = isCyan
+    ? new THREE.Color('#5090c0')  // bright steel blue
+    : new THREE.Color('#c83030')  // bright crimson red
+  const armorMid = isCyan
+    ? new THREE.Color('#2e5a80')  // mid blue
+    : new THREE.Color('#8a2020')  // mid red
+  const armorDark = isCyan
+    ? new THREE.Color('#162a40')  // dark navy
+    : new THREE.Color('#3a0e0e')  // dark maroon
+  const jointDark = new THREE.Color('#0e0e0e')  // near-black joints
+  const jointMetal = new THREE.Color('#252525') // dark gunmetal
+  const accentDim = accentColor.clone().multiplyScalar(0.4)
+
+  const tmpColor = new THREE.Color()
+  const bbox = geo.boundingBox!
+  const size = new THREE.Vector3()
+  bbox.getSize(size)
+  const halfH = size.y / 2
+
+  for (let i = 0; i < count; i++) {
+    const x = positions.getX(i)
+    const y = positions.getY(i)
+    const z = positions.getZ(i)
+    const nx = normals.getX(i)
+    const ny = normals.getY(i)
+    const nz = normals.getZ(i)
+
+    // Normalized height [0..1]
+    const h = (y - bbox.min.y) / size.y
+
+    // How much does normal face up/outward?
+    const upFacing = ny * 0.5 + 0.5 // 0 = down-facing, 1 = up-facing
+    const outward = Math.sqrt(nx * nx + nz * nz) // how much normal faces sideways
+
+    // Steepness: normals that are mostly horizontal = joint/recess areas
+    const steepness = 1.0 - Math.abs(ny)
+
+    // Distance from center axis (for radial variation)
+    const radial = Math.sqrt(x * x + z * z)
+
+    // Noise for variation
+    const n1 = hash3(Math.floor(x * 20), Math.floor(y * 20), Math.floor(z * 20))
+    const n2 = hash3(Math.floor(x * 8), Math.floor(y * 8), Math.floor(z * 8))
+
+    // === Zone classification ===
+
+    // Joint zone: steep normals (horizontal-facing) + lower areas
+    const jointFactor = Math.pow(steepness, 1.5) * (0.5 + (1.0 - h) * 0.5)
+
+    // Top armor plate: upper regions with upward normals
+    const topPlateFactor = Math.pow(Math.max(0, upFacing - 0.3) / 0.7, 1.2) * h
+
+    // Side armor: outward normals at mid-height
+    const sidePlateFactor = outward * (1.0 - jointFactor) * (0.3 + h * 0.7)
+
+    // Start with mid armor color
+    tmpColor.copy(armorMid)
+
+    // Top plates get bright color
+    tmpColor.lerp(armorBright, topPlateFactor * 0.8)
+
+    // Side plates get mid-bright
+    tmpColor.lerp(armorBright, sidePlateFactor * 0.4)
+
+    // Joints/recesses get very dark
+    tmpColor.lerp(jointDark, jointFactor * 0.75)
+
+    // Lower body gets progressively darker
+    const lowerDark = Math.pow(Math.max(0, 0.35 - h) / 0.35, 1.5)
+    tmpColor.lerp(armorDark, lowerDark * 0.6)
+
+    // Weathering / grime: darken randomly
+    const grime = n2 * 0.15 * (0.5 + steepness * 0.5)
+    tmpColor.multiplyScalar(1.0 - grime)
+
+    // Bright scratches on outward-facing armor
+    if (n1 > 0.88 && upFacing > 0.5 && jointFactor < 0.3) {
+      tmpColor.lerp(armorBright, 0.5)
+    }
+
+    // Subtle accent glow in deepest joints
+    if (jointFactor > 0.6 && n2 > 0.5) {
+      tmpColor.lerp(accentDim, 0.2)
+    }
+
+    // Panel edge darkening (procedural seams)
+    const seamY = Math.abs(Math.sin(y * 12.0)) < 0.05 ? 1.0 : 0.0
+    const seamXZ = Math.abs(Math.sin((x + z) * 8.0)) < 0.04 ? 1.0 : 0.0
+    const seam = Math.max(seamY, seamXZ) * (1.0 - jointFactor)
+    tmpColor.lerp(jointMetal, seam * 0.5)
+
+    colors[i * 3] = tmpColor.r
+    colors[i * 3 + 1] = tmpColor.g
+    colors[i * 3 + 2] = tmpColor.b
+  }
+
+  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3))
+}
+
 export function CrabBot({
   color = '#00f0ff',
   position = [0, 0, 0],
@@ -40,7 +149,10 @@ export function CrabBot({
   const timeRef = useRef(0)
 
   const { scene } = useGLTF('/models/crabbot.glb')
+  const isCyan = color.toLowerCase().includes('00f0ff') || color.toLowerCase().includes('0ff')
+  const accentThree = useMemo(() => new THREE.Color(color), [color])
 
+  // Clone geometry, compute normals, paint vertex colors
   const geometry = useMemo(() => {
     let geo: THREE.BufferGeometry | null = null
     scene.traverse((child) => {
@@ -48,309 +160,136 @@ export function CrabBot({
         geo = (child as THREE.Mesh).geometry.clone()
       }
     })
-    if (geo) {
-      const g = geo as THREE.BufferGeometry
-      g.computeVertexNormals()
-      g.computeBoundingBox()
-      const box = g.boundingBox!
-      const center = new THREE.Vector3()
-      box.getCenter(center)
-      g.translate(-center.x, -center.y, -center.z)
-    }
-    return geo as unknown as THREE.BufferGeometry
-  }, [scene])
+    if (!geo) return null
+    const g = geo as THREE.BufferGeometry
+    g.computeVertexNormals()
+    g.computeBoundingBox()
+    const center = new THREE.Vector3()
+    g.boundingBox!.getCenter(center)
+    g.translate(-center.x, -center.y, -center.z)
+    // Paint vertex colors
+    paintVertexColors(g, isCyan, accentThree)
+    return g
+  }, [scene, isCyan, accentThree])
 
-  const isCyan = color.toLowerCase().includes('00f0ff') || color.toLowerCase().includes('0ff')
-
-  // Custom shader material for elaborate mech coloring
-  const shaderMat = useMemo(() => {
-    // Color palette
-    const armorPrimary = isCyan ? new THREE.Color('#2a5578') : new THREE.Color('#8b2020')
-    const armorHighlight = isCyan ? new THREE.Color('#4a88b0') : new THREE.Color('#c04030')
-    const armorDark = isCyan ? new THREE.Color('#0d1e2e') : new THREE.Color('#1a0808')
-    const jointColor = new THREE.Color('#1a1a1a')
-    const accentGlow = new THREE.Color(color)
-
-    return new THREE.ShaderMaterial({
-      uniforms: {
-        uTime: { value: 0 },
-        uHpPercent: { value: hpPercent },
-        uArmorPrimary: { value: armorPrimary },
-        uArmorHighlight: { value: armorHighlight },
-        uArmorDark: { value: armorDark },
-        uJointColor: { value: jointColor },
-        uAccentGlow: { value: accentGlow },
-        uHitFlash: { value: 0 },
-        uSkillGlow: { value: 0 },
-        // Lighting
-        uLightDir: { value: new THREE.Vector3(0.5, 1, 0.3).normalize() },
-        uLightDir2: { value: new THREE.Vector3(-0.3, 0.5, -0.5).normalize() },
-        uViewPos: { value: new THREE.Vector3(0, 1.2, 4) },
-      },
-      vertexShader: /* glsl */ `
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-        varying vec3 vWorldPos;
-        varying vec3 vViewDir;
-        
-        uniform vec3 uViewPos;
-        
-        void main() {
-          vNormal = normalize(normalMatrix * normal);
-          vPosition = position;
-          vec4 worldPos = modelMatrix * vec4(position, 1.0);
-          vWorldPos = worldPos.xyz;
-          vViewDir = normalize(uViewPos - worldPos.xyz);
-          gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-        }
-      `,
-      fragmentShader: /* glsl */ `
-        varying vec3 vNormal;
-        varying vec3 vPosition;
-        varying vec3 vWorldPos;
-        varying vec3 vViewDir;
-        
-        uniform float uTime;
-        uniform float uHpPercent;
-        uniform float uHitFlash;
-        uniform float uSkillGlow;
-        uniform vec3 uArmorPrimary;
-        uniform vec3 uArmorHighlight;
-        uniform vec3 uArmorDark;
-        uniform vec3 uJointColor;
-        uniform vec3 uAccentGlow;
-        uniform vec3 uLightDir;
-        uniform vec3 uLightDir2;
-        
-        // Simple hash noise
-        float hash(vec3 p) {
-          p = fract(p * vec3(443.897, 441.423, 437.195));
-          p += dot(p, p.yzx + 19.19);
-          return fract((p.x + p.y) * p.z);
-        }
-        
-        void main() {
-          vec3 N = normalize(vNormal);
-          vec3 V = normalize(vViewDir);
-          
-          // === ZONE CLASSIFICATION via position + normal ===
-          
-          // Height factor: 0 = bottom, 1 = top
-          float heightFactor = smoothstep(-1.0, 1.0, vPosition.y);
-          
-          // Outward-facing factor: how much the normal points outward/upward
-          float outward = dot(N, vec3(0.0, 1.0, 0.0)) * 0.5 + 0.5;
-          
-          // Curvature approximation: steep normals = joints/recesses
-          float steepness = 1.0 - abs(N.y);
-          
-          // Ridge detection: sharp angle changes suggest armor plate edges
-          float ridge = pow(abs(fract(vPosition.y * 8.0) - 0.5) * 2.0, 4.0);
-          float ridgeX = pow(abs(fract(vPosition.x * 6.0) - 0.5) * 2.0, 4.0);
-          
-          // === BASE COLOR MIXING ===
-          
-          // Start with primary armor
-          vec3 baseColor = uArmorPrimary;
-          
-          // Top surfaces get highlight color (armor plates facing up/out)
-          baseColor = mix(baseColor, uArmorHighlight, outward * 0.6 * heightFactor);
-          
-          // Underside and steep recesses get dark joint color
-          float jointMask = smoothstep(0.3, 0.7, steepness) * (1.0 - heightFactor * 0.5);
-          baseColor = mix(baseColor, uJointColor, jointMask * 0.7);
-          
-          // Lower body darker
-          baseColor = mix(baseColor, uArmorDark, smoothstep(0.4, 0.0, heightFactor) * 0.6);
-          
-          // Add variation / weathering noise
-          float noise = hash(vPosition * 15.0);
-          float weathering = noise * 0.12;
-          baseColor *= (1.0 - weathering);
-          
-          // Subtle scratches / wear on outward faces
-          float scratch = hash(vPosition * 80.0);
-          if (scratch > 0.92 && outward > 0.4) {
-            baseColor = mix(baseColor, uArmorHighlight * 1.3, 0.3);
-          }
-          
-          // Dark panel lines at ridges
-          float panelLine = max(ridge, ridgeX) * steepness;
-          baseColor = mix(baseColor, uJointColor, panelLine * 0.4);
-          
-          // === LIGHTING (PBR-ish) ===
-          
-          // Diffuse
-          float NdotL = max(dot(N, uLightDir), 0.0);
-          float NdotL2 = max(dot(N, uLightDir2), 0.0);
-          float diffuse = NdotL * 0.7 + NdotL2 * 0.25 + 0.15; // ambient
-          
-          // Specular (Blinn-Phong, metallic)
-          vec3 H = normalize(uLightDir + V);
-          float NdotH = max(dot(N, H), 0.0);
-          float spec = pow(NdotH, 40.0) * 0.5;
-          
-          vec3 H2 = normalize(uLightDir2 + V);
-          float NdotH2 = max(dot(N, H2), 0.0);
-          float spec2 = pow(NdotH2, 30.0) * 0.2;
-          
-          // Metallic reflection tints specular with base color
-          vec3 specColor = mix(vec3(1.0), baseColor * 1.5, 0.7);
-          
-          // === FRESNEL RIM GLOW (neon accent on edges) ===
-          float fresnel = pow(1.0 - max(dot(N, V), 0.0), 3.0);
-          float rimGlow = fresnel * (0.4 + uHpPercent * 0.6);
-          // Pulse the rim glow subtly
-          rimGlow *= 0.8 + sin(uTime * 2.0) * 0.2;
-          
-          // === ACCENT GLOW LINES (seam-like neon in recesses) ===
-          float seamGlow = 0.0;
-          // Horizontal seams
-          float seam1 = smoothstep(0.02, 0.0, abs(fract(vPosition.y * 5.0) - 0.5) - 0.47);
-          // Vertical seams
-          float seam2 = smoothstep(0.02, 0.0, abs(fract(vPosition.x * 4.0 + vPosition.z * 4.0) - 0.5) - 0.47);
-          seamGlow = max(seam1, seam2) * jointMask * 0.6;
-          seamGlow *= 0.7 + sin(uTime * 3.0 + vPosition.y * 10.0) * 0.3;
-          
-          // === COMPOSITE ===
-          vec3 finalColor = baseColor * diffuse;
-          finalColor += specColor * (spec + spec2);
-          finalColor += uAccentGlow * rimGlow * 0.5;
-          finalColor += uAccentGlow * seamGlow;
-          
-          // Hit flash: white flash overlay
-          finalColor = mix(finalColor, vec3(1.0, 0.9, 0.8), uHitFlash * 0.7);
-          
-          // Skill glow: boost accent color
-          finalColor += uAccentGlow * uSkillGlow * 0.4;
-          
-          // Tone mapping (simple Reinhard)
-          finalColor = finalColor / (finalColor + vec3(1.0));
-          
-          // Slight desaturation in dark areas for gritty look
-          float lum = dot(finalColor, vec3(0.299, 0.587, 0.114));
-          finalColor = mix(vec3(lum), finalColor, 0.85 + heightFactor * 0.15);
-          
-          gl_FragColor = vec4(finalColor, 1.0);
-        }
-      `,
+  // PBR material with vertex colors — real metallic armor look
+  const material = useMemo(() => {
+    return new THREE.MeshPhysicalMaterial({
+      vertexColors: true,
+      metalness: 0.82,
+      roughness: 0.25,
+      clearcoat: 0.4,
+      clearcoatRoughness: 0.15,
+      emissive: new THREE.Color(color),
+      emissiveIntensity: 0.08,
+      envMapIntensity: 1.2,
     })
-  }, [color, isCyan, hpPercent])
+  }, [color])
+
+  // Rim glow mesh — slightly larger, emissive wireframe for edge neon
+  const rimMat = useMemo(() => {
+    return new THREE.MeshBasicMaterial({
+      color: color,
+      wireframe: true,
+      transparent: true,
+      opacity: 0.035,
+    })
+  }, [color])
 
   // Animation loop
   useFrame((state, delta) => {
     timeRef.current += delta
     const t = timeRef.current
-
     if (!groupRef.current) return
     const g = groupRef.current
 
-    // Update shader uniforms
-    if (shaderMat) {
-      shaderMat.uniforms.uTime.value = t
-      shaderMat.uniforms.uHpPercent.value = hpPercent
-      shaderMat.uniforms.uViewPos.value.copy(state.camera.position)
-    }
+    // Reset position each frame for clean state
+    g.position.set(position[0], position[1], position[2])
+    g.rotation.set(rotation[0], rotation[1], rotation[2])
 
     if (animation === 'idle') {
-      g.position.y = position[1] + Math.sin(t * 2) * 0.04
-      g.rotation.z = Math.sin(t * 1.5) * 0.015
-      g.rotation.x = rotation[0] + Math.sin(t * 1.2) * 0.008
-      g.position.x = position[0]
-      g.position.z = position[2]
-      g.rotation.y = rotation[1]
-      if (shaderMat) {
-        shaderMat.uniforms.uHitFlash.value = 0
-        shaderMat.uniforms.uSkillGlow.value = 0
-      }
+      g.position.y += Math.sin(t * 2) * 0.04
+      g.rotation.z += Math.sin(t * 1.5) * 0.015
+      g.rotation.x += Math.sin(t * 1.2) * 0.008
     } else if (animation === 'attack') {
       const phase = (t * 5) % (Math.PI * 2)
       const lunge = Math.sin(phase) * 0.3
-      g.position.z = position[2] + (side === 'left' ? lunge : -lunge)
-      g.position.y = position[1] + Math.abs(Math.sin(phase)) * 0.05
-      g.rotation.z = Math.sin(phase) * 0.08
-      if (shaderMat) {
-        shaderMat.uniforms.uHitFlash.value = 0
-        shaderMat.uniforms.uSkillGlow.value = 0
-      }
+      g.position.z += side === 'left' ? lunge : -lunge
+      g.position.y += Math.abs(Math.sin(phase)) * 0.05
+      g.rotation.z += Math.sin(phase) * 0.08
     } else if (animation === 'defend') {
-      g.position.y = position[1] - 0.06
-      g.rotation.x = rotation[0] + 0.12
-      g.position.x = position[0]
-      g.position.z = position[2]
-      if (shaderMat) {
-        shaderMat.uniforms.uHitFlash.value = 0
-        shaderMat.uniforms.uSkillGlow.value = 0
-      }
+      g.position.y -= 0.06
+      g.rotation.x += 0.12
     } else if (animation === 'skill') {
-      g.rotation.y = rotation[1] + t * 3
-      g.position.y = position[1] + Math.sin(t * 4) * 0.08
-      if (shaderMat) {
-        shaderMat.uniforms.uHitFlash.value = 0
-        shaderMat.uniforms.uSkillGlow.value = 0.5 + Math.sin(t * 6) * 0.5
-      }
+      g.rotation.y += t * 3
+      g.position.y += Math.sin(t * 4) * 0.08
     } else if (animation === 'hit') {
-      g.position.x = position[0] + (Math.random() - 0.5) * 0.1
-      g.position.y = position[1] + (Math.random() - 0.5) * 0.05
-      if (shaderMat) {
-        shaderMat.uniforms.uHitFlash.value = Math.sin(t * 20) > 0 ? 1 : 0
-        shaderMat.uniforms.uSkillGlow.value = 0
-      }
+      g.position.x += (Math.random() - 0.5) * 0.1
+      g.position.y += (Math.random() - 0.5) * 0.05
     } else if (animation === 'death') {
-      g.rotation.z = Math.min(t * 0.5, Math.PI / 3)
-      g.position.y = position[1] - Math.min(t * 0.2, 0.3)
-      if (shaderMat) {
-        shaderMat.uniforms.uHitFlash.value = 0
-        shaderMat.uniforms.uSkillGlow.value = 0
+      g.rotation.z += Math.min(t * 0.5, Math.PI / 3)
+      g.position.y -= Math.min(t * 0.2, 0.3)
+    }
+
+    // Dynamic emissive based on state
+    if (material) {
+      if (animation === 'hit') {
+        material.emissiveIntensity = Math.sin(t * 20) > 0 ? 0.5 : 0.02
+      } else if (animation === 'skill') {
+        material.emissiveIntensity = 0.15 + Math.sin(t * 6) * 0.1
+      } else {
+        material.emissiveIntensity = 0.05 + hpPercent * 0.06 + Math.sin(t * 2) * 0.02
+      }
+    }
+
+    // Rim glow pulse
+    if (rimMat) {
+      if (animation === 'skill') {
+        rimMat.opacity = 0.12 + Math.sin(t * 8) * 0.08
+      } else if (animation === 'hit') {
+        rimMat.opacity = Math.sin(t * 20) > 0 ? 0.2 : 0
+      } else {
+        rimMat.opacity = 0.025 + Math.sin(t * 2) * 0.015
       }
     }
   })
-
-  const glowColor = useMemo(() => new THREE.Color(color), [color])
 
   if (!geometry) return null
 
   return (
     <group ref={groupRef} position={position} rotation={rotation} scale={scale}>
-      {/* Main model with custom shader */}
+      {/* Main armored mesh */}
       <mesh
         ref={meshRef}
         geometry={geometry}
-        material={shaderMat}
+        material={material}
         castShadow
         receiveShadow
       />
 
-      {/* Accent point light */}
+      {/* Neon rim wireframe */}
+      <mesh geometry={geometry} material={rimMat} />
+
+      {/* Bot accent glow */}
       <pointLight
-        color={glowColor}
-        intensity={0.5 + hpPercent * 0.5}
+        color={accentThree}
+        intensity={0.4 + hpPercent * 0.5}
         distance={2.5}
         decay={2}
-        position={[0, 0.3, 0]}
+        position={[0, 0.2, 0]}
       />
 
-      {/* Eye glow spots */}
-      <mesh position={[-0.15, 0.3, 0.35]}>
+      {/* Eye glows */}
+      <mesh position={[-0.15, 0.28, 0.35]}>
         <sphereGeometry args={[0.035, 8, 8]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={2.0}
-          toneMapped={false}
-        />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2.5} toneMapped={false} />
       </mesh>
-      <mesh position={[0.15, 0.3, 0.35]}>
+      <mesh position={[0.15, 0.28, 0.35]}>
         <sphereGeometry args={[0.035, 8, 8]} />
-        <meshStandardMaterial
-          color={color}
-          emissive={color}
-          emissiveIntensity={2.0}
-          toneMapped={false}
-        />
+        <meshStandardMaterial color={color} emissive={color} emissiveIntensity={2.5} toneMapped={false} />
       </mesh>
 
-      {/* Under-glow disc */}
+      {/* Under-glow */}
       <mesh position={[0, -0.6, 0]} rotation={[Math.PI / 2, 0, 0]}>
         <circleGeometry args={[0.45, 16]} />
         <meshStandardMaterial
@@ -358,7 +297,7 @@ export function CrabBot({
           emissive={color}
           emissiveIntensity={0.4}
           transparent
-          opacity={0.12}
+          opacity={0.1}
           side={THREE.DoubleSide}
         />
       </mesh>
