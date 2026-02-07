@@ -1,16 +1,16 @@
 FROM node:20-alpine
 WORKDIR /app
 
-# Copy shared types first (referenced by frontend via relative imports)
-COPY code/shared ./code/shared
-
-# Install frontend dependencies
-COPY code/frontend/package.json code/frontend/package-lock.json ./code/frontend/
-WORKDIR /app/code/frontend
+# Install dependencies
+COPY package.json package-lock.json ./
 RUN npm ci
 
-# Copy frontend source
-COPY code/frontend ./
+# Copy shared types to the path the relative imports expect
+# Imports like ../../shared/types from /app/lib/ resolve to /shared/types
+COPY shared /shared
+
+# Copy all frontend source
+COPY . .
 
 # Build-time env
 ARG NEXT_PUBLIC_API_URL=https://clawdarena-api-production.up.railway.app
