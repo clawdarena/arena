@@ -1,5 +1,25 @@
 # Progress Log
 
+## 2026-02-06 — Bug Sweep + Testing
+
+### Bugs Fixed
+1. **Socket.IO CORS** — backend Socket.IO config only had localhost, added Railway origins
+2. **MatchResult crash** — PvE match_end has no elo_change, now handles null safely
+3. **No combat action buttons** — match page had zero interactivity, added Attack/Defend/Skill with energy tracking
+4. **Gauntlet start flow** — used REST then blind navigate to /match with no data in store. Now uses WebSocket pve_start
+5. **Dashboard null guard** — bots[0] crash when no bot registered
+6. **Match page empty state** — shows "NO ACTIVE MATCH" instead of infinite loader
+7. **Shop equip/unequip** — only updated local state, never called backend. Now persists to DB
+8. **Missing bot fields in /me** — avatar and tagline were missing from /api/auth/me response
+9. **RoundStartPayload type** — missing energy field that backend sends
+
+### Deployment
+- Both frontend and backend redeployed and verified
+- All 14 API endpoints tested and passing
+- Zero TypeScript build errors
+
+---
+
 ## 2026-02-06 — UI Redesign: Industrial Combat Terminal
 
 ### Complete Frontend Overhaul 🎨
