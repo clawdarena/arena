@@ -281,15 +281,55 @@ function ShopContent() {
     }
   }
 
-  function handleEquipSkill(skillId: string) {
+  async function handleEquipSkill(skillId: string) {
     if (equippedSkills.size >= 2) {
       alert('Max 2 skills equipped. Unequip one first.')
       return
     }
-    setEquippedSkills((prev) => new Set([...prev, skillId]))
+    const slot = equippedSkills.size + 1
+    const botId = bots[0]?.id
+    if (!botId) return
+
+    try {
+      await api('/api/bots/equip-skill', {
+        method: 'POST',
+        body: JSON.stringify({ bot_id: botId, skill_id: skillId, slot }),
+      })
+      setEquippedSkills((prev) => new Set([...prev, skillId]))
+    } catch (err: any) {
+      alert(err.message || 'Failed to equip skill')
+    }
   }
 
-  function handleUnequipSkill(skillId: string) {
+  async function handleUnequipSkill(skillId: string) {
+    const botId = bots[0]?.id
+    if (!botId) return
+
+    // Find the slot this skill is in
+    const bot = bots[0]
+    const equippedSlot = bot?.skills?.find((s: any) => s.skill_id === skillId)?.slot
+    if (!equippedSlot) {
+      // Fallback: try both slots
+      for (const slot of [1, 2]) {
+        try {
+          await api('/api/bots/unequip-skill', {
+            method: 'POST',
+            body: JSON.stringify({ bot_id: botId, slot }),
+          })
+        } catch { /* ignore */ }
+      }
+    } else {
+      try {
+        await api('/api/bots/unequip-skill', {
+          method: 'POST',
+          body: JSON.stringify({ bot_id: botId, slot: equippedSlot }),
+        })
+      } catch (err: any) {
+        alert(err.message || 'Failed to unequip skill')
+        return
+      }
+    }
+
     setEquippedSkills((prev) => {
       const next = new Set(prev)
       next.delete(skillId)

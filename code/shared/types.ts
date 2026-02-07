@@ -222,8 +222,8 @@ export interface RoundStartPayload {
   match_id: string
   round: number
   time_limit_seconds: number
-  bot1: { id: string; hp: number; status_effects: string[] }
-  bot2: { id: string; hp: number; status_effects: string[] }
+  bot1: { id: string; hp: number; energy?: number; status_effects: string[] }
+  bot2: { id: string; hp: number; energy?: number; status_effects: string[] }
   previous_round: RoundResult | null
 }
 

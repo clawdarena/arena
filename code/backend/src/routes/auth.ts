@@ -203,6 +203,8 @@ authRoutes.get('/me', authMiddleware, async (c) => {
     bots: user.bots.map((bot) => ({
       id: bot.id,
       name: bot.name,
+      avatar: bot.avatar,
+      tagline: bot.tagline,
       level: bot.level,
       xp: bot.xp,
       base_hp: bot.base_hp,
