@@ -9,67 +9,98 @@ import { Navbar } from '@/components/Navbar'
 import { useToast } from '@/components/Toast'
 import { connectSocket, disconnectSocket } from '@/lib/socket'
 
+function getTierForElo(elo: number) {
+  const tiers = [
+    { id: 'ranked_legend', name: 'LEGEND', fee: 800, minElo: 1800, color: 'var(--neon-red)' },
+    { id: 'ranked_platinum', name: 'PLATINUM', fee: 400, minElo: 1600, color: 'var(--neon-cyan)' },
+    { id: 'ranked_gold', name: 'GOLD', fee: 200, minElo: 1400, color: 'var(--neon-amber)' },
+    { id: 'ranked_silver', name: 'SILVER', fee: 100, minElo: 1200, color: 'var(--text-secondary)' },
+    { id: 'ranked_bronze', name: 'BRONZE', fee: 50, minElo: 0, color: '#cd7f32' },
+  ]
+  // Find the highest tier the player qualifies for
+  for (const tier of tiers) {
+    if (elo >= tier.minElo) return tier
+  }
+  return tiers[tiers.length - 1]
+}
+
+const ALL_TIERS = [
+  { id: 'ranked_bronze', name: 'BRONZE', fee: 50, minElo: 0, maxElo: 1199, color: '#cd7f32' },
+  { id: 'ranked_silver', name: 'SILVER', fee: 100, minElo: 1200, maxElo: 1399, color: 'var(--text-secondary)' },
+  { id: 'ranked_gold', name: 'GOLD', fee: 200, minElo: 1400, maxElo: 1599, color: 'var(--neon-amber)' },
+  { id: 'ranked_platinum', name: 'PLATINUM', fee: 400, minElo: 1600, maxElo: 1799, color: 'var(--neon-cyan)' },
+  { id: 'ranked_legend', name: 'LEGEND', fee: 800, minElo: 1800, maxElo: 9999, color: 'var(--neon-red)' },
+]
+
 function TierSelectUI() {
   const router = useRouter()
   const { user, bots } = useAuthStore()
   const { startQueuing } = useQueueStore()
-  const [selectedTier, setSelectedTier] = useState('ranked_bronze')
 
-  const tiers = [
-    { id: 'ranked_bronze', name: 'BRONZE', fee: 50, minElo: 0 },
-    { id: 'ranked_silver', name: 'SILVER', fee: 100, minElo: 1200 },
-    { id: 'ranked_gold', name: 'GOLD', fee: 200, minElo: 1400 },
-    { id: 'ranked_platinum', name: 'PLATINUM', fee: 400, minElo: 1600 },
-    { id: 'ranked_legend', name: 'LEGEND', fee: 800, minElo: 1800 },
-  ]
-
-  const elo = user?.current_elo ?? 1200
+  const elo = user?.current_elo ?? 1000
   const credits = user?.credits ?? 0
+  const currentTier = getTierForElo(elo)
+  const cantAfford = credits < currentTier.fee
 
   function handleStart() {
-    const tier = tiers.find(t => t.id === selectedTier)
-    if (!tier) return
-    if (credits < tier.fee) {
-      alert(`Need ${tier.fee} CR. You have ${credits}.`)
+    if (cantAfford) {
+      alert(`Need ${currentTier.fee} CR. You have ${credits}.`)
       return
     }
-    startQueuing(selectedTier)
+    startQueuing(currentTier.id)
   }
 
   return (
     <div className="max-w-md mx-auto px-6 py-16">
       <div className="panel p-8 corner-brackets">
         <h2 className="arena-title text-xl text-center mb-2">FIND MATCH</h2>
-        <p className="text-[var(--text-muted)] text-sm text-center mb-6">Select a tier and enter the queue</p>
+        <p className="text-[var(--text-muted)] text-sm text-center mb-6">Your ELO determines your tier</p>
 
-        <div className="space-y-1.5 mb-6">
-          {tiers.map((tier) => {
-            const locked = elo < tier.minElo
-            const cantAfford = credits < tier.fee
+        {/* Current tier display */}
+        <div className="mb-6">
+          <div className="panel-raised p-5 text-center border-l-2" style={{ borderLeftColor: currentTier.color }}>
+            <div className="arena-subtitle text-[10px] text-[var(--text-muted)] mb-2">YOUR TIER</div>
+            <div className="arena-title text-2xl mb-1" style={{ color: currentTier.color }}>
+              {currentTier.name}
+            </div>
+            <div className="font-mono text-sm text-[var(--text-secondary)]">{elo} ELO</div>
+            <div className="font-mono text-xs text-[var(--neon-amber)] mt-2">{currentTier.fee} CR entry fee</div>
+          </div>
+        </div>
+
+        {/* All tiers overview */}
+        <div className="space-y-1 mb-6">
+          {ALL_TIERS.map((tier) => {
+            const isCurrent = tier.id === currentTier.id
             return (
-              <button
+              <div
                 key={tier.id}
-                onClick={() => !locked && setSelectedTier(tier.id)}
-                className={`w-full flex items-center justify-between p-3 rounded-sm border text-sm transition ${
-                  selectedTier === tier.id
-                    ? 'border-[var(--neon-cyan)] bg-[var(--neon-cyan-dim)] text-[var(--text-primary)]'
-                    : locked
-                    ? 'border-[var(--border-dim)] bg-[var(--bg-void)] text-[var(--text-muted)] cursor-not-allowed opacity-40'
-                    : 'border-[var(--border-dim)] hover:border-[var(--border-mid)] text-[var(--text-secondary)]'
+                className={`flex items-center justify-between px-3 py-2 rounded-sm text-xs transition ${
+                  isCurrent
+                    ? 'border border-[var(--border-bright)] bg-[var(--bg-raised)]'
+                    : 'border border-transparent text-[var(--text-muted)] opacity-40'
                 }`}
-                disabled={locked}
               >
-                <span className="arena-subtitle text-[10px]">{tier.name}</span>
-                <span className="text-[10px] font-mono text-[var(--text-muted)]">
-                  {locked ? `🔒 ${tier.minElo}+ ELO` : cantAfford ? `⚠ ${tier.fee} CR` : `${tier.fee} CR`}
+                <div className="flex items-center gap-2">
+                  {isCurrent && <div className="w-1.5 h-1.5 rounded-full animate-pulse" style={{ backgroundColor: tier.color }} />}
+                  <span className="arena-subtitle text-[10px]" style={{ color: isCurrent ? tier.color : undefined }}>
+                    {tier.name}
+                  </span>
+                </div>
+                <span className="font-mono text-[10px]">
+                  {tier.minElo}–{tier.maxElo === 9999 ? '∞' : tier.maxElo} ELO · {tier.fee} CR
                 </span>
-              </button>
+              </div>
             )
           })}
         </div>
 
-        <button onClick={handleStart} className="btn-primary w-full py-3 mb-4">
-          ⚔️ JOIN QUEUE →
+        <button
+          onClick={handleStart}
+          disabled={cantAfford}
+          className={`w-full py-3 mb-4 ${cantAfford ? 'btn-secondary opacity-50 cursor-not-allowed' : 'btn-primary'}`}
+        >
+          {cantAfford ? `⚠ NEED ${currentTier.fee} CR` : `⚔️ FIGHT IN ${currentTier.name} →`}
         </button>
 
         <div className="h-px bg-[var(--border-dim)] my-4" />
@@ -146,7 +177,7 @@ function QueueContent() {
 
     socket.on('error', (err: any) => {
       console.error('Queue error:', err)
-      if (err.code === 'ALREADY_IN_QUEUE' || err.code === 'INSUFFICIENT_CREDITS' || err.code === 'ELO_TOO_LOW') {
+      if (err.code === 'ALREADY_IN_QUEUE' || err.code === 'INSUFFICIENT_CREDITS' || err.code === 'ELO_TOO_LOW' || err.code === 'TIER_MISMATCH') {
         setStatusMessage(err.message)
         setTimeout(() => {
           stopQueuing()
