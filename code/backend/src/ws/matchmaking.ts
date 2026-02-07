@@ -2,7 +2,7 @@ import { Server, Socket } from 'socket.io'
 import { prisma } from '../db'
 import { verifyToken, type JWTPayload } from '../middleware/auth'
 import { verifySignature } from '../utils/crypto'
-import { calculateElo, getTierEconomics } from '../utils/elo'
+import { calculateElo, getTierEconomics, getExpectedTier } from '../utils/elo'
 import { recordTransaction } from '../utils/credits'
 import { resolveRound, calculateXp, getLevelFromXp, type BotCombatState, type CombatAction, type RoundResult } from '../utils/combat'
 import { getPveAction } from '../routes/pve'
@@ -113,6 +113,12 @@ export function setupMatchmaking(io: Server) {
         const tier = getTierEconomics(match_type)
         if (userRecord.current_elo < tier.minElo) {
           return emitError(socket, 'ELO_TOO_LOW', `Need ${tier.minElo} ELO for this tier`)
+        }
+
+        // Enforce ELO-locked tiers — must queue in your tier
+        const expectedTier = getExpectedTier(userRecord.current_elo)
+        if (match_type !== expectedTier) {
+          return emitError(socket, 'TIER_MISMATCH', `Your ELO places you in ${expectedTier.replace('ranked_', '')}`)
         }
         if (userRecord.credits < tier.entryFee) {
           return emitError(socket, 'INSUFFICIENT_CREDITS', `Need ${tier.entryFee} credits`)

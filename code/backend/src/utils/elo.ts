@@ -42,3 +42,15 @@ export function getTierEconomics(matchType: string): { entryFee: number; winRewa
 
   return tiers[matchType] || tiers.ranked_bronze
 }
+
+/**
+ * Get the expected tier for a player's ELO.
+ * Players must queue in their tier — no smurfing.
+ */
+export function getExpectedTier(elo: number): string {
+  if (elo >= 1800) return 'ranked_legend'
+  if (elo >= 1600) return 'ranked_platinum'
+  if (elo >= 1400) return 'ranked_gold'
+  if (elo >= 1200) return 'ranked_silver'
+  return 'ranked_bronze'
+}
