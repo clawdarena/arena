@@ -63,7 +63,7 @@ authRoutes.post('/register', validate(registerSchema), async (c) => {
       email,
       password_hash,
       public_key: public_key.toLowerCase(),
-      credits: 200,
+      credits: 0,
       current_elo: 1200,
       peak_elo: 1200,
       bots: {

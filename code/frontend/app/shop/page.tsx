@@ -369,7 +369,17 @@ function ShopContent() {
           <ItemCard
             key={item.id}
             item={item}
-            onPurchase={() => {/* mock */}}
+            onPurchase={async () => {
+              if (user!.credits < item.price) return
+              try {
+                const res = await api<{ item: any; new_balance: number }>('/api/shop/purchase', {
+                  method: 'POST', body: JSON.stringify({ item_id: item.id }),
+                })
+                setUser({ ...user!, credits: res.new_balance })
+              } catch (err: any) {
+                alert(err.message || 'Purchase failed')
+              }
+            }}
             canAfford={user.credits >= item.price}
           />
         )) : (

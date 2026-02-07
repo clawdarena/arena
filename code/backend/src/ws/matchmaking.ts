@@ -6,6 +6,7 @@ import { calculateElo, getTierEconomics, getExpectedTier } from '../utils/elo'
 import { recordTransaction } from '../utils/credits'
 import { resolveRound, calculateXp, getLevelFromXp, type BotCombatState, type CombatAction, type RoundResult } from '../utils/combat'
 import { getPveAction } from '../routes/pve'
+import { GAUNTLET_TIERS } from '../routes/gauntlet'
 
 // ============================================================
 // Types
@@ -809,6 +810,54 @@ async function endMatch(io: Server, match: ActiveMatch, winner: 'bot1' | 'bot2' 
       await prisma.bot.update({ where: { id: bot.id }, data: { xp: newXp, level } })
     }
 
+    // Check gauntlet auto-completion
+    let gauntletComplete = null
+    if (playerWon) {
+      const aiId = match.bot2.botId  // PvE bot ID like 'training_dummy'
+      const gauntletTier = GAUNTLET_TIERS.find(t => t.opponent === aiId)
+      if (gauntletTier) {
+        const existing = await prisma.gauntletProgress.findUnique({
+          where: { bot_id_tier: { bot_id: match.bot1.botId, tier: gauntletTier.tier } },
+        })
+        if (!existing) {
+          // Check previous tier (except tier 1)
+          let prevOk = true
+          if (gauntletTier.tier > 1) {
+            const prev = await prisma.gauntletProgress.findUnique({
+              where: { bot_id_tier: { bot_id: match.bot1.botId, tier: gauntletTier.tier - 1 } },
+            })
+            if (!prev) prevOk = false
+          }
+
+          if (prevOk) {
+            // Check criteria
+            const c = gauntletTier.criteria
+            const totalDamage = match.bot1.state.maxHp - match.bot1.state.hp
+            const skillsUsed = match.rounds.filter(r => r.bot1_action === 'skill').length
+            let pass = true
+            if (c.maxRounds && match.currentRound > c.maxRounds) pass = false
+            if (c.noSkills && skillsUsed > 0) pass = false
+            if (c.maxDamageTaken !== undefined && totalDamage > c.maxDamageTaken) pass = false
+
+            if (pass) {
+              await prisma.gauntletProgress.create({
+                data: { bot_id: match.bot1.botId, tier: gauntletTier.tier },
+              })
+              // Apply reward
+              const r = gauntletTier.reward
+              const statField = `base_${r.stat}` as const
+              await prisma.bot.update({
+                where: { id: match.bot1.botId },
+                data: { [statField]: { increment: r.amount } },
+              })
+              await recordTransaction(match.bot1.userId, r.credits, 'gauntlet_reward', match.id)
+              gauntletComplete = { tier: gauntletTier.tier, name: gauntletTier.name, reward: r }
+            }
+          }
+        }
+      }
+    }
+
     io.to(match.bot1.socketId).emit('match_end', {
       match_id: match.id,
       match_type: 'pve',
@@ -820,6 +869,7 @@ async function endMatch(io: Server, match: ActiveMatch, winner: 'bot1' | 'bot2' 
         : { bot_id: match.bot2.botId, name: match.bot2.state.name, is_ai: true },
       credits_earned: creditReward,
       xp,
+      gauntlet: gauntletComplete,
       replay: match.rounds,
     })
 

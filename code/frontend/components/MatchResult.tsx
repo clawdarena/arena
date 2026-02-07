@@ -26,6 +26,9 @@ export function MatchResult({ result, myBotId }: MatchResultProps) {
   const creditsWon = result.credits_earned ?? winner?.credits_won ?? 0
   const creditsLost = loser?.credits_lost ?? 0
   const creditsChange = isWinner ? creditsWon : -creditsLost
+  
+  // Determine which side is us (for XP display)
+  const iAmBot1 = winner?.bot_id === myBotId ? isWinner : !isWinner
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
@@ -86,14 +89,25 @@ export function MatchResult({ result, myBotId }: MatchResultProps) {
           )}
 
           {/* XP — show if present */}
-          {result.xp?.totalXp && (
-            <div className="flex items-center justify-between bg-[var(--bg-void)] border border-[var(--border-dim)] rounded-sm px-4 py-2.5">
-              <span className="arena-subtitle text-[10px] text-[var(--text-muted)]">XP EARNED</span>
-              <span className="font-mono font-bold text-sm text-[var(--neon-cyan)]">
-                +{result.xp.totalXp}
-              </span>
-            </div>
-          )}
+          {(() => {
+            // PvE: xp is { totalXp, ... } directly
+            // PvP: xp is { bot1: {totalXp,...}, bot2: {totalXp,...} }
+            let totalXp: number | null = null
+            if (result.xp?.totalXp) {
+              totalXp = result.xp.totalXp
+            } else if (result.xp?.bot1 || result.xp?.bot2) {
+              const myXp = iAmBot1 ? result.xp.bot1 : result.xp.bot2
+              totalXp = myXp?.totalXp ?? null
+            }
+            return totalXp ? (
+              <div className="flex items-center justify-between bg-[var(--bg-void)] border border-[var(--border-dim)] rounded-sm px-4 py-2.5">
+                <span className="arena-subtitle text-[10px] text-[var(--text-muted)]">XP EARNED</span>
+                <span className="font-mono font-bold text-sm text-[var(--neon-cyan)]">
+                  +{totalXp}
+                </span>
+              </div>
+            ) : null
+          })()}
         </div>
 
         {/* Actions */}

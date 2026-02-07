@@ -31,7 +31,7 @@ export interface GauntletTier {
   }
 }
 
-const GAUNTLET_TIERS: GauntletTier[] = [
+export const GAUNTLET_TIERS: GauntletTier[] = [
   {
     tier: 1,
     name: 'First Steps',
