@@ -26,6 +26,7 @@ import {
   TrendingDown,
   Minus,
 } from 'lucide-react'
+import { PageTransition } from '@/components/PageTransition'
 
 function getMatchResult(match: MatchHistoryEntry): 'win' | 'loss' | 'draw' {
   if (match.winner_id === null) return 'draw'

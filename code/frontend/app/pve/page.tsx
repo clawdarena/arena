@@ -19,6 +19,7 @@ import {
   Bot as BotIcon,
   Crosshair,
 } from 'lucide-react'
+import { PageTransition } from '@/components/PageTransition'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */

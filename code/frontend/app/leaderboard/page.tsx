@@ -23,6 +23,7 @@ import {
   ChevronDown,
   User,
 } from 'lucide-react'
+import { PageTransition } from '@/components/PageTransition'
 
 type TierFilter = 'all' | EloTier
 

@@ -10,6 +10,8 @@ import { Navbar } from '@/components/Navbar'
 import { type MatchHistoryEntry } from '@/lib/constants'
 import { api } from '@/lib/api'
 import { Swords, Shield, Zap, Heart, TrendingUp, TrendingDown, Minus, ChevronRight, Trophy, Activity } from 'lucide-react'
+import { PageTransition } from '@/components/PageTransition'
+import { Skeleton, SkeletonStats } from '@/components/Skeleton'
 
 function StatBar({ label, value, max, color, icon }: {
   label: string
@@ -119,10 +121,23 @@ function DashboardContent() {
   }, [setUser, setBots])
 
   if (loading) return (
-    <div className="flex items-center justify-center min-h-[60vh]">
-      <div className="flex items-center gap-3 text-[var(--text-muted)]">
-        <div className="w-4 h-4 border-2 border-[var(--neon-cyan)] border-t-transparent rounded-full animate-spin" />
-        <span className="arena-subtitle text-xs">LOADING COMMAND CENTER</span>
+    <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
+      {/* Bot card skeleton */}
+      <div className="panel p-6 corner-brackets space-y-4">
+        <div className="flex items-center gap-4">
+          <Skeleton className="w-16 h-16 rounded-sm" />
+          <div className="space-y-2 flex-1">
+            <Skeleton className="h-6 w-40" />
+            <Skeleton className="h-4 w-24" />
+          </div>
+        </div>
+      </div>
+      {/* Stats skeleton */}
+      <SkeletonStats />
+      {/* Actions skeleton */}
+      <div className="grid grid-cols-2 gap-3">
+        <Skeleton className="h-24 rounded-sm" />
+        <Skeleton className="h-24 rounded-sm" />
       </div>
     </div>
   )
@@ -171,6 +186,7 @@ function DashboardContent() {
   }
 
   return (
+    <PageTransition>
     <div className="max-w-7xl mx-auto px-4 sm:px-8 py-6">
       {/* Page header */}
       <div className="flex items-center gap-3 mb-6">
@@ -346,6 +362,7 @@ function DashboardContent() {
         )}
       </div>
     </div>
+    </PageTransition>
   )
 }
 

@@ -32,23 +32,23 @@ export function MatchResult({ result, myBotId }: MatchResultProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="panel p-8 max-w-md w-full mx-4 text-center corner-brackets stagger-1">
+      <div className="panel p-8 max-w-md w-full mx-4 text-center corner-brackets animate-victory">
         {/* Result Header */}
         <div className="mb-6">
           {isDraw ? (
             <>
               <div className="text-5xl mb-3">🤝</div>
-              <h2 className="arena-title text-3xl text-[var(--text-primary)]">DRAW</h2>
+              <h2 className="arena-title text-3xl text-[var(--text-primary)] animate-num-pop">DRAW</h2>
             </>
           ) : isWinner ? (
             <>
-              <div className="text-5xl mb-3">🏆</div>
-              <h2 className="arena-title text-3xl text-[var(--neon-amber)] glow-amber">VICTORY</h2>
+              <div className="text-5xl mb-3 animate-bounce">🏆</div>
+              <h2 className="arena-title text-3xl text-[var(--neon-amber)] glow-amber animate-num-pop">VICTORY</h2>
             </>
           ) : (
             <>
               <div className="text-5xl mb-3">💀</div>
-              <h2 className="arena-title text-3xl text-[var(--neon-red)] glow-red">DEFEAT</h2>
+              <h2 className="arena-title text-3xl text-[var(--neon-red)] glow-red animate-num-pop">DEFEAT</h2>
             </>
           )}
           {isPve && (

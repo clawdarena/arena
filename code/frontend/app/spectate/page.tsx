@@ -17,6 +17,7 @@ import {
   Shield,
   Clock,
 } from 'lucide-react'
+import { PageTransition } from '@/components/PageTransition'
 import type { Socket } from 'socket.io-client'
 
 // ============================================================

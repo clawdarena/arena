@@ -83,25 +83,28 @@ export function ArenaView({
       // Animate bot2 action
       animateAction(currentRound.bot2_action, 'right', currentRound)
 
-      await delay(600)
+      await delay(400)
 
-      // Phase 2: Damage numbers
+      // Phase 2: Damage numbers + screen shake
       if (currentRound.bot1_damage_dealt > 0) {
         addFloatingNum(currentRound.bot1_damage_dealt, 'right', false)
         setShakeScreen(true)
-        setTimeout(() => setShakeScreen(false), 200)
+        setTimeout(() => setShakeScreen(false), 150)
       }
       if (currentRound.bot2_damage_dealt > 0) {
         addFloatingNum(currentRound.bot2_damage_dealt, 'left', false)
+        if (!currentRound.bot1_damage_dealt) {
+          setShakeScreen(true)
+          setTimeout(() => setShakeScreen(false), 150)
+        }
       }
 
-      await delay(400)
-
-      // Phase 3: HP update (smooth)
+      // HP update overlaps with damage numbers
+      await delay(150)
       setBot1Hp(currentRound.bot1_hp)
       setBot2Hp(currentRound.bot2_hp)
 
-      // Phase 4: Effects
+      // Phase 3: Status effects
       for (const effect of currentRound.effects_applied) {
         if (effect.bot === 'bot1') {
           setBot1Effect(effect.effect)
@@ -110,7 +113,7 @@ export function ArenaView({
         }
       }
 
-      await delay(800)
+      await delay(500)
 
       // Cleanup
       setBot1Anim('')

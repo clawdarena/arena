@@ -15,6 +15,7 @@ import {
   Save,
   RotateCcw,
 } from 'lucide-react'
+import { PageTransition } from '@/components/PageTransition'
 import { StrategyEditor } from '@/components/StrategyEditor'
 import { BonusesDisplay } from '@/components/BonusesDisplay'
 

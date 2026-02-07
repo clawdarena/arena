@@ -544,3 +544,81 @@ body::before {
 
 @keyframes slide-in { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
 .animate-slide-in { animation: slide-in 0.25s ease-out forwards; }
+
+/* ============================================================
+   Page & Content Animations
+   ============================================================ */
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.animate-shimmer {
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Staggered entry for grid items */
+@keyframes grid-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.animate-grid-in {
+  animation: grid-in 0.3s ease-out both;
+}
+
+/* Counter flash - more dramatic */
+@keyframes counter-glow {
+  0% { box-shadow: 0 0 0 0 var(--neon-amber); }
+  50% { box-shadow: 0 0 20px 4px var(--neon-amber); }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+.animate-counter-glow {
+  animation: counter-glow 0.6s ease-out;
+}
+
+/* Match found dramatic reveal */
+@keyframes match-found-pulse {
+  0% { transform: scale(0.8); opacity: 0; }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-match-found {
+  animation: match-found-pulse 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Victory/defeat splash */
+@keyframes victory-splash {
+  0% { transform: scale(0.3) rotate(-5deg); opacity: 0; filter: blur(10px); }
+  60% { transform: scale(1.1) rotate(1deg); opacity: 1; filter: blur(0); }
+  100% { transform: scale(1) rotate(0); opacity: 1; }
+}
+
+.animate-victory {
+  animation: victory-splash 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Number pop for damage/credits/XP */
+@keyframes num-pop {
+  0% { transform: scale(0.5); opacity: 0; }
+  60% { transform: scale(1.2); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.animate-num-pop {
+  animation: num-pop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Smooth bar fill */
+.bar-animated {
+  transition: width 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Button press effect */
+.btn-primary:active, .btn-secondary:active, .btn-danger:active {
+  transform: scale(0.97);
+  transition: transform 0.1s;
+}

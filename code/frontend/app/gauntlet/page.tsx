@@ -19,6 +19,7 @@ import {
   ChevronRight,
   Flame,
 } from 'lucide-react'
+import { PageTransition } from '@/components/PageTransition'
 
 /* ------------------------------------------------------------------ */
 /*  Types                                                              */

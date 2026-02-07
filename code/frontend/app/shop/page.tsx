@@ -27,6 +27,7 @@ import {
   Heart,
   Lock,
 } from 'lucide-react'
+import { PageTransition } from '@/components/PageTransition'
 
 type ShopTab = 'skills' | 'items'
 
@@ -365,9 +366,9 @@ function ShopContent() {
 
       {/* Items Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {sortedItems.length > 0 ? sortedItems.map((item) => (
+        {sortedItems.length > 0 ? sortedItems.map((item, i) => (
+          <div key={item.id} className="animate-grid-in" style={{ animationDelay: `${i * 50}ms` }}>
           <ItemCard
-            key={item.id}
             item={item}
             onPurchase={async () => {
               if (user!.credits < item.price) return
@@ -382,6 +383,7 @@ function ShopContent() {
             }}
             canAfford={user.credits >= item.price}
           />
+          </div>
         )) : (
           <div className="col-span-full panel p-12 text-center">
             <Package className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-3" />
