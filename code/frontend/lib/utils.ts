@@ -18,10 +18,10 @@ export function formatELO(elo: number): string {
 
 /** Get ELO rank name */
 export function getELORank(elo: number): { name: string; color: string } {
-  if (elo >= 2000) return { name: 'Legend', color: 'text-yellow-400' }
-  if (elo >= 1800) return { name: 'Platinum', color: 'text-cyan-400' }
-  if (elo >= 1600) return { name: 'Gold', color: 'text-yellow-500' }
-  if (elo >= 1400) return { name: 'Silver', color: 'text-gray-400' }
+  if (elo >= 1800) return { name: 'Legend', color: 'text-red-400' }
+  if (elo >= 1600) return { name: 'Platinum', color: 'text-cyan-400' }
+  if (elo >= 1400) return { name: 'Gold', color: 'text-yellow-500' }
+  if (elo >= 1200) return { name: 'Silver', color: 'text-gray-400' }
   return { name: 'Bronze', color: 'text-amber-600' }
 }
 

@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import type { User, Bot, MatchFoundPayload, RoundStartPayload, RoundCompletePayload, MatchEndPayload } from '../../shared/types'
+import type { CosmeticCategory } from './cosmetics'
 
 // ============================================================
 // Auth Store
@@ -43,6 +44,47 @@ export const useAuthStore = create<AuthState>((set) => ({
     localStorage.removeItem('private_key')
     set({ user: null, bots: [], token: null })
   },
+}))
+
+// ============================================================
+// Cosmetics Store
+// ============================================================
+
+interface CosmeticsState {
+  // Items the player owns (by item id)
+  ownedItems: Set<string>
+  // Currently equipped item per slot
+  equippedItems: Record<CosmeticCategory, string | null>
+  // Preview skin color (for hovering in shop)
+  previewSkinColor: string | null
+
+  setOwnedItems: (items: Set<string>) => void
+  addOwnedItem: (itemId: string) => void
+  setEquippedItem: (slot: CosmeticCategory, itemId: string | null) => void
+  setPreviewSkinColor: (color: string | null) => void
+}
+
+export const useCosmeticsStore = create<CosmeticsState>((set) => ({
+  ownedItems: new Set<string>(),
+  equippedItems: {
+    skin: 'skin_neon_blue',
+    taunt: null,
+    dance: 'dance_basic',
+    arena: 'arena_default',
+    entrance: 'entrance_standard',
+  },
+  previewSkinColor: null,
+
+  setOwnedItems: (items) => set({ ownedItems: items }),
+  addOwnedItem: (itemId) =>
+    set((state) => ({
+      ownedItems: new Set([...state.ownedItems, itemId]),
+    })),
+  setEquippedItem: (slot, itemId) =>
+    set((state) => ({
+      equippedItems: { ...state.equippedItems, [slot]: itemId },
+    })),
+  setPreviewSkinColor: (color) => set({ previewSkinColor: color }),
 }))
 
 // ============================================================
