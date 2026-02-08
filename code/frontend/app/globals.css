@@ -622,3 +622,57 @@ body::before {
   transform: scale(0.97);
   transition: transform 0.1s;
 }
+
+/* ============================================================
+   Legendary shimmer effect
+   ============================================================ */
+
+@keyframes legendary-border-shimmer {
+  0% { border-color: rgba(243, 156, 18, 0.3); }
+  50% { border-color: rgba(243, 156, 18, 0.7); }
+  100% { border-color: rgba(243, 156, 18, 0.3); }
+}
+
+.legendary-shimmer {
+  animation: legendary-border-shimmer 2s ease-in-out infinite;
+}
+
+/* Slow shimmer sweep for modals */
+@keyframes shimmer-slow {
+  0% { transform: translateX(-200%); }
+  100% { transform: translateX(200%); }
+}
+
+.animate-shimmer-slow {
+  animation: shimmer-slow 4s ease-in-out infinite;
+}
+
+/* Fade-in for modals */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.2s ease-out;
+}
+
+/* Dropdown slide */
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-dropdown-in {
+  animation: dropdown-in 0.2s ease-out;
+}
+
+/* Mobile menu slide */
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 0.25s ease-out;
+}

@@ -27,6 +27,8 @@ interface Arena3DWrapperProps {
   previousRound: RoundResult | null
   isAnimating: boolean
   onAnimationComplete?: () => void
+  bot1MoveKey?: string
+  bot2MoveKey?: string
 }
 
 export function Arena3DView(props: Arena3DWrapperProps) {

@@ -6,6 +6,8 @@ import { Environment, ContactShadows, Text } from '@react-three/drei'
 import { EffectComposer, Bloom, Vignette } from '@react-three/postprocessing'
 import * as THREE from 'three'
 import { CrabBot } from './CrabBot'
+import { AttackAnimator } from './AttackAnimator'
+import type { AttackAnimationRequest, StatusEffectVisual } from './AttackAnimator'
 import type { RoundResult, CombatActionType } from '../../../shared/types'
 
 interface Arena3DProps {
@@ -17,12 +19,13 @@ interface Arena3DProps {
   previousRound: RoundResult | null
   isAnimating: boolean
   onAnimationComplete?: () => void
+  /** Optional: which move was selected for animation (animation key string) */
+  bot1MoveKey?: string
+  bot2MoveKey?: string
 }
 
 /** Animated grid floor */
 function ArenaFloor() {
-  const meshRef = useRef<THREE.Mesh>(null)
-
   return (
     <group>
       {/* Main floor */}
@@ -109,6 +112,50 @@ function CameraShake({ intensity = 0 }: { intensity: number }) {
   return null
 }
 
+/**
+ * Map server action types to animation keys.
+ * If a specific move key is provided, use that instead.
+ */
+function mapActionToAnimationKey(action: CombatActionType, moveKey?: string): string {
+  if (moveKey) return moveKey
+  switch (action) {
+    case 'attack': return 'basic_attack'
+    case 'defend': return 'basic_defend'
+    case 'skill': return 'power_strike'
+    default: return 'basic_attack'
+  }
+}
+
+/** Map action to CrabBot animation */
+function mapActionToBotAnim(action: CombatActionType): 'idle' | 'attack' | 'defend' | 'skill' | 'hit' | 'death' {
+  switch (action) {
+    case 'attack': return 'attack'
+    case 'defend': return 'defend'
+    case 'skill': return 'skill'
+    default: return 'idle'
+  }
+}
+
+/** Extract status effects from round result */
+function extractStatusEffects(round: RoundResult | null): StatusEffectVisual[] {
+  if (!round) return []
+  const effects: StatusEffectVisual[] = []
+  for (const e of round.effects_applied) {
+    const effectName = e.effect.toLowerCase()
+    let visual: StatusEffectVisual['effect'] | null = null
+    if (effectName.includes('burn') || effectName.includes('fire')) visual = 'burning'
+    else if (effectName.includes('stun')) visual = 'stunned'
+    else if (effectName.includes('shield') || effectName.includes('fortress') || effectName.includes('iron')) visual = 'shielded'
+    else if (effectName.includes('overclock') || effectName.includes('speed')) visual = 'overclocked'
+    else if (effectName.includes('poison') || effectName.includes('armor_broken')) visual = 'poisoned'
+
+    if (visual) {
+      effects.push({ bot: e.bot, effect: visual })
+    }
+  }
+  return effects
+}
+
 /** Main 3D scene content */
 function ArenaScene({
   bot1Name,
@@ -119,6 +166,8 @@ function ArenaScene({
   previousRound,
   isAnimating,
   onAnimationComplete,
+  bot1MoveKey,
+  bot2MoveKey,
 }: Arena3DProps) {
   const [bot1Hp, setBot1Hp] = useState(bot1MaxHp)
   const [bot2Hp, setBot2Hp] = useState(bot2MaxHp)
@@ -128,6 +177,14 @@ function ArenaScene({
   const [damageNums, setDamageNums] = useState<{ id: number; value: number; pos: [number, number, number]; isHeal: boolean }[]>([])
   const numId = useRef(0)
 
+  // Attack animation state
+  const [attackAnim, setAttackAnim] = useState<AttackAnimationRequest | null>(null)
+  const [statusEffects, setStatusEffects] = useState<StatusEffectVisual[]>([])
+  const animPhaseRef = useRef<'idle' | 'bot1_action' | 'bot1_hit' | 'bot2_action' | 'bot2_hit' | 'cleanup'>('idle')
+
+  const bot1Pos: [number, number, number] = [-1.5, -0.2, 0]
+  const bot2Pos: [number, number, number] = [1.5, -0.2, 0]
+
   // Update HP from previous round
   useEffect(() => {
     if (previousRound) {
@@ -136,45 +193,88 @@ function ArenaScene({
     }
   }, [previousRound])
 
-  // Animate current round
+  // Animate current round with attack effects
   useEffect(() => {
     if (!currentRound || !isAnimating) return
 
     const timeline = async () => {
-      // Phase 1: Show actions
+      // Extract status effects for visuals
+      setStatusEffects(extractStatusEffects(currentRound))
+
+      // Determine if counters/super effective
+      const bot1Counter = currentRound.bot1_counter !== 'none'
+      const bot2Counter = currentRound.bot2_counter !== 'none'
+      const bot1Momentum = (currentRound.bot1_momentum ?? 0) >= 3
+      const bot2Momentum = (currentRound.bot2_momentum ?? 0) >= 3
+
+      // Phase 1: Bot1 attacks
       await delay(200)
-      setBot1Anim(currentRound.bot1_action as any)
-      setBot2Anim(currentRound.bot2_action as any)
+      animPhaseRef.current = 'bot1_action'
+      setBot1Anim(mapActionToBotAnim(currentRound.bot1_action))
 
-      await delay(500)
+      if (currentRound.bot1_damage_dealt > 0 || currentRound.bot1_action === 'skill' || currentRound.bot1_action === 'defend') {
+        const animKey = mapActionToAnimationKey(currentRound.bot1_action, bot1MoveKey)
+        setAttackAnim({
+          attackKey: animKey as any,
+          attacker: 'bot1',
+          damage: currentRound.bot1_damage_dealt,
+          superEffective: bot1Counter,
+          critical: bot1Momentum,
+        })
+      }
 
-      // Phase 2: Damage
+      await delay(800)
+
+      // Hit reaction for bot2
       if (currentRound.bot1_damage_dealt > 0) {
-        addDamage(currentRound.bot1_damage_dealt, [1.5, 0.5, 0], false)
         setBot2Anim('hit')
-        setShakeIntensity(1)
-        setTimeout(() => setShakeIntensity(0), 200)
-      }
-      if (currentRound.bot2_damage_dealt > 0) {
-        addDamage(currentRound.bot2_damage_dealt, [-1.5, 0.5, 0], false)
-        setBot1Anim('hit')
-        if (!currentRound.bot1_damage_dealt) {
-          setShakeIntensity(1)
-          setTimeout(() => setShakeIntensity(0), 200)
-        }
+        addDamage(currentRound.bot1_damage_dealt, [1.5, 0.5, 0], false)
+        setShakeIntensity(bot1Counter ? 2 : 1)
+        setTimeout(() => setShakeIntensity(0), bot1Counter ? 400 : 200)
       }
 
+      await delay(600)
+      setBot1Anim('idle')
+      setBot2Anim('idle')
+      setAttackAnim(null)
+
+      // Phase 2: Bot2 attacks
       await delay(200)
+      animPhaseRef.current = 'bot2_action'
+      setBot2Anim(mapActionToBotAnim(currentRound.bot2_action))
+
+      if (currentRound.bot2_damage_dealt > 0 || currentRound.bot2_action === 'skill' || currentRound.bot2_action === 'defend') {
+        const animKey = mapActionToAnimationKey(currentRound.bot2_action, bot2MoveKey)
+        setAttackAnim({
+          attackKey: animKey as any,
+          attacker: 'bot2',
+          damage: currentRound.bot2_damage_dealt,
+          superEffective: bot2Counter,
+          critical: bot2Momentum,
+        })
+      }
+
+      await delay(800)
+
+      // Hit reaction for bot1
+      if (currentRound.bot2_damage_dealt > 0) {
+        setBot1Anim('hit')
+        addDamage(currentRound.bot2_damage_dealt, [-1.5, 0.5, 0], false)
+        setShakeIntensity(bot2Counter ? 2 : 1)
+        setTimeout(() => setShakeIntensity(0), bot2Counter ? 400 : 200)
+      }
+
+      await delay(600)
 
       // Phase 3: HP update
       setBot1Hp(currentRound.bot1_hp)
       setBot2Hp(currentRound.bot2_hp)
-
-      await delay(400)
-
-      // Reset
       setBot1Anim('idle')
       setBot2Anim('idle')
+      setAttackAnim(null)
+      animPhaseRef.current = 'idle'
+
+      await delay(300)
       onAnimationComplete?.()
     }
 
@@ -209,7 +309,7 @@ function ArenaScene({
 
       {/* Bot 1 (Player — cyan, left side) */}
       <CrabBot
-        position={[-1.5, -0.2, 0]}
+        position={bot1Pos}
         rotation={[0, 0.3, 0]}
         color="#00f0ff"
         scale={1.2}
@@ -220,13 +320,21 @@ function ArenaScene({
 
       {/* Bot 2 (Opponent — red, right side) */}
       <CrabBot
-        position={[1.5, -0.2, 0]}
+        position={bot2Pos}
         rotation={[0, -0.3 + Math.PI, 0]}
         color="#ff4040"
         scale={1.2}
         animation={bot2Anim}
         hpPercent={bot2HpPct}
         side="right"
+      />
+
+      {/* Attack Animations & Status Effects */}
+      <AttackAnimator
+        bot1Position={bot1Pos}
+        bot2Position={bot2Pos}
+        currentAnimation={attackAnim}
+        statusEffects={statusEffects}
       />
 
       {/* Damage numbers */}

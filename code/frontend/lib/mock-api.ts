@@ -791,9 +791,11 @@ export const TIER_BG_COLORS: Record<EloTier, string> = {
 
 export const RARITY_COLORS: Record<string, { text: string; bg: string; border: string; glow: string }> = {
   common: { text: 'text-gray-400', bg: 'bg-gray-800/50', border: 'border-gray-600/50', glow: '' },
-  rare: { text: 'text-blue-400', bg: 'bg-blue-900/20', border: 'border-blue-600/50', glow: 'shadow-blue-500/10' },
+  uncommon: { text: 'text-green-400', bg: 'bg-green-900/20', border: 'border-green-600/50', glow: '' },
+  rare: { text: 'text-blue-400', bg: 'bg-blue-900/20', border: 'border-blue-600/50', glow: 'shadow-[0_0_8px_rgba(52,152,219,0.15)]' },
+  super_rare: { text: 'text-purple-400', bg: 'bg-purple-900/20', border: 'border-purple-600/50', glow: 'shadow-[0_0_10px_rgba(155,89,182,0.2)]' },
   epic: { text: 'text-purple-400', bg: 'bg-purple-900/20', border: 'border-purple-600/50', glow: 'shadow-purple-500/10' },
-  legendary: { text: 'text-yellow-400', bg: 'bg-yellow-900/20', border: 'border-yellow-600/50', glow: 'shadow-yellow-500/20' },
+  legendary: { text: 'text-yellow-400', bg: 'bg-yellow-900/20', border: 'border-yellow-600/50', glow: 'shadow-[0_0_15px_rgba(243,156,18,0.3)]' },
 }
 
 // ============================================================

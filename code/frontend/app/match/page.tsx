@@ -10,7 +10,9 @@ import { ActionLog } from '@/components/ActionLog'
 import { MatchResult } from '@/components/MatchResult'
 import { ArenaView } from '@/components/ArenaView'
 import { Arena3DView } from '@/components/3d/Arena3DWrapper'
+import { MoveSelector } from '@/components/combat/MoveSelector'
 import { connectSocket } from '@/lib/socket'
+import type { Move } from '@/lib/moves'
 import type {
   RoundResult,
   RoundCompletePayload,
@@ -185,11 +187,13 @@ function MatchContent() {
 
   const [actionSubmitted, setActionSubmitted] = useState(false)
   const [lastAction, setLastAction] = useState<string | null>(null)
+  const [selectedMoveKey, setSelectedMoveKey] = useState<string | undefined>(undefined)
 
   // Reset action submitted when new round starts
   useEffect(() => {
     setActionSubmitted(false)
     setLastAction(null)
+    setSelectedMoveKey(undefined)
   }, [roundHistory.length])
 
   function sendAction(action: string, skillId?: string) {
@@ -209,6 +213,13 @@ function MatchContent() {
 
     setActionSubmitted(true)
     setLastAction(action)
+  }
+
+  function handleMoveSelect(move: Move) {
+    if (actionSubmitted || phase !== 'fighting') return
+    setSelectedMoveKey(move.animationKey)
+    setLastAction(move.name)
+    sendAction(move.actionType, move.skillId)
   }
 
   // If no match data, redirect to dashboard
@@ -349,6 +360,7 @@ function MatchContent() {
           previousRound={previousAnimRound}
           isAnimating={isAnimating}
           onAnimationComplete={onAnimationComplete}
+          bot1MoveKey={selectedMoveKey}
         />
       </div>
 
@@ -513,60 +525,19 @@ function MatchContent() {
         </div>
       )}
 
-      {/* Action Buttons — only show during fighting phase */}
+      {/* Move Selector — replaces old action buttons during fighting phase */}
       {phase === 'fighting' && (
         <div className="mb-4">
-          {actionSubmitted ? (
-            <div className="text-center">
-              <div className="inline-flex items-center gap-2 panel-raised px-5 py-3 border-l-2 border-l-[var(--neon-green)]">
-                <div className="w-2 h-2 bg-[var(--neon-green)] rounded-full animate-pulse" />
-                <span className="text-sm text-[var(--neon-green)] font-mono">
-                  {lastAction?.toUpperCase()} SUBMITTED — WAITING FOR RESOLUTION
-                </span>
-              </div>
-            </div>
-          ) : (
-            <div className="panel p-4 corner-brackets">
-              <div className="flex items-center justify-between mb-3">
-                <span className="arena-subtitle text-[10px] text-[var(--text-muted)]">
-                  CHOOSE YOUR ACTION — R{(roundHistory.length || 0) + 1}
-                </span>
-                <span className={`font-mono text-sm font-bold ${timer <= 5 ? 'text-[var(--neon-red)] glow-red animate-pulse' : 'text-[var(--neon-amber)]'}`}>
-                  {timer}s
-                </span>
-              </div>
-              <div className="grid grid-cols-3 gap-2">
-                {/* Attack */}
-                <button
-                  onClick={() => sendAction('attack')}
-                  className="flex flex-col items-center gap-1.5 p-3 bg-[var(--bg-void)] border border-[var(--border-mid)] rounded-sm hover:border-[var(--neon-red)] hover:bg-[var(--neon-red-dim)] transition group"
-                >
-                  <Swords className="w-5 h-5 text-[var(--neon-red)] group-hover:scale-110 transition-transform" />
-                  <span className="arena-subtitle text-[10px] text-[var(--text-secondary)] group-hover:text-[var(--neon-red)]">ATTACK</span>
-                  <span className="text-[9px] text-[var(--text-muted)] font-mono">0 EN</span>
-                </button>
-                {/* Defend */}
-                <button
-                  onClick={() => sendAction('defend')}
-                  className="flex flex-col items-center gap-1.5 p-3 bg-[var(--bg-void)] border border-[var(--border-mid)] rounded-sm hover:border-[var(--neon-cyan)] hover:bg-[var(--neon-cyan-dim)] transition group"
-                >
-                  <Shield className="w-5 h-5 text-[var(--neon-cyan)] group-hover:scale-110 transition-transform" />
-                  <span className="arena-subtitle text-[10px] text-[var(--text-secondary)] group-hover:text-[var(--neon-cyan)]">DEFEND</span>
-                  <span className="text-[9px] text-[var(--text-muted)] font-mono">+15 EN</span>
-                </button>
-                {/* Skill */}
-                <button
-                  onClick={() => sendAction('skill')}
-                  disabled={myEnergy < 10}
-                  className="flex flex-col items-center gap-1.5 p-3 bg-[var(--bg-void)] border border-[var(--border-mid)] rounded-sm hover:border-[var(--neon-amber)] hover:bg-[var(--neon-amber-dim)] transition group disabled:opacity-30 disabled:cursor-not-allowed"
-                >
-                  <Zap className="w-5 h-5 text-[var(--neon-amber)] group-hover:scale-110 transition-transform" />
-                  <span className="arena-subtitle text-[10px] text-[var(--text-secondary)] group-hover:text-[var(--neon-amber)]">SKILL</span>
-                  <span className="text-[9px] text-[var(--text-muted)] font-mono">10+ EN</span>
-                </button>
-              </div>
-            </div>
-          )}
+          <MoveSelector
+            energy={myEnergy}
+            maxEnergy={100}
+            timeRemaining={timer}
+            onSelectMove={handleMoveSelect}
+            submitted={actionSubmitted}
+            submittedMoveName={lastAction ?? undefined}
+            disabled={phase !== 'fighting'}
+            round={(roundHistory.length || 0) + 1}
+          />
         </div>
       )}
 

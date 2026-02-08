@@ -1,10 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Suspense } from 'react'
 import { useAuthStore, useCosmeticsStore } from '@/lib/store'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Navbar } from '@/components/Navbar'
-import { RARITY_COLORS } from '@/lib/constants'
 import { api } from '@/lib/api'
 import { formatCredits } from '@/lib/utils'
 import {
@@ -12,6 +11,8 @@ import {
   CATEGORY_LABELS,
   CATEGORY_ICONS,
   ALL_COSMETICS,
+  RARITY_ORDER,
+  RARITY_LABELS,
   type CosmeticCategory,
   type CosmeticItem,
   type Rarity,
@@ -22,7 +23,13 @@ import {
   Star,
   Sparkles,
 } from 'lucide-react'
-import { PageTransition } from '@/components/PageTransition'
+import { SkinPreviewModal } from '@/components/SkinPreviewModal'
+import dynamic from 'next/dynamic'
+
+const SkinPreviewMini = dynamic(
+  () => import('@/components/3d/SkinPreview').then(m => ({ default: m.SkinPreviewMini })),
+  { ssr: false }
+)
 
 // ============================================================
 // Visual thumbnail components for each category
@@ -35,76 +42,105 @@ function SkinThumbnail({ item, isHovered }: { item: CosmeticItem; isHovered: boo
 
   return (
     <div className="relative w-full aspect-square flex items-center justify-center overflow-hidden rounded-md">
-      {/* Background */}
+      {/* Background glow */}
       <div
         className="absolute inset-0 opacity-20"
         style={{ background: `radial-gradient(circle, ${color}44, transparent 70%)` }}
       />
 
-      {/* Bot silhouette with skin color */}
-      <div className="relative">
-        {/* Outer glow ring */}
-        <div
-          className={`absolute inset-0 rounded-full blur-md transition-opacity duration-300 ${isHovered ? 'opacity-80' : 'opacity-40'}`}
-          style={{
-            background: isRainbow
-              ? 'conic-gradient(#ff0000, #ff8800, #ffff00, #00ff00, #0088ff, #8800ff, #ff0000)'
-              : color,
-            width: '70px',
-            height: '70px',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-          }}
-        />
-
-        {/* Main bot circle */}
-        <div
-          className={`relative w-14 h-14 rounded-full border-2 transition-all duration-300 ${isHovered ? 'scale-110' : 'scale-100'}`}
-          style={{
-            background: isRainbow
-              ? 'conic-gradient(#ff0000, #ff8800, #ffff00, #00ff00, #0088ff, #8800ff, #ff0000)'
-              : `radial-gradient(circle at 35% 35%, ${color}, ${item.metadata.colorAlt})`,
-            borderColor: `${color}88`,
-            boxShadow: isGlow ? `0 0 20px ${color}66, inset 0 0 10px ${color}33` : `0 0 12px ${color}44`,
-          }}
-        >
-          {/* Eye dots */}
-          <div className="absolute top-[35%] left-[28%] w-1.5 h-1.5 rounded-full bg-white/90" />
-          <div className="absolute top-[35%] right-[28%] w-1.5 h-1.5 rounded-full bg-white/90" />
-          {/* Claw marks */}
+      {/* 3D mini CrabBot preview */}
+      <Suspense fallback={
+        <div className="relative">
           <div
-            className="absolute bottom-[22%] left-1/2 -translate-x-1/2 w-5 h-0.5 rounded-full"
-            style={{ background: `${color}cc` }}
+            className={`absolute inset-0 rounded-full blur-md transition-opacity duration-300 ${isHovered ? 'opacity-80' : 'opacity-40'}`}
+            style={{
+              background: isRainbow
+                ? 'conic-gradient(#ff0000, #ff8800, #ffff00, #00ff00, #0088ff, #8800ff, #ff0000)'
+                : color,
+              width: '70px',
+              height: '70px',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+            }}
+          />
+          <div
+            className="relative w-14 h-14 rounded-full border-2"
+            style={{
+              background: `radial-gradient(circle at 35% 35%, ${color}, ${item.metadata.colorAlt})`,
+              borderColor: `${color}88`,
+            }}
           />
         </div>
-      </div>
+      }>
+        <SkinPreviewMini color={color} size={110} />
+      </Suspense>
     </div>
   )
 }
 
 function TauntThumbnail({ item }: { item: CosmeticItem }) {
+  const rarityAccent = item.rarity === 'legendary' ? 'var(--neon-amber)' :
+    item.rarity === 'super_rare' ? '#9b59b6' :
+    item.rarity === 'rare' ? '#3498db' :
+    item.rarity === 'uncommon' ? '#2ecc71' : 'var(--text-muted)'
+
   return (
-    <div className="w-full aspect-square flex flex-col items-center justify-center gap-2 rounded-md bg-[var(--bg-void)]/50">
-      <span className="text-3xl">{item.metadata.emoji}</span>
-      <span className="text-[10px] font-mono text-[var(--text-secondary)] text-center px-2 leading-tight">
-        &quot;{item.metadata.text}&quot;
-      </span>
+    <div className="w-full aspect-square flex flex-col items-center justify-center rounded-md relative overflow-hidden"
+      style={{ background: `linear-gradient(135deg, var(--bg-void), #0a0a1a)` }}>
+      {/* Speech bubble design */}
+      <div className="relative">
+        <div className="px-3 py-2 rounded-lg border max-w-[90%]"
+          style={{ borderColor: `${rarityAccent}44`, background: `${rarityAccent}0a` }}>
+          <span className="text-xs font-mono font-bold text-center block" style={{ color: rarityAccent }}>
+            &quot;{item.metadata.text}&quot;
+          </span>
+        </div>
+        <div className="w-2 h-2 rotate-45 mx-auto -mt-1 border-r border-b"
+          style={{ borderColor: `${rarityAccent}44`, background: 'var(--bg-void)' }} />
+      </div>
+      {/* Mini bot silhouette at bottom */}
+      <div className="mt-2 w-6 h-6 rounded-full border"
+        style={{ borderColor: `${rarityAccent}33`, background: `${rarityAccent}11` }} />
     </div>
   )
 }
 
 function DanceThumbnail({ item }: { item: CosmeticItem }) {
+  const danceIllustrations: Record<string, { lines: string; accent: string }> = {
+    robot_spin: { lines: '↻', accent: '#00f0ff' },
+    claw_snap: { lines: '✂', accent: '#ff6b00' },
+    moonwalk: { lines: '◄', accent: '#b0e0ff' },
+    breakdance: { lines: '⟳', accent: '#ff2020' },
+    dab: { lines: '╲', accent: '#ffd700' },
+    floss: { lines: '↔', accent: '#39ff14' },
+    t_pose: { lines: '╋', accent: '#9b30ff' },
+    basic_victory: { lines: '▲', accent: '#888' },
+  }
+  const dance = danceIllustrations[item.metadata.animation || ''] || { lines: '♪', accent: 'var(--neon-cyan)' }
+
   return (
-    <div className="w-full aspect-square flex flex-col items-center justify-center gap-2 rounded-md bg-[var(--bg-void)]/50 relative overflow-hidden">
-      {/* Animated background lines */}
-      <div className="absolute inset-0 opacity-10">
-        <div className="absolute w-full h-px bg-[var(--neon-cyan)] top-1/4 animate-pulse" />
-        <div className="absolute w-full h-px bg-[var(--neon-cyan)] top-2/4 animate-pulse" style={{ animationDelay: '0.5s' }} />
-        <div className="absolute w-full h-px bg-[var(--neon-cyan)] top-3/4 animate-pulse" style={{ animationDelay: '1s' }} />
+    <div className="w-full aspect-square flex flex-col items-center justify-center gap-1 rounded-md relative overflow-hidden"
+      style={{ background: `linear-gradient(180deg, var(--bg-void), #0a0a1a)` }}>
+      {/* Motion lines */}
+      <div className="absolute inset-0 opacity-15">
+        {[...Array(5)].map((_, i) => (
+          <div key={i} className="absolute h-px animate-pulse"
+            style={{
+              width: `${30 + i * 10}%`,
+              top: `${20 + i * 15}%`,
+              left: `${10 + (i % 2) * 20}%`,
+              background: `linear-gradient(90deg, transparent, ${dance.accent}88, transparent)`,
+              animationDelay: `${i * 0.2}s`,
+            }} />
+        ))}
       </div>
-      <span className="text-3xl relative z-10">{item.metadata.emoji}</span>
-      <span className="text-[9px] font-mono text-[var(--text-muted)] uppercase relative z-10">
+      {/* Stylized motion symbol */}
+      <div className="text-4xl font-bold opacity-60 relative z-10" style={{ color: dance.accent }}>
+        {dance.lines}
+      </div>
+      <span className="text-[9px] font-mono uppercase relative z-10 px-2 py-0.5 rounded"
+        style={{ color: dance.accent, background: `${dance.accent}15` }}>
         {item.metadata.animation?.replace('_', ' ')}
       </span>
     </div>
@@ -115,7 +151,6 @@ function ArenaThumbnail({ item }: { item: CosmeticItem }) {
   const c1 = item.metadata.color1 || '#1a1a2e'
   const c2 = item.metadata.color2 || '#16213e'
 
-  // Special patterns per theme
   const getPattern = () => {
     switch (item.metadata.theme) {
       case 'neon_city':
@@ -188,7 +223,6 @@ function ArenaThumbnail({ item }: { item: CosmeticItem }) {
       style={{ background: `linear-gradient(135deg, ${c1}, ${c2})` }}
     >
       {getPattern()}
-      {/* Center grid lines */}
       <div className="absolute inset-0 opacity-10"
         style={{
           backgroundImage: `linear-gradient(${c1}88 1px, transparent 1px), linear-gradient(90deg, ${c1}88 1px, transparent 1px)`,
@@ -200,26 +234,127 @@ function ArenaThumbnail({ item }: { item: CosmeticItem }) {
 }
 
 function EntranceThumbnail({ item }: { item: CosmeticItem }) {
-  const effectColors: Record<string, string> = {
-    standard: '#888888',
-    lightning: '#ffdd00',
-    teleport: '#00ffff',
-    fire: '#ff4400',
-    portal: '#aa44ff',
+  const effectStyles: Record<string, { color: string; pattern: React.ReactNode }> = {
+    standard: { color: '#666', pattern: null },
+    lightning: {
+      color: '#ffdd00',
+      pattern: (
+        <>
+          <svg className="absolute inset-0 w-full h-full opacity-40" viewBox="0 0 100 100">
+            <path d="M50 5 L40 45 L55 40 L45 95 L60 50 L45 55 Z" fill="#ffdd0066" stroke="#ffdd00" strokeWidth="1" />
+          </svg>
+          <div className="absolute inset-0 animate-pulse" style={{ background: 'radial-gradient(circle at 50% 50%, #ffdd0022, transparent 60%)' }} />
+        </>
+      ),
+    },
+    teleport: {
+      color: '#00ffff',
+      pattern: (
+        <>
+          {[...Array(3)].map((_, i) => (
+            <div key={i} className="absolute border rounded animate-pulse"
+              style={{
+                width: `${30 + i * 20}%`, height: `${30 + i * 20}%`,
+                top: `${35 - i * 10}%`, left: `${35 - i * 10}%`,
+                borderColor: `#00ffff${40 - i * 10}`,
+                animationDelay: `${i * 0.3}s`,
+              }} />
+          ))}
+          <div className="absolute inset-0" style={{ background: 'radial-gradient(circle, #00ffff11, transparent 50%)' }} />
+        </>
+      ),
+    },
+    fire: {
+      color: '#ff4400',
+      pattern: (
+        <div className="absolute bottom-0 w-full h-2/3">
+          <div className="absolute bottom-0 w-full h-full" style={{
+            background: 'linear-gradient(0deg, #ff440066, #ff880033, transparent)',
+          }} />
+          {[...Array(5)].map((_, i) => (
+            <div key={i} className="absolute bottom-0 rounded-full animate-pulse"
+              style={{
+                width: '12%', height: `${20 + i * 8}%`,
+                left: `${10 + i * 18}%`,
+                background: `linear-gradient(0deg, #ff4400${60 - i * 8}, #ff880033, transparent)`,
+                animationDelay: `${i * 0.15}s`,
+                borderRadius: '50% 50% 30% 30%',
+              }} />
+          ))}
+        </div>
+      ),
+    },
+    portal: {
+      color: '#aa44ff',
+      pattern: (
+        <>
+          <div className="absolute inset-[15%] rounded-full border-2 animate-spin"
+            style={{ borderColor: '#aa44ff44', borderTopColor: '#aa44ff', animationDuration: '3s' }} />
+          <div className="absolute inset-[25%] rounded-full border animate-spin"
+            style={{ borderColor: '#aa44ff33', borderBottomColor: '#aa44ffaa', animationDuration: '2s', animationDirection: 'reverse' }} />
+          <div className="absolute inset-[35%] rounded-full" style={{ background: 'radial-gradient(circle, #aa44ff33, #1a002a)' }} />
+        </>
+      ),
+    },
   }
-  const color = effectColors[item.metadata.effect] || '#888888'
+  const effect = effectStyles[item.metadata.effect] || effectStyles.standard
 
   return (
-    <div className="w-full aspect-square flex flex-col items-center justify-center gap-2 rounded-md bg-[var(--bg-void)]/50 relative overflow-hidden">
-      {/* Effect burst */}
-      <div
-        className="absolute w-16 h-16 rounded-full blur-lg opacity-30"
-        style={{ background: `radial-gradient(circle, ${color}, transparent)` }}
-      />
-      <span className="text-3xl relative z-10">{item.metadata.emoji}</span>
-      <span className="text-[9px] font-mono text-[var(--text-muted)] uppercase relative z-10">
-        {item.metadata.effect}
-      </span>
+    <div className="w-full aspect-square rounded-md relative overflow-hidden"
+      style={{ background: `linear-gradient(180deg, #0a0a1a, var(--bg-void))` }}>
+      {effect.pattern}
+      <div className="absolute bottom-2 left-0 right-0 text-center">
+        <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded"
+          style={{ color: effect.color, background: `${effect.color}15` }}>
+          {item.metadata.effect}
+        </span>
+      </div>
+    </div>
+  )
+}
+
+function AccessoryThumbnail({ item, isHovered }: { item: CosmeticItem; isHovered: boolean }) {
+  const slotColors: Record<string, string> = {
+    back: '#00f0ff',
+    head: '#ffd700',
+    face: '#ff6b00',
+  }
+  const accent = slotColors[item.metadata.slot || 'back'] || '#00f0ff'
+
+  return (
+    <div className="w-full aspect-square rounded-md relative overflow-hidden"
+      style={{ background: `linear-gradient(135deg, #0a0a1a, var(--bg-void))` }}>
+      {/* 3D bot silhouette with attachment indicator */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        {/* Bot body outline */}
+        <div className="relative">
+          <div className="w-12 h-12 rounded-full border-2 opacity-30"
+            style={{ borderColor: accent }} />
+          {/* Slot indicator */}
+          {item.metadata.slot === 'head' && (
+            <div className={`absolute -top-3 left-1/2 -translate-x-1/2 w-8 h-4 rounded-t-full border-2 transition-opacity ${isHovered ? 'opacity-90' : 'opacity-50'}`}
+              style={{ borderColor: accent, background: `${accent}22`, borderBottom: 'none' }} />
+          )}
+          {item.metadata.slot === 'back' && (
+            <div className={`absolute top-1/2 -right-4 -translate-y-1/2 w-6 h-8 rounded-r border-2 transition-opacity ${isHovered ? 'opacity-90' : 'opacity-50'}`}
+              style={{ borderColor: accent, background: `${accent}22`, borderLeft: 'none' }} />
+          )}
+          {item.metadata.slot === 'face' && (
+            <div className={`absolute top-1/4 left-1/2 -translate-x-1/2 w-6 h-3 rounded-sm border transition-opacity ${isHovered ? 'opacity-90' : 'opacity-50'}`}
+              style={{ borderColor: accent, background: `${accent}33` }} />
+          )}
+          {/* Glow effect */}
+          <div className={`absolute inset-0 rounded-full blur-md transition-opacity ${isHovered ? 'opacity-40' : 'opacity-15'}`}
+            style={{ background: accent }} />
+        </div>
+      </div>
+      {/* Label */}
+      <div className="absolute bottom-2 left-0 right-0 text-center">
+        <span className="text-[9px] font-mono uppercase px-2 py-0.5 rounded"
+          style={{ color: accent, background: `${accent}15` }}>
+          {item.metadata.slot}
+        </span>
+      </div>
     </div>
   )
 }
@@ -231,6 +366,7 @@ function ItemThumbnail({ item, isHovered }: { item: CosmeticItem; isHovered: boo
     case 'dance': return <DanceThumbnail item={item} />
     case 'arena': return <ArenaThumbnail item={item} />
     case 'entrance': return <EntranceThumbnail item={item} />
+    case 'accessory': return <AccessoryThumbnail item={item} isHovered={isHovered} />
     default: return null
   }
 }
@@ -240,25 +376,30 @@ function ItemThumbnail({ item, isHovered }: { item: CosmeticItem; isHovered: boo
 // ============================================================
 
 function getRarityStyles(rarity: Rarity) {
-  const styles = {
+  const styles: Record<Rarity, { border: string; glow: string; badge: string }> = {
     common: {
       border: 'border-gray-600/50',
       glow: '',
       badge: 'bg-gray-700/80 text-gray-300',
     },
+    uncommon: {
+      border: 'border-green-500/50',
+      glow: '',
+      badge: 'bg-green-900/80 text-green-300',
+    },
     rare: {
       border: 'border-blue-500/50',
-      glow: 'shadow-[0_0_8px_rgba(59,130,246,0.15)]',
+      glow: 'shadow-[0_0_8px_rgba(52,152,219,0.15)]',
       badge: 'bg-blue-900/80 text-blue-300',
     },
-    epic: {
+    super_rare: {
       border: 'border-purple-500/50',
-      glow: 'shadow-[0_0_8px_rgba(168,85,247,0.15)]',
+      glow: 'shadow-[0_0_10px_rgba(155,89,182,0.2)]',
       badge: 'bg-purple-900/80 text-purple-300',
     },
     legendary: {
       border: 'border-yellow-500/60',
-      glow: 'shadow-[0_0_12px_rgba(234,179,8,0.25)]',
+      glow: 'shadow-[0_0_15px_rgba(243,156,18,0.3)]',
       badge: 'bg-yellow-900/80 text-yellow-300',
     },
   }
@@ -276,6 +417,7 @@ function CosmeticCard({
   canAfford,
   onPurchase,
   onEquip,
+  onPreview,
 }: {
   item: CosmeticItem
   owned: boolean
@@ -283,11 +425,13 @@ function CosmeticCard({
   canAfford: boolean
   onPurchase: () => void
   onEquip: () => void
+  onPreview: () => void
 }) {
   const [hovered, setHovered] = useState(false)
   const rarityStyle = getRarityStyles(item.rarity)
   const isFree = item.price === 0
   const { setPreviewSkinColor } = useCosmeticsStore()
+  const isLegendary = item.rarity === 'legendary'
 
   const handleMouseEnter = () => {
     setHovered(true)
@@ -305,17 +449,19 @@ function CosmeticCard({
 
   return (
     <div
-      className={`relative panel p-3 transition-all duration-200 hover:border-[var(--border-bright)] group
+      className={`relative panel p-3 transition-all duration-200 hover:border-[var(--border-bright)] group cursor-pointer
         ${rarityStyle.border} ${rarityStyle.glow}
         ${equipped ? 'ring-1 ring-[var(--neon-cyan)]/40' : ''}
+        ${isLegendary ? 'legendary-shimmer' : ''}
       `}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onClick={onPreview}
     >
       {/* Status badges */}
       <div className="flex items-center justify-between mb-2 min-h-[20px]">
         <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded-sm ${rarityStyle.badge}`}>
-          {item.rarity.toUpperCase()}
+          {RARITY_LABELS[item.rarity]}
         </span>
         <div className="flex gap-1">
           {equipped && (
@@ -343,42 +489,44 @@ function CosmeticCard({
       </p>
 
       {/* Action */}
-      {equipped ? (
-        <div className="w-full py-2 rounded-sm text-xs font-mono font-bold bg-[var(--neon-cyan)]/10 border border-[var(--neon-cyan)]/30 text-[var(--neon-cyan)] text-center">
-          ✦ EQUIPPED
-        </div>
-      ) : owned ? (
-        <button
-          onClick={onEquip}
-          className="w-full py-2 rounded-sm text-xs font-mono font-bold bg-[var(--bg-raised)] border border-[var(--border-mid)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] hover:border-[var(--neon-cyan)]/40 transition"
-        >
-          EQUIP
-        </button>
-      ) : isFree ? (
-        <div className="w-full py-2 rounded-sm text-xs font-mono font-bold bg-[var(--neon-green-dim)] border border-[var(--neon-green)]/30 text-[var(--neon-green)] text-center">
-          FREE · DEFAULT
-        </div>
-      ) : (
-        <button
-          onClick={onPurchase}
-          disabled={!canAfford}
-          className={`w-full py-2 rounded-sm text-xs font-mono font-bold transition ${
-            canAfford
-              ? 'bg-[var(--neon-amber)] text-[var(--bg-void)] hover:shadow-lg hover:shadow-[var(--neon-amber-dim)]'
-              : 'bg-[var(--bg-raised)] text-[var(--text-muted)] cursor-not-allowed'
-          }`}
-        >
-          {canAfford ? (
-            <span className="flex items-center gap-1 justify-center">
-              <Sparkles className="w-3 h-3" /> {formatCredits(item.price)} CR
-            </span>
-          ) : (
-            <span className="flex items-center gap-1 justify-center">
-              <Lock className="w-3 h-3" /> {formatCredits(item.price)} CR
-            </span>
-          )}
-        </button>
-      )}
+      <div onClick={e => e.stopPropagation()}>
+        {equipped ? (
+          <div className="w-full py-2 rounded-sm text-xs font-mono font-bold bg-[var(--neon-cyan)]/10 border border-[var(--neon-cyan)]/30 text-[var(--neon-cyan)] text-center">
+            ✦ EQUIPPED
+          </div>
+        ) : owned ? (
+          <button
+            onClick={onEquip}
+            className="w-full py-2 rounded-sm text-xs font-mono font-bold bg-[var(--bg-raised)] border border-[var(--border-mid)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] hover:border-[var(--neon-cyan)]/40 transition"
+          >
+            EQUIP
+          </button>
+        ) : isFree ? (
+          <div className="w-full py-2 rounded-sm text-xs font-mono font-bold bg-[var(--neon-green-dim)] border border-[var(--neon-green)]/30 text-[var(--neon-green)] text-center">
+            FREE · DEFAULT
+          </div>
+        ) : (
+          <button
+            onClick={onPurchase}
+            disabled={!canAfford}
+            className={`w-full py-2 rounded-sm text-xs font-mono font-bold transition ${
+              canAfford
+                ? 'bg-[var(--neon-amber)] text-[var(--bg-void)] hover:shadow-lg hover:shadow-[var(--neon-amber-dim)]'
+                : 'bg-[var(--bg-raised)] text-[var(--text-muted)] cursor-not-allowed'
+            }`}
+          >
+            {canAfford ? (
+              <span className="flex items-center gap-1 justify-center">
+                <Sparkles className="w-3 h-3" /> {formatCredits(item.price)} CR
+              </span>
+            ) : (
+              <span className="flex items-center gap-1 justify-center">
+                <Lock className="w-3 h-3" /> {formatCredits(item.price)} CR
+              </span>
+            )}
+          </button>
+        )}
+      </div>
     </div>
   )
 }
@@ -387,7 +535,7 @@ function CosmeticCard({
 // Main Shop Content
 // ============================================================
 
-const CATEGORIES: CosmeticCategory[] = ['skin', 'taunt', 'dance', 'arena', 'entrance']
+const CATEGORIES: CosmeticCategory[] = ['skin', 'accessory', 'taunt', 'dance', 'arena', 'entrance']
 
 function ShopContent() {
   const { user, bots, setUser, setBots, setToken } = useAuthStore()
@@ -401,11 +549,12 @@ function ShopContent() {
   const [activeTab, setActiveTab] = useState<CosmeticCategory>('skin')
   const [loading, setLoading] = useState(true)
   const [purchasing, setPurchasing] = useState<string | null>(null)
+  const [previewItem, setPreviewItem] = useState<CosmeticItem | null>(null)
 
   useEffect(() => {
     async function fetchData() {
       try {
-        const me = await api<any>('/api/auth/me')
+        const me = await api<Record<string, any>>('/api/auth/me')
         setUser({
           id: me.id, username: me.username, credits: me.credits,
           current_elo: me.current_elo, peak_elo: me.peak_elo,
@@ -416,20 +565,16 @@ function ShopContent() {
           setBots(me.bots)
         }
 
-        // Try to load owned cosmetics from backend
         try {
           const cosmetics = await api<{ items: string[] }>('/api/shop/owned')
           if (cosmetics.items) {
             setOwnedItems(new Set(cosmetics.items))
           }
         } catch {
-          // Backend may not support this yet — defaults are free
-          // All default items are "owned"
           const defaults = ALL_COSMETICS.filter(i => i.isDefault).map(i => i.id)
           setOwnedItems(new Set(defaults))
         }
 
-        // Try to load equipped cosmetics
         try {
           if (me.bots?.length) {
             const equipped = await api<{ cosmetics: Record<CosmeticCategory, string | null> }>(
@@ -463,8 +608,9 @@ function ShopContent() {
       })
       addOwnedItem(item.id)
       setUser({ ...user, credits: res.new_balance })
-    } catch (err: any) {
-      alert(err.message || 'Purchase failed')
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Purchase failed'
+      alert(msg)
     } finally {
       setPurchasing(null)
     }
@@ -496,9 +642,8 @@ function ShopContent() {
   if (!user) return null
 
   const items = COSMETICS_BY_CATEGORY[activeTab]
-  const rarityOrder: Record<string, number> = { legendary: 0, epic: 1, rare: 2, common: 3 }
   const sortedItems = [...items].sort((a, b) => {
-    return (rarityOrder[a.rarity] ?? 99) - (rarityOrder[b.rarity] ?? 99)
+    return (RARITY_ORDER[a.rarity] ?? 99) - (RARITY_ORDER[b.rarity] ?? 99)
   })
 
   return (
@@ -565,11 +710,29 @@ function ShopContent() {
                 canAfford={user.credits >= item.price}
                 onPurchase={() => handlePurchase(item)}
                 onEquip={() => handleEquip(item)}
+                onPreview={() => setPreviewItem(item)}
               />
             </div>
           )
         })}
       </div>
+
+      {/* Preview Modal */}
+      {previewItem && (
+        <SkinPreviewModal
+          item={previewItem}
+          owned={ownedItems.has(previewItem.id) || previewItem.isDefault === true}
+          equipped={equippedItems[previewItem.category] === previewItem.id}
+          canAfford={user.credits >= previewItem.price}
+          onPurchase={() => {
+            handlePurchase(previewItem)
+          }}
+          onEquip={() => {
+            handleEquip(previewItem)
+          }}
+          onClose={() => setPreviewItem(null)}
+        />
+      )}
     </div>
   )
 }

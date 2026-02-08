@@ -72,6 +72,7 @@ export const useCosmeticsStore = create<CosmeticsState>((set) => ({
     dance: 'dance_basic',
     arena: 'arena_default',
     entrance: 'entrance_standard',
+    accessory: null,
   },
   previewSkinColor: null,
 
