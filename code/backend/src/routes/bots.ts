@@ -321,6 +321,90 @@ botRoutes.post('/allocate-stat', authMiddleware, validate(allocateStatSchema), a
 })
 
 // ============================================================
+// GET /api/bots/:bot_id/cosmetics — Equipped cosmetics
+// ============================================================
+
+botRoutes.get('/:bot_id/cosmetics', authMiddleware, async (c) => {
+  const { userId } = getAuthUser(c)
+  const botId = c.req.param('bot_id')
+
+  const bot = await prisma.bot.findFirst({ where: { id: botId, user_id: userId } })
+  if (!bot) {
+    return c.json({ error: 'Bot not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  const equipped = await prisma.botCosmetic.findMany({
+    where: { bot_id: botId },
+  })
+
+  const cosmetics: Record<string, string | null> = {
+    skin: null,
+    taunt: null,
+    dance: null,
+    arena: null,
+    entrance: null,
+  }
+
+  for (const e of equipped) {
+    cosmetics[e.slot] = e.item_id
+  }
+
+  return c.json({ cosmetics })
+})
+
+// ============================================================
+// POST /api/bots/equip-cosmetic — Equip a cosmetic item to a bot
+// ============================================================
+
+const equipCosmeticSchema = z.object({
+  bot_id: z.string().uuid(),
+  item_id: z.string().min(1),
+  slot: z.enum(['skin', 'taunt', 'dance', 'arena', 'entrance']),
+})
+
+botRoutes.post('/equip-cosmetic', authMiddleware, validate(equipCosmeticSchema), async (c) => {
+  const { userId } = getAuthUser(c)
+  const { bot_id, item_id, slot } = getParsedBody<z.infer<typeof equipCosmeticSchema>>(c)
+
+  // Verify bot ownership
+  const bot = await prisma.bot.findFirst({ where: { id: bot_id, user_id: userId } })
+  if (!bot) {
+    return c.json({ error: 'Bot not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  // Verify item exists and category matches slot
+  const item = await prisma.cosmeticItem.findUnique({ where: { id: item_id } })
+  if (!item) {
+    return c.json({ error: 'Cosmetic item not found', code: 'NOT_FOUND' }, 404)
+  }
+  if (item.category !== slot) {
+    return c.json({ error: `Item category '${item.category}' does not match slot '${slot}'`, code: 'CATEGORY_MISMATCH' }, 400)
+  }
+
+  // Verify ownership: free items are always available, paid items must be purchased
+  if (item.price > 0) {
+    const owned = await prisma.userCosmetic.findUnique({
+      where: { user_id_item_id: { user_id: userId, item_id } },
+    })
+    if (!owned) {
+      return c.json({ error: 'Item not owned', code: 'NOT_OWNED' }, 403)
+    }
+  }
+
+  // Upsert — one item per slot
+  await prisma.botCosmetic.upsert({
+    where: { bot_id_slot: { bot_id, slot } },
+    update: { item_id, equipped_at: new Date() },
+    create: { bot_id, slot, item_id },
+  })
+
+  return c.json({
+    success: true,
+    equipped: { slot, item_id },
+  })
+})
+
+// ============================================================
 // GET /api/bots/:bot_id/bonuses — External skill-based bonuses
 // ============================================================
 

@@ -8,7 +8,7 @@ import { recordTransaction } from '../utils/credits'
 export const shopRoutes = new Hono()
 
 // ============================================================
-// GET /api/shop/items
+// GET /api/shop/items — Legacy shop items
 // ============================================================
 
 shopRoutes.get('/items', async (c) => {
@@ -31,23 +31,97 @@ shopRoutes.get('/items', async (c) => {
 })
 
 // ============================================================
-// POST /api/shop/purchase
+// GET /api/shop/cosmetics — All cosmetic items
 // ============================================================
 
-const purchaseSchema = z.object({
-  item_id: z.string().uuid(),
+shopRoutes.get('/cosmetics', async (c) => {
+  const category = c.req.query('category')
+  const where: any = {}
+  if (category) where.category = category
+
+  const items = await prisma.cosmeticItem.findMany({ where, orderBy: { price: 'asc' } })
+  return c.json({ items })
 })
 
-shopRoutes.post('/purchase', authMiddleware, validate(purchaseSchema), async (c) => {
-  const { userId } = getAuthUser(c)
-  const { item_id } = getParsedBody<z.infer<typeof purchaseSchema>>(c)
+// ============================================================
+// GET /api/shop/owned — Items the current user owns
+// ============================================================
 
-  const item = await prisma.shopItem.findUnique({ where: { id: item_id } })
-  if (!item) {
+shopRoutes.get('/owned', authMiddleware, async (c) => {
+  const { userId } = getAuthUser(c)
+
+  const owned = await prisma.userCosmetic.findMany({
+    where: { user_id: userId },
+    select: { item_id: true },
+  })
+
+  // Also include all free/default items
+  const freeItems = await prisma.cosmeticItem.findMany({
+    where: { price: 0 },
+    select: { id: true },
+  })
+
+  const allOwned = new Set([
+    ...owned.map((o) => o.item_id),
+    ...freeItems.map((f) => f.id),
+  ])
+
+  return c.json({ items: Array.from(allOwned) })
+})
+
+// ============================================================
+// POST /api/shop/purchase — Buy a cosmetic item
+// ============================================================
+
+const purchaseCosmeticSchema = z.object({
+  item_id: z.string().min(1),
+})
+
+shopRoutes.post('/purchase', authMiddleware, validate(purchaseCosmeticSchema), async (c) => {
+  const { userId } = getAuthUser(c)
+  const { item_id } = getParsedBody<z.infer<typeof purchaseCosmeticSchema>>(c)
+
+  // Try cosmetic item first
+  const cosmetic = await prisma.cosmeticItem.findUnique({ where: { id: item_id } })
+  if (cosmetic) {
+    // Free items don't need purchase
+    if (cosmetic.price === 0) {
+      return c.json({ error: 'This item is free by default', code: 'FREE_ITEM' }, 400)
+    }
+
+    // Check if already owned
+    const existing = await prisma.userCosmetic.findUnique({
+      where: { user_id_item_id: { user_id: userId, item_id } },
+    })
+    if (existing) {
+      return c.json({ error: 'Already owned', code: 'ALREADY_OWNED' }, 409)
+    }
+
+    // Check credits
+    const user = await prisma.user.findUnique({ where: { id: userId } })
+    if (!user || user.credits < cosmetic.price) {
+      return c.json({ error: 'Insufficient credits', code: 'INSUFFICIENT_CREDITS' }, 400)
+    }
+
+    // Deduct credits
+    await recordTransaction(userId, -cosmetic.price, 'shop_purchase', item_id)
+
+    // Add to owned
+    await prisma.userCosmetic.create({
+      data: { user_id: userId, item_id },
+    })
+
+    const newBalance = user.credits - cosmetic.price
+    return c.json({ success: true, item: cosmetic, new_balance: newBalance })
+  }
+
+  // Fallback: try legacy ShopItem (UUID format)
+  const legacyItem = await prisma.shopItem.findUnique({ where: { id: item_id } })
+  if (!legacyItem) {
     return c.json({ error: 'Item not found', code: 'NOT_FOUND' }, 404)
   }
 
-  // Check if already owned (non-consumables)
+  // Legacy purchase flow
   const existing = await prisma.userInventory.findUnique({
     where: { user_id_item_id: { user_id: userId, item_id } },
   })
@@ -55,40 +129,31 @@ shopRoutes.post('/purchase', authMiddleware, validate(purchaseSchema), async (c)
     return c.json({ error: 'Already owned', code: 'ALREADY_OWNED' }, 409)
   }
 
-  // Check stock
-  if (item.limited_edition && item.stock_remaining !== null && item.stock_remaining <= 0) {
+  if (legacyItem.limited_edition && legacyItem.stock_remaining !== null && legacyItem.stock_remaining <= 0) {
     return c.json({ error: 'Out of stock', code: 'OUT_OF_STOCK' }, 410)
   }
 
-  // Check credits
   const user = await prisma.user.findUnique({ where: { id: userId } })
-  if (!user || user.credits < item.price) {
+  if (!user || user.credits < legacyItem.price) {
     return c.json({ error: 'Insufficient credits', code: 'INSUFFICIENT_CREDITS' }, 400)
   }
 
-  // Purchase transaction
-  await recordTransaction(userId, -item.price, 'shop_purchase', item_id)
+  await recordTransaction(userId, -legacyItem.price, 'shop_purchase', item_id)
+  await prisma.userInventory.create({ data: { user_id: userId, item_id } })
 
-  // Add to inventory
-  await prisma.userInventory.create({
-    data: { user_id: userId, item_id },
-  })
-
-  // Decrement stock if limited
-  if (item.limited_edition && item.stock_remaining !== null) {
+  if (legacyItem.limited_edition && legacyItem.stock_remaining !== null) {
     await prisma.shopItem.update({
       where: { id: item_id },
       data: { stock_remaining: { decrement: 1 } },
     })
   }
 
-  const newBalance = user.credits - item.price
-
-  return c.json({ success: true, item, new_balance: newBalance })
+  const newBalance = user.credits - legacyItem.price
+  return c.json({ success: true, item: legacyItem, new_balance: newBalance })
 })
 
 // ============================================================
-// GET /api/inventory
+// GET /api/inventory — Legacy inventory
 // ============================================================
 
 shopRoutes.get('/inventory', authMiddleware, async (c) => {

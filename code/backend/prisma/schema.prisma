@@ -35,6 +35,7 @@ model User {
   skills        UserSkill[]
   transactions  CreditTransaction[]
   oauth_accounts OAuthAccount[]
+  cosmetics     UserCosmetic[]
   
   @@map("users")
 }
@@ -87,6 +88,7 @@ model Bot {
   matches_as_bot2 Match[] @relation("MatchBot2")
   matches_won     Match[] @relation("MatchWinner")
   gauntlet        GauntletProgress[]
+  cosmetics       BotCosmetic[]
   
   @@map("bots")
 }
@@ -250,6 +252,52 @@ model GauntletProgress {
   
   @@unique([bot_id, tier])
   @@map("gauntlet_progress")
+}
+
+// ============================================================
+// Cosmetic Items & Equipment
+// ============================================================
+
+model CosmeticItem {
+  id          String   @id           // e.g. 'skin_neon_blue'
+  name        String
+  description String
+  category    String                 // 'skin', 'taunt', 'dance', 'arena', 'entrance'
+  price       Int      @default(0)   // 0 = free/default
+  rarity      String                 // 'common', 'rare', 'epic', 'legendary'
+  metadata    Json     @default("{}")
+  
+  created_at  DateTime @default(now())
+  
+  owners      UserCosmetic[]
+  equipped_on BotCosmetic[]
+  
+  @@map("cosmetic_items")
+}
+
+model UserCosmetic {
+  user_id      String
+  item_id      String
+  purchased_at DateTime @default(now())
+  
+  user         User         @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  item         CosmeticItem @relation(fields: [item_id], references: [id])
+  
+  @@id([user_id, item_id])
+  @@map("user_cosmetics")
+}
+
+model BotCosmetic {
+  bot_id      String
+  slot        String       // 'skin', 'taunt', 'dance', 'arena', 'entrance'
+  item_id     String
+  equipped_at DateTime     @default(now())
+  
+  bot         Bot          @relation(fields: [bot_id], references: [id], onDelete: Cascade)
+  item        CosmeticItem @relation(fields: [item_id], references: [id])
+  
+  @@id([bot_id, slot])
+  @@map("bot_cosmetics")
 }
 
 // ============================================================
