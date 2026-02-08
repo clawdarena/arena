@@ -193,13 +193,15 @@ function ArenaScene({
 
   return (
     <>
-      {/* Lighting */}
-      <ambientLight intensity={0.15} />
-      <directionalLight position={[3, 5, 3]} intensity={0.6} castShadow />
-      <pointLight position={[-2, 2, 0]} color="#00f0ff" intensity={0.5} distance={6} />
-      <pointLight position={[2, 2, 0]} color="#ff4040" intensity={0.5} distance={6} />
+      {/* Lighting — neutral white to let vertex colors show */}
+      <ambientLight intensity={0.4} />
+      <directionalLight position={[3, 5, 3]} intensity={0.8} castShadow />
+      <directionalLight position={[-2, 3, -1]} intensity={0.3} />
+      {/* Subtle colored fill lights — very low intensity, just tinting shadows */}
+      <pointLight position={[-2, 1.5, 1]} color="#00f0ff" intensity={0.12} distance={5} />
+      <pointLight position={[2, 1.5, 1]} color="#ff4040" intensity={0.12} distance={5} />
 
-      {/* Environment for reflections */}
+      {/* Environment for metallic reflections */}
       <Environment preset="night" />
 
       {/* Arena floor */}
@@ -238,9 +240,9 @@ function ArenaScene({
       {/* Post-processing */}
       <EffectComposer>
         <Bloom
-          luminanceThreshold={0.3}
-          luminanceSmoothing={0.6}
-          intensity={0.8}
+          luminanceThreshold={0.6}
+          luminanceSmoothing={0.5}
+          intensity={0.4}
           mipmapBlur
         />
         <Vignette eskil={false} offset={0.3} darkness={0.7} />
