@@ -448,86 +448,191 @@ function BotSprite({ side, color, isHit, isAttacking, isDead }: {
     !isHit && !isAttacking && !isDead ? 'animate-idle-bob' : '',
   ].join(' ')
 
+  // Derive dark/mid/bright from accent color
+  const isCyan = color.includes('00f0ff')
+  const bodyDark = isCyan ? '#0e1e2e' : '#1a0808'
+  const bodyMid = isCyan ? '#1a3550' : '#3a1010'
+  const bodyBright = isCyan ? '#2a5578' : '#6a1a1a'
+  const plateColor = isCyan ? '#3a7090' : '#8a2525'
+  const filterId = side === 'player' ? 'glow-p' : 'glow-o'
+
   if (side === 'player') {
-    // Player bot — seen from behind (bottom-left)
+    // Player bot — mech-crab from behind (bottom-left)
     return (
       <div className={`relative ${cls}`} style={{ filter: isHit ? 'brightness(3)' : 'none' }}>
-        <svg viewBox="0 0 100 120" className="w-32 h-40 sm:w-40 sm:h-48 drop-shadow-lg">
-          {/* Body (back view) */}
-          <rect x="25" y="35" width="50" height="50" rx="8" fill="#1a1a2e" stroke={color} strokeWidth="2" />
-          {/* Back panel */}
-          <rect x="32" y="42" width="36" height="20" rx="3" fill="#0d0d1a" stroke={color} strokeWidth="1" opacity="0.6" />
+        <svg viewBox="0 0 140 130" className="w-36 h-44 sm:w-44 sm:h-52 drop-shadow-lg">
+          <defs>
+            <filter id={filterId}><feGaussianBlur stdDeviation="2.5" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+            <linearGradient id="shell-grad-p" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stopColor={bodyBright} />
+              <stop offset="50%" stopColor={bodyMid} />
+              <stop offset="100%" stopColor={bodyDark} />
+            </linearGradient>
+          </defs>
+          {/* Shadow on ground */}
+          <ellipse cx="70" cy="125" rx="45" ry="5" fill={color} opacity="0.1" />
+          {/* === LEGS (3 per side, back view) === */}
+          {/* Left legs */}
+          <line x1="30" y1="80" x2="8" y2="105" stroke={bodyMid} strokeWidth="4" strokeLinecap="round" />
+          <line x1="8" y1="105" x2="5" y2="120" stroke={bodyMid} strokeWidth="3" strokeLinecap="round" />
+          <circle cx="5" cy="120" r="2" fill={color} opacity="0.6" />
+          <line x1="28" y1="75" x2="3" y2="95" stroke={bodyMid} strokeWidth="4" strokeLinecap="round" />
+          <line x1="3" y1="95" x2="2" y2="112" stroke={bodyMid} strokeWidth="3" strokeLinecap="round" />
+          <circle cx="2" cy="112" r="2" fill={color} opacity="0.6" />
+          <line x1="32" y1="85" x2="12" y2="115" stroke={bodyMid} strokeWidth="4" strokeLinecap="round" />
+          <line x1="12" y1="115" x2="10" y2="126" stroke={bodyMid} strokeWidth="3" strokeLinecap="round" />
+          <circle cx="10" cy="126" r="2" fill={color} opacity="0.6" />
+          {/* Right legs */}
+          <line x1="110" y1="80" x2="132" y2="105" stroke={bodyMid} strokeWidth="4" strokeLinecap="round" />
+          <line x1="132" y1="105" x2="135" y2="120" stroke={bodyMid} strokeWidth="3" strokeLinecap="round" />
+          <circle cx="135" cy="120" r="2" fill={color} opacity="0.6" />
+          <line x1="112" y1="75" x2="137" y2="95" stroke={bodyMid} strokeWidth="4" strokeLinecap="round" />
+          <line x1="137" y1="95" x2="138" y2="112" stroke={bodyMid} strokeWidth="3" strokeLinecap="round" />
+          <circle cx="138" cy="112" r="2" fill={color} opacity="0.6" />
+          <line x1="108" y1="85" x2="128" y2="115" stroke={bodyMid} strokeWidth="4" strokeLinecap="round" />
+          <line x1="128" y1="115" x2="130" y2="126" stroke={bodyMid} strokeWidth="3" strokeLinecap="round" />
+          <circle cx="130" cy="126" r="2" fill={color} opacity="0.6" />
+          {/* Joint dots */}
+          <circle cx="8" cy="105" r="3" fill={color} opacity="0.4" />
+          <circle cx="3" cy="95" r="3" fill={color} opacity="0.4" />
+          <circle cx="12" cy="115" r="3" fill={color} opacity="0.4" />
+          <circle cx="132" cy="105" r="3" fill={color} opacity="0.4" />
+          <circle cx="137" cy="95" r="3" fill={color} opacity="0.4" />
+          <circle cx="128" cy="115" r="3" fill={color} opacity="0.4" />
+          {/* === MAIN SHELL (dome carapace, back view) === */}
+          <ellipse cx="70" cy="60" rx="45" ry="35" fill={`url(#shell-grad-p)`} stroke={bodyBright} strokeWidth="1.5" />
+          {/* Armor ridge lines across shell */}
+          <ellipse cx="70" cy="52" rx="38" ry="10" fill="none" stroke={plateColor} strokeWidth="1.2" opacity="0.5" />
+          <ellipse cx="70" cy="62" rx="40" ry="8" fill="none" stroke={plateColor} strokeWidth="1" opacity="0.35" />
+          {/* Center spine ridge */}
+          <line x1="70" y1="28" x2="70" y2="85" stroke={plateColor} strokeWidth="2" opacity="0.4" />
+          {/* Armor plates (segmented look) */}
+          <path d="M40,40 Q70,30 100,40" fill="none" stroke={bodyBright} strokeWidth="1.5" opacity="0.6" />
+          <path d="M35,55 Q70,48 105,55" fill="none" stroke={bodyBright} strokeWidth="1" opacity="0.4" />
           {/* Back vents */}
-          <rect x="35" y="45" width="8" height="2" rx="1" fill={color} opacity="0.5" />
-          <rect x="35" y="49" width="8" height="2" rx="1" fill={color} opacity="0.5" />
-          <rect x="35" y="53" width="8" height="2" rx="1" fill={color} opacity="0.5" />
-          <rect x="57" y="45" width="8" height="2" rx="1" fill={color} opacity="0.5" />
-          <rect x="57" y="49" width="8" height="2" rx="1" fill={color} opacity="0.5" />
-          <rect x="57" y="53" width="8" height="2" rx="1" fill={color} opacity="0.5" />
-          {/* Head (back) */}
-          <rect x="30" y="15" width="40" height="25" rx="6" fill="#1a1a2e" stroke={color} strokeWidth="2" />
-          <rect x="38" y="20" width="24" height="4" rx="2" fill={color} opacity="0.3" />
-          {/* Antenna */}
-          <line x1="50" y1="15" x2="50" y2="5" stroke={color} strokeWidth="2" />
-          <circle cx="50" cy="4" r="3" fill={color} opacity="0.8">
-            <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.5s" repeatCount="indefinite" />
+          <rect x="55" y="38" width="30" height="14" rx="3" fill={bodyDark} stroke={color} strokeWidth="0.8" opacity="0.6" />
+          <rect x="58" y="41" width="7" height="2" rx="1" fill={color} opacity="0.4" />
+          <rect x="58" y="45" width="7" height="2" rx="1" fill={color} opacity="0.4" />
+          <rect x="58" y="49" width="7" height="2" rx="1" fill={color} opacity="0.4" />
+          <rect x="75" y="41" width="7" height="2" rx="1" fill={color} opacity="0.4" />
+          <rect x="75" y="45" width="7" height="2" rx="1" fill={color} opacity="0.4" />
+          <rect x="75" y="49" width="7" height="2" rx="1" fill={color} opacity="0.4" />
+          {/* === CLAWS (extending forward, foreshortened) === */}
+          {/* Left claw arm */}
+          <path d="M25,60 L8,48 L2,35" stroke={bodyMid} strokeWidth="5" fill="none" strokeLinecap="round" />
+          <path d="M2,35 L-5,25" stroke={plateColor} strokeWidth="4" fill="none" strokeLinecap="round" />
+          <path d="M2,35 L6,22" stroke={plateColor} strokeWidth="3.5" fill="none" strokeLinecap="round" />
+          <circle cx="2" cy="35" r="3.5" fill={bodyDark} stroke={color} strokeWidth="1" />
+          {/* Right claw arm */}
+          <path d="M115,60 L132,48 L138,35" stroke={bodyMid} strokeWidth="5" fill="none" strokeLinecap="round" />
+          <path d="M138,35 L145,25" stroke={plateColor} strokeWidth="4" fill="none" strokeLinecap="round" />
+          <path d="M138,35 L134,22" stroke={plateColor} strokeWidth="3.5" fill="none" strokeLinecap="round" />
+          <circle cx="138" cy="35" r="3.5" fill={bodyDark} stroke={color} strokeWidth="1" />
+          {/* === SENSOR NUBS on shell top === */}
+          <line x1="55" y1="30" x2="52" y2="20" stroke={bodyMid} strokeWidth="2" />
+          <circle cx="52" cy="19" r="2.5" fill={color} opacity="0.7">
+            <animate attributeName="opacity" values="0.7;0.3;0.7" dur="1.5s" repeatCount="indefinite" />
           </circle>
-          {/* Arms */}
-          <rect x="12" y="40" width="13" height="35" rx="5" fill="#1a1a2e" stroke={color} strokeWidth="1.5" />
-          <rect x="75" y="40" width="13" height="35" rx="5" fill="#1a1a2e" stroke={color} strokeWidth="1.5" />
-          {/* Legs */}
-          <rect x="30" y="85" width="14" height="30" rx="4" fill="#1a1a2e" stroke={color} strokeWidth="1.5" />
-          <rect x="56" y="85" width="14" height="30" rx="4" fill="#1a1a2e" stroke={color} strokeWidth="1.5" />
-          {/* Glow effect */}
-          <rect x="25" y="35" width="50" height="50" rx="8" fill="none" stroke={color} strokeWidth="1" opacity="0.3" filter="url(#glow)" />
-          <defs><filter id="glow"><feGaussianBlur stdDeviation="3" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter></defs>
+          <line x1="85" y1="30" x2="88" y2="20" stroke={bodyMid} strokeWidth="2" />
+          <circle cx="88" cy="19" r="2.5" fill={color} opacity="0.7">
+            <animate attributeName="opacity" values="0.7;0.3;0.7" dur="1.5s" repeatCount="indefinite" begin="0.5s" />
+          </circle>
+          {/* Neon accent glow on shell edge */}
+          <ellipse cx="70" cy="60" rx="45" ry="35" fill="none" stroke={color} strokeWidth="1" opacity="0.2" filter={`url(#${filterId})`} />
         </svg>
       </div>
     )
   }
 
-  // Opponent bot — facing player (top-right)
+  // Opponent bot — mech-crab facing player (top-right)
   return (
     <div className={`relative ${cls}`} style={{ filter: isHit ? 'brightness(3)' : 'none' }}>
-      <svg viewBox="0 0 100 120" className="w-28 h-36 sm:w-36 sm:h-44 drop-shadow-lg">
-        {/* Body (front view) */}
-        <rect x="25" y="35" width="50" height="50" rx="8" fill="#1a0a0a" stroke={color} strokeWidth="2" />
-        {/* Chest panel */}
-        <rect x="32" y="42" width="36" height="15" rx="3" fill="#0d0505" stroke={color} strokeWidth="1" opacity="0.6" />
-        <circle cx="42" cy="50" r="3" fill={color} opacity="0.6">
-          <animate attributeName="opacity" values="0.6;0.2;0.6" dur="2s" repeatCount="indefinite" />
-        </circle>
-        <circle cx="58" cy="50" r="3" fill={color} opacity="0.6">
-          <animate attributeName="opacity" values="0.6;0.2;0.6" dur="2s" repeatCount="indefinite" begin="0.5s" />
-        </circle>
-        {/* Core */}
-        <circle cx="50" cy="68" r="6" fill="none" stroke={color} strokeWidth="1.5">
-          <animate attributeName="r" values="6;7;6" dur="1.5s" repeatCount="indefinite" />
-        </circle>
-        <circle cx="50" cy="68" r="3" fill={color} opacity="0.5" />
-        {/* Head */}
-        <rect x="30" y="15" width="40" height="25" rx="6" fill="#1a0a0a" stroke={color} strokeWidth="2" />
-        {/* Eyes */}
-        <rect x="36" y="23" width="10" height="6" rx="2" fill={color}>
-          <animate attributeName="opacity" values="1;0.5;1" dur="3s" repeatCount="indefinite" />
+      <svg viewBox="0 0 140 130" className="w-32 h-40 sm:w-40 sm:h-48 drop-shadow-lg">
+        <defs>
+          <filter id={filterId}><feGaussianBlur stdDeviation="2.5" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter>
+          <linearGradient id="shell-grad-o" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={bodyBright} />
+            <stop offset="50%" stopColor={bodyMid} />
+            <stop offset="100%" stopColor={bodyDark} />
+          </linearGradient>
+        </defs>
+        {/* Shadow */}
+        <ellipse cx="70" cy="125" rx="40" ry="4" fill={color} opacity="0.1" />
+        {/* === LEGS === */}
+        <line x1="30" y1="80" x2="8" y2="105" stroke={bodyMid} strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="8" y1="105" x2="5" y2="118" stroke={bodyMid} strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx="5" cy="118" r="1.8" fill={color} opacity="0.6" />
+        <line x1="28" y1="75" x2="3" y2="93" stroke={bodyMid} strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="3" y1="93" x2="2" y2="108" stroke={bodyMid} strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx="2" cy="108" r="1.8" fill={color} opacity="0.6" />
+        <line x1="32" y1="85" x2="12" y2="112" stroke={bodyMid} strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="12" y1="112" x2="10" y2="124" stroke={bodyMid} strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx="10" cy="124" r="1.8" fill={color} opacity="0.6" />
+        <line x1="110" y1="80" x2="132" y2="105" stroke={bodyMid} strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="132" y1="105" x2="135" y2="118" stroke={bodyMid} strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx="135" cy="118" r="1.8" fill={color} opacity="0.6" />
+        <line x1="112" y1="75" x2="137" y2="93" stroke={bodyMid} strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="137" y1="93" x2="138" y2="108" stroke={bodyMid} strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx="138" cy="108" r="1.8" fill={color} opacity="0.6" />
+        <line x1="108" y1="85" x2="128" y2="112" stroke={bodyMid} strokeWidth="3.5" strokeLinecap="round" />
+        <line x1="128" y1="112" x2="130" y2="124" stroke={bodyMid} strokeWidth="2.5" strokeLinecap="round" />
+        <circle cx="130" cy="124" r="1.8" fill={color} opacity="0.6" />
+        {/* Joint dots */}
+        <circle cx="8" cy="105" r="2.5" fill={color} opacity="0.35" />
+        <circle cx="3" cy="93" r="2.5" fill={color} opacity="0.35" />
+        <circle cx="132" cy="105" r="2.5" fill={color} opacity="0.35" />
+        <circle cx="137" cy="93" r="2.5" fill={color} opacity="0.35" />
+        {/* === MAIN SHELL (front-facing) === */}
+        <ellipse cx="70" cy="58" rx="42" ry="33" fill={`url(#shell-grad-o)`} stroke={bodyBright} strokeWidth="1.5" />
+        {/* Armor plates */}
+        <ellipse cx="70" cy="50" rx="35" ry="9" fill="none" stroke={plateColor} strokeWidth="1.2" opacity="0.5" />
+        <ellipse cx="70" cy="60" rx="37" ry="7" fill="none" stroke={plateColor} strokeWidth="1" opacity="0.35" />
+        <path d="M38,42 Q70,32 102,42" fill="none" stroke={bodyBright} strokeWidth="1.5" opacity="0.6" />
+        {/* Center spine */}
+        <line x1="70" y1="28" x2="70" y2="82" stroke={plateColor} strokeWidth="1.5" opacity="0.3" />
+        {/* === VISOR / EYES === */}
+        <rect x="45" y="42" width="50" height="10" rx="5" fill={bodyDark} stroke={color} strokeWidth="1" />
+        <rect x="50" y="44" width="16" height="6" rx="2" fill={color} opacity="0.9">
+          <animate attributeName="opacity" values="0.9;0.5;0.9" dur="2.5s" repeatCount="indefinite" />
         </rect>
-        <rect x="54" y="23" width="10" height="6" rx="2" fill={color}>
-          <animate attributeName="opacity" values="1;0.5;1" dur="3s" repeatCount="indefinite" />
+        <rect x="74" y="44" width="16" height="6" rx="2" fill={color} opacity="0.9">
+          <animate attributeName="opacity" values="0.9;0.5;0.9" dur="2.5s" repeatCount="indefinite" begin="0.3s" />
         </rect>
-        {/* Visor */}
-        <rect x="34" y="22" width="32" height="9" rx="3" fill="none" stroke={color} strokeWidth="1" opacity="0.4" />
-        {/* Horns */}
-        <polygon points="30,18 24,5 33,15" fill="#1a0a0a" stroke={color} strokeWidth="1.5" />
-        <polygon points="70,18 76,5 67,15" fill="#1a0a0a" stroke={color} strokeWidth="1.5" />
-        {/* Arms */}
-        <rect x="12" y="40" width="13" height="35" rx="5" fill="#1a0a0a" stroke={color} strokeWidth="1.5" />
-        <rect x="75" y="40" width="13" height="35" rx="5" fill="#1a0a0a" stroke={color} strokeWidth="1.5" />
-        {/* Claws */}
-        <polygon points="15,75 10,85 20,85" fill={color} opacity="0.6" />
-        <polygon points="85,75 80,85 90,85" fill={color} opacity="0.6" />
-        {/* Legs */}
-        <rect x="30" y="85" width="14" height="28" rx="4" fill="#1a0a0a" stroke={color} strokeWidth="1.5" />
-        <rect x="56" y="85" width="14" height="28" rx="4" fill="#1a0a0a" stroke={color} strokeWidth="1.5" />
+        {/* Mandible bumps */}
+        <circle cx="55" cy="68" r="4" fill={bodyMid} stroke={bodyBright} strokeWidth="1" />
+        <circle cx="85" cy="68" r="4" fill={bodyMid} stroke={bodyBright} strokeWidth="1" />
+        {/* Core glow */}
+        <circle cx="70" cy="72" r="5" fill="none" stroke={color} strokeWidth="1.2" opacity="0.5">
+          <animate attributeName="r" values="5;6;5" dur="1.5s" repeatCount="indefinite" />
+        </circle>
+        <circle cx="70" cy="72" r="2.5" fill={color} opacity="0.4" />
+        {/* === CLAWS (front view, open pincers) === */}
+        {/* Left claw */}
+        <path d="M28,55 L10,42 L2,30" stroke={bodyMid} strokeWidth="5" fill="none" strokeLinecap="round" />
+        <path d="M2,30 L-8,18" stroke={plateColor} strokeWidth="4.5" fill="none" strokeLinecap="round" />
+        <path d="M2,30 L8,16" stroke={plateColor} strokeWidth="4" fill="none" strokeLinecap="round" />
+        {/* Claw teeth */}
+        <circle cx="-4" cy="24" r="1.5" fill={color} opacity="0.5" />
+        <circle cx="5" cy="23" r="1.5" fill={color} opacity="0.5" />
+        <circle cx="2" cy="30" r="3.5" fill={bodyDark} stroke={color} strokeWidth="1" />
+        {/* Right claw */}
+        <path d="M112,55 L130,42 L138,30" stroke={bodyMid} strokeWidth="5" fill="none" strokeLinecap="round" />
+        <path d="M138,30 L148,18" stroke={plateColor} strokeWidth="4.5" fill="none" strokeLinecap="round" />
+        <path d="M138,30 L132,16" stroke={plateColor} strokeWidth="4" fill="none" strokeLinecap="round" />
+        <circle cx="144" cy="24" r="1.5" fill={color} opacity="0.5" />
+        <circle cx="135" cy="23" r="1.5" fill={color} opacity="0.5" />
+        <circle cx="138" cy="30" r="3.5" fill={bodyDark} stroke={color} strokeWidth="1" />
+        {/* === SENSORS === */}
+        <line x1="55" y1="28" x2="50" y2="16" stroke={bodyMid} strokeWidth="2" />
+        <circle cx="50" cy="15" r="2.5" fill={color} opacity="0.7">
+          <animate attributeName="opacity" values="0.7;0.3;0.7" dur="1.2s" repeatCount="indefinite" />
+        </circle>
+        <line x1="85" y1="28" x2="90" y2="16" stroke={bodyMid} strokeWidth="2" />
+        <circle cx="90" cy="15" r="2.5" fill={color} opacity="0.7">
+          <animate attributeName="opacity" values="0.7;0.3;0.7" dur="1.2s" repeatCount="indefinite" begin="0.4s" />
+        </circle>
+        {/* Shell edge glow */}
+        <ellipse cx="70" cy="58" rx="42" ry="33" fill="none" stroke={color} strokeWidth="1" opacity="0.15" filter={`url(#${filterId})`} />
       </svg>
     </div>
   )
