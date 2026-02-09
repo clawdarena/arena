@@ -1,242 +1,585 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
-import { Arena3DView } from '@/components/3d/Arena3DWrapper'
-import { Play, SkipForward, Gauge, RotateCcw, Volume2, VolumeX } from 'lucide-react'
-import type { RoundResult } from '../../../shared/types'
+import { useState, useEffect, useRef, useCallback } from 'react'
+import { Navbar } from '@/components/Navbar'
+import { Play, Pause, SkipForward, Zap } from 'lucide-react'
 
 // ============================================================
-// Mock Match Data — 7-round scripted match
+// Types
 // ============================================================
 
-const BOT1_NAME = 'CLAWD-X9'
-const BOT2_NAME = 'NEUROVIPER'
-const BOT1_MAX_HP = 100
-const BOT2_MAX_HP = 100
+interface DemoRound {
+  round: number
+  bot1Move: string
+  bot1Type: 'aggressive' | 'defensive' | 'tactical' | 'exploit'
+  bot2Move: string
+  bot2Type: 'aggressive' | 'defensive' | 'tactical' | 'exploit'
+  bot1Dmg: number
+  bot2Dmg: number
+  bot1HpAfter: number
+  bot2HpAfter: number
+  bot1Counter: boolean
+  bot2Counter: boolean
+  bot1Energy: number
+  bot2Energy: number
+  isKO: boolean
+}
 
-const MOCK_ROUNDS: RoundResult[] = [
-  {
-    round: 1,
-    bot1_action: 'attack', bot1_target: 'core',
-    bot2_action: 'defend', bot2_target: null,
-    bot1_damage_dealt: 8, bot2_damage_dealt: 0,
-    bot1_hp: 100, bot2_hp: 92,
-    bot1_response_ms: 120, bot2_response_ms: 85,
-    bot1_timed_out: false, bot2_timed_out: false,
-    bot1_counter: 'none', bot2_counter: 'defend_vs_attack',
-    bot1_momentum: 1, bot2_momentum: 0,
-    bot1_energy: 85, bot2_energy: 100,
-    effects_applied: [],
-  },
-  {
-    round: 2,
-    bot1_action: 'skill', bot1_target: 'core',
-    bot2_action: 'attack', bot2_target: 'core',
-    bot1_damage_dealt: 22, bot2_damage_dealt: 15,
-    bot1_hp: 85, bot2_hp: 70,
-    bot1_response_ms: 200, bot2_response_ms: 150,
-    bot1_timed_out: false, bot2_timed_out: false,
-    bot1_counter: 'none', bot2_counter: 'attack_vs_skill',
-    bot1_momentum: 2, bot2_momentum: 1,
-    bot1_energy: 70, bot2_energy: 85,
-    effects_applied: [{ bot: 'bot2', effect: 'burning', duration: 2 }],
-  },
-  {
-    round: 3,
-    bot1_action: 'attack', bot1_target: 'processor',
-    bot2_action: 'skill', bot2_target: 'core',
-    bot1_damage_dealt: 18, bot2_damage_dealt: 20,
-    bot1_hp: 65, bot2_hp: 52,
-    bot1_response_ms: 90, bot2_response_ms: 180,
-    bot1_timed_out: false, bot2_timed_out: false,
-    bot1_counter: 'attack_vs_skill', bot2_counter: 'none',
-    bot1_momentum: 3, bot2_momentum: 0,
-    bot1_energy: 70, bot2_energy: 60,
-    effects_applied: [
-      { bot: 'bot2', effect: 'burning', duration: 1 },
-      { bot: 'bot1', effect: 'stunned', duration: 1 },
-    ],
-  },
-  {
-    round: 4,
-    bot1_action: 'defend', bot1_target: null,
-    bot2_action: 'attack', bot2_target: 'armor',
-    bot1_damage_dealt: 0, bot2_damage_dealt: 12,
-    bot1_hp: 53, bot2_hp: 52,
-    bot1_response_ms: 50, bot2_response_ms: 110,
-    bot1_timed_out: false, bot2_timed_out: false,
-    bot1_counter: 'defend_vs_attack', bot2_counter: 'none',
-    bot1_momentum: 0, bot2_momentum: 2,
-    bot1_energy: 85, bot2_energy: 60,
-    effects_applied: [{ bot: 'bot1', effect: 'armor_broken', duration: 1 }],
-  },
-  {
-    round: 5,
-    bot1_action: 'skill', bot1_target: 'core',
-    bot2_action: 'defend', bot2_target: null,
-    bot1_damage_dealt: 14, bot2_damage_dealt: 0,
-    bot1_hp: 53, bot2_hp: 38,
-    bot1_response_ms: 160, bot2_response_ms: 70,
-    bot1_timed_out: false, bot2_timed_out: false,
-    bot1_counter: 'skill_vs_defend', bot2_counter: 'none',
-    bot1_momentum: 1, bot2_momentum: 0,
-    bot1_energy: 60, bot2_energy: 75,
-    effects_applied: [{ bot: 'bot2', effect: 'overclock', duration: 2 }],
-  },
-  {
-    round: 6,
-    bot1_action: 'attack', bot1_target: 'core',
-    bot2_action: 'attack', bot2_target: 'core',
-    bot1_damage_dealt: 25, bot2_damage_dealt: 28,
-    bot1_hp: 25, bot2_hp: 13,
-    bot1_response_ms: 95, bot2_response_ms: 100,
-    bot1_timed_out: false, bot2_timed_out: false,
-    bot1_counter: 'none', bot2_counter: 'none',
-    bot1_momentum: 2, bot2_momentum: 1,
-    bot1_energy: 60, bot2_energy: 75,
-    effects_applied: [],
-  },
-  {
-    round: 7,
-    bot1_action: 'skill', bot1_target: 'core',
-    bot2_action: 'attack', bot2_target: 'core',
-    bot1_damage_dealt: 30, bot2_damage_dealt: 10,
-    bot1_hp: 15, bot2_hp: 0,
-    bot1_response_ms: 140, bot2_response_ms: 130,
-    bot1_timed_out: false, bot2_timed_out: false,
-    bot1_counter: 'none', bot2_counter: 'attack_vs_skill',
-    bot1_momentum: 4, bot2_momentum: 0,
-    bot1_energy: 35, bot2_energy: 75,
-    effects_applied: [{ bot: 'bot2', effect: 'burning', duration: 2 }],
-  },
+// ============================================================
+// Demo Data — 7 rounds
+// ============================================================
+
+const BOT1 = { name: 'CLAWD-X9', level: 5, maxHp: 100, color: '#00f0ff' }
+const BOT2 = { name: 'NEUROVIPER', level: 7, maxHp: 100, color: '#ff4040' }
+
+const ROUNDS: DemoRound[] = [
+  { round: 1, bot1Move: 'Power Strike', bot1Type: 'aggressive', bot2Move: 'Firewall', bot2Type: 'defensive', bot1Dmg: 5, bot2Dmg: 0, bot1HpAfter: 100, bot2HpAfter: 95, bot1Counter: false, bot2Counter: true, bot1Energy: 85, bot2Energy: 80 , isKO: false },
+  { round: 2, bot1Move: 'Reasoning Burst', bot1Type: 'aggressive', bot2Move: 'Spawn Attack', bot2Type: 'aggressive', bot1Dmg: 18, bot2Dmg: 14, bot1HpAfter: 86, bot2HpAfter: 77, bot1Counter: false, bot2Counter: false, bot1Energy: 65, bot2Energy: 40, isKO: false },
+  { round: 3, bot1Move: 'Scan', bot1Type: 'exploit', bot2Move: 'Memory Bomb', bot2Type: 'exploit', bot1Dmg: 8, bot2Dmg: 12, bot1HpAfter: 74, bot2HpAfter: 69, bot1Counter: false, bot2Counter: false, bot1Energy: 70, bot2Energy: 45, isKO: false },
+  { round: 4, bot1Move: 'Firewall', bot1Type: 'defensive', bot2Move: 'Stack Overflow', bot2Type: 'aggressive', bot1Dmg: 0, bot2Dmg: 4, bot1HpAfter: 74, bot2HpAfter: 65, bot1Counter: true, bot2Counter: false, bot1Energy: 75, bot2Energy: 20, isKO: false },
+  { round: 5, bot1Move: 'Time Bomb', bot1Type: 'tactical', bot2Move: 'Prompt Injection', bot2Type: 'exploit', bot1Dmg: 22, bot2Dmg: 10, bot1HpAfter: 64, bot2HpAfter: 43, bot1Counter: false, bot2Counter: false, bot1Energy: 60, bot2Energy: 30, isKO: false },
+  { round: 6, bot1Move: 'Spawn Attack', bot1Type: 'aggressive', bot2Move: 'Rollback', bot2Type: 'defensive', bot1Dmg: 3, bot2Dmg: 0, bot1HpAfter: 64, bot2HpAfter: 40, bot1Counter: false, bot2Counter: true, bot1Energy: 35, bot2Energy: 50, isKO: false },
+  { round: 7, bot1Move: 'Reasoning Burst', bot1Type: 'aggressive', bot2Move: 'Power Strike', bot2Type: 'aggressive', bot1Dmg: 40, bot2Dmg: 12, bot1HpAfter: 52, bot2HpAfter: 0, bot1Counter: true, bot2Counter: false, bot1Energy: 15, bot2Energy: 0, isKO: true },
 ]
 
 // ============================================================
-// Helper: action label
+// Attack Animation Components
 // ============================================================
-function actionLabel(action: string): string {
-  switch (action) {
-    case 'attack': return '⚔️ ATTACK'
-    case 'defend': return '🛡️ DEFEND'
-    case 'skill': return '✨ SKILL'
-    default: return action.toUpperCase()
-  }
-}
 
-function counterLabel(counter: string): string {
-  switch (counter) {
-    case 'attack_vs_skill': return 'COUNTER!'
-    case 'defend_vs_attack': return 'COUNTER!'
-    case 'skill_vs_defend': return 'COUNTER!'
-    default: return ''
-  }
-}
-
-// ============================================================
-// Delayed HP Bar Component (Dark Souls style)
-// ============================================================
-function DelayedHPBar({
-  current,
-  max,
-  name,
-  side,
-  showDamage,
-  damageAmount,
-  isCounter,
-}: {
-  current: number
-  max: number
-  name: string
-  side: 'left' | 'right'
-  showDamage: boolean
-  damageAmount: number
-  isCounter: boolean
-}) {
-  const [displayHp, setDisplayHp] = useState(current)
-  const [delayedHp, setDelayedHp] = useState(current)
-  const prevHpRef = useRef(current)
-
-  // Immediate green bar update
-  useEffect(() => {
-    setDisplayHp(current)
-  }, [current])
-
-  // Delayed red bar drain (the Dark Souls effect)
-  useEffect(() => {
-    const prev = prevHpRef.current
-    prevHpRef.current = current
-    if (current >= prev) {
-      setDelayedHp(current)
-      return
-    }
-    // Start delayed drain after 600ms
-    const timeout = setTimeout(() => {
-      setDelayedHp(current)
-    }, 800)
-    return () => clearTimeout(timeout)
-  }, [current])
-
-  const pct = Math.max(0, (displayHp / max) * 100)
-  const delayedPct = Math.max(0, (delayedHp / max) * 100)
-  const hpColor = pct <= 25 ? 'from-red-600 to-red-400' : pct <= 50 ? 'from-yellow-600 to-yellow-400' : side === 'left' ? 'from-cyan-500 to-emerald-400' : 'from-red-500 to-orange-400'
-
+function PowerStrikeEffect({ target }: { target: 'bot1' | 'bot2' }) {
+  const isLeft = target === 'bot2'
   return (
-    <div className={`flex-1 min-w-0 ${side === 'right' ? 'text-right' : ''}`}>
-      {/* Name & HP numbers */}
-      <div className={`flex items-baseline gap-2 mb-1 ${side === 'right' ? 'flex-row-reverse' : ''}`}>
-        <span
-          className={`text-xs font-bold tracking-wider uppercase truncate ${
-            side === 'left' ? 'text-cyan-400' : 'text-red-400'
-          }`}
-          style={{ fontFamily: 'var(--font-display)' }}
-        >
-          {name}
-        </span>
-        <span className="text-[11px] font-mono text-white/70 tabular-nums whitespace-nowrap">
-          {displayHp}/{max}
-        </span>
+    <div className="absolute inset-0 pointer-events-none z-30">
+      {/* Slash arc */}
+      <div
+        className="absolute animate-slash-arc"
+        style={{
+          top: target === 'bot2' ? '25%' : '55%',
+          left: target === 'bot2' ? '45%' : '15%',
+          width: '180px', height: '60px',
+        }}
+      >
+        <svg viewBox="0 0 180 60" className="w-full h-full">
+          <path d="M10,50 Q90,0 170,30" stroke={isLeft ? '#00f0ff' : '#ff4040'} strokeWidth="4" fill="none" className="animate-draw-slash" strokeLinecap="round" />
+          <path d="M20,45 Q95,5 165,35" stroke="white" strokeWidth="2" fill="none" className="animate-draw-slash" style={{ animationDelay: '0.05s' }} strokeLinecap="round" />
+        </svg>
       </div>
-
-      {/* HP Bar Container */}
-      <div className="relative h-4 bg-black/60 rounded-sm overflow-hidden border border-white/10 backdrop-blur-sm">
-        {/* Delayed drain bar (red/amber behind green) */}
+      {/* Impact sparks */}
+      {[...Array(6)].map((_, i) => (
         <div
-          className="absolute inset-y-0 left-0 bg-gradient-to-r from-red-700 to-amber-600 transition-all duration-[1200ms] ease-out"
-          style={{ width: `${delayedPct}%` }}
-        />
-        {/* Current HP bar (green, instant) */}
-        <div
-          className={`absolute inset-y-0 left-0 bg-gradient-to-r ${hpColor} transition-all duration-300 ease-out`}
-          style={{ width: `${pct}%` }}
-        />
-        {/* Shine effect */}
-        <div
-          className="absolute inset-y-0 left-0 bg-gradient-to-b from-white/20 to-transparent transition-all duration-300"
-          style={{ width: `${pct}%` }}
-        />
-        {/* Grid overlay for style */}
-        <div className="absolute inset-0 opacity-20"
+          key={i}
+          className="absolute w-2 h-2 rounded-full animate-spark"
           style={{
-            backgroundImage: 'repeating-linear-gradient(90deg, transparent, transparent 9.9%, rgba(0,0,0,0.4) 10%, rgba(0,0,0,0.4) 10.1%)',
+            top: target === 'bot2' ? `${28 + Math.random() * 10}%` : `${58 + Math.random() * 10}%`,
+            left: target === 'bot2' ? `${60 + Math.random() * 10}%` : `${25 + Math.random() * 10}%`,
+            background: isLeft ? '#00f0ff' : '#ff4040',
+            boxShadow: `0 0 8px ${isLeft ? '#00f0ff' : '#ff4040'}`,
+            animationDelay: `${0.1 + i * 0.05}s`,
           }}
         />
-      </div>
+      ))}
+    </div>
+  )
+}
 
+function ReasoningBurstEffect({ target }: { target: 'bot1' | 'bot2' }) {
+  const fromX = target === 'bot2' ? '25%' : '70%'
+  const toX = target === 'bot2' ? '65%' : '25%'
+  const fromY = target === 'bot2' ? '65%' : '30%'
+  const toY = target === 'bot2' ? '30%' : '65%'
+  const color = target === 'bot2' ? '#00f0ff' : '#ff4040'
+
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30">
+      {/* Main beam */}
+      <div className="absolute inset-0 animate-beam-flash">
+        <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="w-full h-full">
+          <line x1={fromX} y1={fromY} x2={toX} y2={toY} stroke={color} strokeWidth="0.8" className="animate-beam-draw" />
+          <line x1={fromX} y1={fromY} x2={toX} y2={toY} stroke="white" strokeWidth="0.3" className="animate-beam-draw" style={{ animationDelay: '0.05s' }} />
+        </svg>
+      </div>
+      {/* Lightning branches */}
+      {[...Array(4)].map((_, i) => (
+        <div
+          key={i}
+          className="absolute animate-lightning-branch"
+          style={{
+            top: `${parseInt(toY) - 5 + Math.random() * 10}%`,
+            left: `${parseInt(toX) - 5 + Math.random() * 10}%`,
+            width: '40px', height: '40px',
+            animationDelay: `${0.15 + i * 0.08}s`,
+          }}
+        >
+          <svg viewBox="0 0 40 40" className="w-full h-full">
+            <polyline points={`20,5 ${15 + Math.random() * 10},15 ${18 + Math.random() * 6},18 ${10 + Math.random() * 20},35`} stroke={color} strokeWidth="2" fill="none" opacity="0.7" />
+          </svg>
+        </div>
+      ))}
+      {/* Target goes dark */}
+      <div
+        className="absolute w-32 h-32 animate-electrocute"
+        style={{
+          top: target === 'bot2' ? '15%' : '45%',
+          left: target === 'bot2' ? '55%' : '10%',
+          background: 'radial-gradient(circle, rgba(255,255,255,0.3) 0%, transparent 70%)',
+        }}
+      />
+    </div>
+  )
+}
+
+function FirewallEffect({ defender }: { defender: 'bot1' | 'bot2' }) {
+  const cx = defender === 'bot1' ? '22%' : '68%'
+  const cy = defender === 'bot1' ? '60%' : '30%'
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30">
+      <div className="absolute animate-shield-appear" style={{ top: cy, left: cx, transform: 'translate(-50%, -50%)' }}>
+        <svg viewBox="0 0 120 120" className="w-28 h-28">
+          {/* Hex grid shield */}
+          {[0, 60, 120, 180, 240, 300].map((angle, i) => {
+            const r = 40
+            const x = 60 + r * Math.cos((angle * Math.PI) / 180)
+            const y = 60 + r * Math.sin((angle * Math.PI) / 180)
+            return (
+              <polygon
+                key={i}
+                points={`${x},${y - 12} ${x + 10},${y - 6} ${x + 10},${y + 6} ${x},${y + 12} ${x - 10},${y + 6} ${x - 10},${y - 6}`}
+                fill="rgba(0,240,255,0.15)"
+                stroke="#00f0ff"
+                strokeWidth="1"
+                className="animate-hex-pop"
+                style={{ animationDelay: `${i * 0.08}s` }}
+              />
+            )
+          })}
+          <circle cx="60" cy="60" r="50" fill="none" stroke="#00f0ff" strokeWidth="1.5" opacity="0.4" className="animate-shield-pulse" />
+        </svg>
+      </div>
+    </div>
+  )
+}
+
+function SpawnAttackEffect({ target }: { target: 'bot1' | 'bot2' }) {
+  const toX = target === 'bot2' ? 65 : 22
+  const toY = target === 'bot2' ? 30 : 60
+  const fromX = target === 'bot2' ? 22 : 65
+  const fromY = target === 'bot2' ? 60 : 30
+
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30">
+      {[0, 1, 2].map((i) => (
+        <div
+          key={i}
+          className="absolute w-16 h-16 animate-ghost-rush"
+          style={{
+            left: `${fromX + (i - 1) * 5}%`,
+            top: `${fromY + (i - 1) * 8}%`,
+            animationDelay: `${i * 0.12}s`,
+            '--target-x': `${toX - fromX}%`,
+            '--target-y': `${toY - fromY}%`,
+          } as React.CSSProperties}
+        >
+          <div className="w-full h-full rounded-lg border-2 opacity-60" style={{
+            borderColor: target === 'bot2' ? '#00f0ff' : '#ff4040',
+            background: `radial-gradient(circle, ${target === 'bot2' ? 'rgba(0,240,255,0.3)' : 'rgba(255,64,64,0.3)'}, transparent)`,
+            boxShadow: `0 0 20px ${target === 'bot2' ? '#00f0ff44' : '#ff404044'}`,
+          }} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function StackOverflowEffect({ target }: { target: 'bot1' | 'bot2' }) {
+  const chars = ['{}', '//', '&&', '<<', '>>', ';;', '??', '!!', '##', '$$', '%%', '@@', 'ERR', '404', 'NaN', '0x0']
+  const cx = target === 'bot2' ? 65 : 22
+  const cy = target === 'bot2' ? 20 : 45
+
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30 overflow-hidden">
+      {chars.map((ch, i) => (
+        <div
+          key={i}
+          className="absolute font-mono text-xs font-bold animate-code-rain"
+          style={{
+            left: `${cx - 10 + Math.random() * 20}%`,
+            top: `${cy - 15}%`,
+            color: i % 3 === 0 ? '#00ff00' : i % 3 === 1 ? '#ff4040' : '#ffaa00',
+            textShadow: '0 0 6px currentColor',
+            animationDelay: `${i * 0.06}s`,
+            animationDuration: `${0.6 + Math.random() * 0.4}s`,
+          }}
+        >
+          {ch}
+        </div>
+      ))}
+      {/* Glitch overlay */}
+      <div
+        className="absolute animate-glitch-tear"
+        style={{
+          top: `${cy}%`, left: `${cx - 8}%`,
+          width: '16%', height: '20%',
+          background: 'linear-gradient(transparent 30%, rgba(255,0,0,0.1) 30%, rgba(255,0,0,0.1) 33%, transparent 33%, transparent 60%, rgba(0,255,0,0.08) 60%, rgba(0,255,0,0.08) 62%, transparent 62%)',
+        }}
+      />
+    </div>
+  )
+}
+
+function ScanEffect({ target }: { target: 'bot1' | 'bot2' }) {
+  const cx = target === 'bot2' ? 65 : 22
+  const cy = target === 'bot2' ? 25 : 55
+
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30">
+      {/* Scanning line */}
+      <div
+        className="absolute animate-scan-sweep"
+        style={{
+          left: `${cx - 8}%`, top: `${cy - 15}%`,
+          width: '16%', height: '2px',
+          background: 'linear-gradient(90deg, transparent, #00f0ff, transparent)',
+          boxShadow: '0 0 10px #00f0ff, 0 0 30px #00f0ff44',
+        }}
+      />
+      {/* Revealed stats */}
+      <div
+        className="absolute font-mono text-[10px] animate-stats-reveal"
+        style={{ left: `${cx + 10}%`, top: `${cy - 5}%`, color: '#00f0ff' }}
+      >
+        <div>ATK: 15</div>
+        <div>DEF: 10</div>
+        <div>SPD: 12</div>
+        <div className="text-amber-400">WEAK: exploit</div>
+      </div>
+    </div>
+  )
+}
+
+function MemoryBombEffect({ target }: { target: 'bot1' | 'bot2' }) {
+  const cx = target === 'bot2' ? 65 : 22
+  const cy = target === 'bot2' ? 28 : 58
+
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30">
+      {[...Array(20)].map((_, i) => (
+        <div
+          key={i}
+          className="absolute w-1.5 h-1.5 rounded-full animate-memory-particle"
+          style={{
+            left: `${cx}%`, top: `${cy}%`,
+            background: i % 2 === 0 ? '#c084fc' : '#f472b6',
+            boxShadow: `0 0 6px ${i % 2 === 0 ? '#c084fc' : '#f472b6'}`,
+            '--angle': `${(i / 20) * 360}deg`,
+            '--dist': `${30 + Math.random() * 50}px`,
+            animationDelay: `${i * 0.03}s`,
+          } as React.CSSProperties}
+        />
+      ))}
+      {/* Central burst */}
+      <div
+        className="absolute w-16 h-16 rounded-full animate-burst-ring"
+        style={{
+          left: `${cx}%`, top: `${cy}%`,
+          transform: 'translate(-50%, -50%)',
+          border: '2px solid #c084fc',
+          boxShadow: '0 0 20px #c084fc44',
+        }}
+      />
+    </div>
+  )
+}
+
+function TimeBombEffect({ target }: { target: 'bot1' | 'bot2' }) {
+  const cx = target === 'bot2' ? 65 : 22
+  const cy = target === 'bot2' ? 28 : 58
+
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30">
+      {/* Ticking orb */}
+      <div
+        className="absolute w-8 h-8 rounded-full animate-bomb-tick"
+        style={{
+          left: `${cx}%`, top: `${cy}%`,
+          transform: 'translate(-50%, -50%)',
+          background: 'radial-gradient(circle, #ffaa00, #ff4400)',
+          boxShadow: '0 0 15px #ffaa00, 0 0 30px #ff440066',
+        }}
+      />
+      {/* Explosion ring */}
+      <div
+        className="absolute w-4 h-4 rounded-full animate-explosion-ring"
+        style={{
+          left: `${cx}%`, top: `${cy}%`,
+          transform: 'translate(-50%, -50%)',
+          border: '3px solid #ffaa00',
+          animationDelay: '0.6s',
+        }}
+      />
+      {/* Shockwave particles */}
+      {[...Array(8)].map((_, i) => (
+        <div
+          key={i}
+          className="absolute w-2 h-2 bg-amber-400 rounded-full animate-shockwave-particle"
+          style={{
+            left: `${cx}%`, top: `${cy}%`,
+            '--angle': `${(i / 8) * 360}deg`,
+            '--dist': `${40 + Math.random() * 30}px`,
+            animationDelay: `${0.6 + i * 0.04}s`,
+          } as React.CSSProperties}
+        />
+      ))}
+    </div>
+  )
+}
+
+function PromptInjectionEffect({ target }: { target: 'bot1' | 'bot2' }) {
+  const cx = target === 'bot2' ? 65 : 22
+  const cy = target === 'bot2' ? 25 : 55
+  const injections = ['> OVERRIDE', '$ rm -rf', 'INJECT:', '// HACK', 'SUDO !!', '0xDEAD']
+
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30">
+      {/* Glitch text injections */}
+      {injections.map((txt, i) => (
+        <div
+          key={i}
+          className="absolute font-mono text-[11px] font-bold animate-inject-text"
+          style={{
+            left: `${cx - 8 + Math.random() * 16}%`,
+            top: `${cy - 8 + Math.random() * 16}%`,
+            color: '#00ff00',
+            textShadow: '0 0 8px #00ff00, 2px 0 #ff0000',
+            animationDelay: `${i * 0.1}s`,
+          }}
+        >
+          {txt}
+        </div>
+      ))}
+      {/* Screen tear lines */}
+      {[...Array(3)].map((_, i) => (
+        <div
+          key={i}
+          className="absolute w-full h-px animate-screen-tear"
+          style={{
+            top: `${cy - 5 + i * 10}%`,
+            background: 'linear-gradient(90deg, transparent 20%, rgba(255,0,0,0.4), rgba(0,255,0,0.3), transparent 80%)',
+            animationDelay: `${0.2 + i * 0.15}s`,
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
+function RollbackEffect({ defender }: { defender: 'bot1' | 'bot2' }) {
+  const cx = defender === 'bot1' ? 22 : 65
+  const cy = defender === 'bot1' ? 60 : 28
+
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30">
+      {/* Rewind clock */}
+      <div className="absolute animate-rewind-spin" style={{ left: `${cx}%`, top: `${cy - 12}%`, transform: 'translate(-50%, -50%)' }}>
+        <svg viewBox="0 0 40 40" className="w-10 h-10">
+          <circle cx="20" cy="20" r="16" fill="none" stroke="#40ff40" strokeWidth="2" opacity="0.5" />
+          <line x1="20" y1="20" x2="20" y2="8" stroke="#40ff40" strokeWidth="2" strokeLinecap="round" />
+          <line x1="20" y1="20" x2="28" y2="20" stroke="#40ff40" strokeWidth="1.5" strokeLinecap="round" />
+          <polygon points="12,18 6,20 12,22" fill="#40ff40" />
+        </svg>
+      </div>
+      {/* Heal particles floating up */}
+      {[...Array(6)].map((_, i) => (
+        <div
+          key={i}
+          className="absolute text-green-400 text-xs font-mono font-bold animate-heal-float"
+          style={{
+            left: `${cx - 3 + Math.random() * 6}%`,
+            top: `${cy}%`,
+            animationDelay: `${i * 0.15}s`,
+          }}
+        >
+          +{2 + Math.floor(Math.random() * 4)}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+// Map move names to effects
+function getAttackEffect(moveName: string, target: 'bot1' | 'bot2') {
+  switch (moveName) {
+    case 'Power Strike': return <PowerStrikeEffect target={target} />
+    case 'Reasoning Burst': return <ReasoningBurstEffect target={target} />
+    case 'Firewall': return <FirewallEffect defender={target === 'bot2' ? 'bot1' : 'bot2'} />
+    case 'Spawn Attack': return <SpawnAttackEffect target={target} />
+    case 'Stack Overflow': return <StackOverflowEffect target={target} />
+    case 'Scan': return <ScanEffect target={target} />
+    case 'Memory Bomb': return <MemoryBombEffect target={target} />
+    case 'Time Bomb': return <TimeBombEffect target={target} />
+    case 'Prompt Injection': return <PromptInjectionEffect target={target} />
+    case 'Rollback': return <RollbackEffect defender={target === 'bot2' ? 'bot1' : 'bot2'} />
+    default: return <PowerStrikeEffect target={target} />
+  }
+}
+
+const TYPE_COLORS: Record<string, string> = {
+  aggressive: '#ff4040',
+  defensive: '#00f0ff',
+  tactical: '#ffaa00',
+  exploit: '#c084fc',
+}
+
+// ============================================================
+// Robot SVG Sprites
+// ============================================================
+
+function BotSprite({ side, color, isHit, isAttacking, isDead }: {
+  side: 'player' | 'opponent'
+  color: string
+  isHit: boolean
+  isAttacking: boolean
+  isDead: boolean
+}) {
+  const cls = [
+    'transition-all duration-200',
+    isHit ? 'animate-bot-hit' : '',
+    isAttacking ? (side === 'player' ? 'animate-lunge-right' : 'animate-lunge-left') : '',
+    isDead ? 'opacity-30 translate-y-4 rotate-12' : '',
+    !isHit && !isAttacking && !isDead ? 'animate-idle-bob' : '',
+  ].join(' ')
+
+  if (side === 'player') {
+    // Player bot — seen from behind (bottom-left)
+    return (
+      <div className={`relative ${cls}`} style={{ filter: isHit ? 'brightness(3)' : 'none' }}>
+        <svg viewBox="0 0 100 120" className="w-32 h-40 sm:w-40 sm:h-48 drop-shadow-lg">
+          {/* Body (back view) */}
+          <rect x="25" y="35" width="50" height="50" rx="8" fill="#1a1a2e" stroke={color} strokeWidth="2" />
+          {/* Back panel */}
+          <rect x="32" y="42" width="36" height="20" rx="3" fill="#0d0d1a" stroke={color} strokeWidth="1" opacity="0.6" />
+          {/* Back vents */}
+          <rect x="35" y="45" width="8" height="2" rx="1" fill={color} opacity="0.5" />
+          <rect x="35" y="49" width="8" height="2" rx="1" fill={color} opacity="0.5" />
+          <rect x="35" y="53" width="8" height="2" rx="1" fill={color} opacity="0.5" />
+          <rect x="57" y="45" width="8" height="2" rx="1" fill={color} opacity="0.5" />
+          <rect x="57" y="49" width="8" height="2" rx="1" fill={color} opacity="0.5" />
+          <rect x="57" y="53" width="8" height="2" rx="1" fill={color} opacity="0.5" />
+          {/* Head (back) */}
+          <rect x="30" y="15" width="40" height="25" rx="6" fill="#1a1a2e" stroke={color} strokeWidth="2" />
+          <rect x="38" y="20" width="24" height="4" rx="2" fill={color} opacity="0.3" />
+          {/* Antenna */}
+          <line x1="50" y1="15" x2="50" y2="5" stroke={color} strokeWidth="2" />
+          <circle cx="50" cy="4" r="3" fill={color} opacity="0.8">
+            <animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.5s" repeatCount="indefinite" />
+          </circle>
+          {/* Arms */}
+          <rect x="12" y="40" width="13" height="35" rx="5" fill="#1a1a2e" stroke={color} strokeWidth="1.5" />
+          <rect x="75" y="40" width="13" height="35" rx="5" fill="#1a1a2e" stroke={color} strokeWidth="1.5" />
+          {/* Legs */}
+          <rect x="30" y="85" width="14" height="30" rx="4" fill="#1a1a2e" stroke={color} strokeWidth="1.5" />
+          <rect x="56" y="85" width="14" height="30" rx="4" fill="#1a1a2e" stroke={color} strokeWidth="1.5" />
+          {/* Glow effect */}
+          <rect x="25" y="35" width="50" height="50" rx="8" fill="none" stroke={color} strokeWidth="1" opacity="0.3" filter="url(#glow)" />
+          <defs><filter id="glow"><feGaussianBlur stdDeviation="3" /><feMerge><feMergeNode /><feMergeNode in="SourceGraphic" /></feMerge></filter></defs>
+        </svg>
+      </div>
+    )
+  }
+
+  // Opponent bot — facing player (top-right)
+  return (
+    <div className={`relative ${cls}`} style={{ filter: isHit ? 'brightness(3)' : 'none' }}>
+      <svg viewBox="0 0 100 120" className="w-28 h-36 sm:w-36 sm:h-44 drop-shadow-lg">
+        {/* Body (front view) */}
+        <rect x="25" y="35" width="50" height="50" rx="8" fill="#1a0a0a" stroke={color} strokeWidth="2" />
+        {/* Chest panel */}
+        <rect x="32" y="42" width="36" height="15" rx="3" fill="#0d0505" stroke={color} strokeWidth="1" opacity="0.6" />
+        <circle cx="42" cy="50" r="3" fill={color} opacity="0.6">
+          <animate attributeName="opacity" values="0.6;0.2;0.6" dur="2s" repeatCount="indefinite" />
+        </circle>
+        <circle cx="58" cy="50" r="3" fill={color} opacity="0.6">
+          <animate attributeName="opacity" values="0.6;0.2;0.6" dur="2s" repeatCount="indefinite" begin="0.5s" />
+        </circle>
+        {/* Core */}
+        <circle cx="50" cy="68" r="6" fill="none" stroke={color} strokeWidth="1.5">
+          <animate attributeName="r" values="6;7;6" dur="1.5s" repeatCount="indefinite" />
+        </circle>
+        <circle cx="50" cy="68" r="3" fill={color} opacity="0.5" />
+        {/* Head */}
+        <rect x="30" y="15" width="40" height="25" rx="6" fill="#1a0a0a" stroke={color} strokeWidth="2" />
+        {/* Eyes */}
+        <rect x="36" y="23" width="10" height="6" rx="2" fill={color}>
+          <animate attributeName="opacity" values="1;0.5;1" dur="3s" repeatCount="indefinite" />
+        </rect>
+        <rect x="54" y="23" width="10" height="6" rx="2" fill={color}>
+          <animate attributeName="opacity" values="1;0.5;1" dur="3s" repeatCount="indefinite" />
+        </rect>
+        {/* Visor */}
+        <rect x="34" y="22" width="32" height="9" rx="3" fill="none" stroke={color} strokeWidth="1" opacity="0.4" />
+        {/* Horns */}
+        <polygon points="30,18 24,5 33,15" fill="#1a0a0a" stroke={color} strokeWidth="1.5" />
+        <polygon points="70,18 76,5 67,15" fill="#1a0a0a" stroke={color} strokeWidth="1.5" />
+        {/* Arms */}
+        <rect x="12" y="40" width="13" height="35" rx="5" fill="#1a0a0a" stroke={color} strokeWidth="1.5" />
+        <rect x="75" y="40" width="13" height="35" rx="5" fill="#1a0a0a" stroke={color} strokeWidth="1.5" />
+        {/* Claws */}
+        <polygon points="15,75 10,85 20,85" fill={color} opacity="0.6" />
+        <polygon points="85,75 80,85 90,85" fill={color} opacity="0.6" />
+        {/* Legs */}
+        <rect x="30" y="85" width="14" height="28" rx="4" fill="#1a0a0a" stroke={color} strokeWidth="1.5" />
+        <rect x="56" y="85" width="14" height="28" rx="4" fill="#1a0a0a" stroke={color} strokeWidth="1.5" />
+      </svg>
+    </div>
+  )
+}
+
+// ============================================================
+// HP Bar Component (Pokémon style with delayed drain)
+// ============================================================
+
+function HPPanel({ name, level, hp, maxHp, energy, maxEnergy, side, showDmg, dmgAmount, isCounter }: {
+  name: string; level: number; hp: number; maxHp: number; energy: number; maxEnergy: number;
+  side: 'player' | 'opponent'; showDmg: boolean; dmgAmount: number; isCounter: boolean
+}) {
+  const [displayHp, setDisplayHp] = useState(hp)
+  const [delayHp, setDelayHp] = useState(hp)
+  const pct = (displayHp / maxHp) * 100
+  const delayPct = (delayHp / maxHp) * 100
+  const epct = (energy / maxEnergy) * 100
+  const barColor = pct > 50 ? '#40ff40' : pct > 25 ? '#ffaa00' : '#ff4040'
+
+  useEffect(() => {
+    setDisplayHp(hp)
+    const timer = setTimeout(() => setDelayHp(hp), 600)
+    return () => clearTimeout(timer)
+  }, [hp])
+
+  return (
+    <div className={`relative ${side === 'opponent' ? 'text-right' : ''}`}>
+      <div className={`inline-block bg-[#0a0a1aee] border rounded-lg px-4 py-2.5 backdrop-blur-sm min-w-[200px] sm:min-w-[260px] ${side === 'opponent' ? 'border-red-800/40' : 'border-cyan-800/40'}`}>
+        <div className="flex justify-between items-center mb-1.5">
+          <span className="font-bold text-sm text-white" style={{ fontFamily: 'Orbitron, sans-serif' }}>{name}</span>
+          <span className="text-[10px] text-gray-400 font-mono">Lv.{level}</span>
+        </div>
+        {/* HP bar with delayed drain */}
+        <div className="relative h-3 bg-gray-800 rounded-full overflow-hidden mb-1">
+          <div className="absolute inset-0 h-full rounded-full transition-all duration-[600ms] ease-out" style={{ width: `${delayPct}%`, background: '#991b1b' }} />
+          <div className="absolute inset-0 h-full rounded-full transition-all duration-300 ease-out" style={{ width: `${pct}%`, background: barColor }} />
+        </div>
+        <div className="flex justify-between text-[10px] font-mono text-gray-400 mb-1">
+          <span>{Math.max(0, displayHp)}/{maxHp}</span>
+          <span className="text-cyan-400">⚡{energy}</span>
+        </div>
+        {/* Energy bar */}
+        <div className="h-1 bg-gray-800 rounded-full overflow-hidden">
+          <div className="h-full bg-cyan-500 rounded-full transition-all duration-500" style={{ width: `${epct}%` }} />
+        </div>
+      </div>
       {/* Floating damage number */}
-      {showDamage && damageAmount > 0 && (
-        <div className={`absolute ${side === 'left' ? 'left-4' : 'right-4'} -top-8 animate-[floatDamage_1.2s_ease-out_forwards] pointer-events-none z-50`}>
-          <span
-            className={`text-2xl font-black tabular-nums ${
-              isCounter ? 'text-yellow-300 text-3xl' : 'text-white'
-            }`}
-            style={{
-              fontFamily: 'var(--font-display)',
-              textShadow: isCounter
-                ? '0 0 20px rgba(255,200,0,0.8), 0 0 40px rgba(255,100,0,0.5)'
-                : '0 0 10px rgba(255,50,50,0.7), 0 2px 4px rgba(0,0,0,0.8)',
-            }}
-          >
-            -{damageAmount}
+      {showDmg && dmgAmount > 0 && (
+        <div className={`absolute ${side === 'opponent' ? '-left-4' : '-right-4'} -top-8 animate-dmg-float`}>
+          <span className={`text-2xl sm:text-3xl font-bold font-mono ${isCounter ? 'text-amber-400 scale-125' : 'text-red-400'}`} style={{ textShadow: `0 0 10px ${isCounter ? '#ffaa00' : '#ff4040'}` }}>
+            -{dmgAmount}
           </span>
         </div>
       )}
@@ -245,800 +588,458 @@ function DelayedHPBar({
 }
 
 // ============================================================
-// Announcement Banner Component
+// Main Demo Page
 // ============================================================
-function AnnouncementBanner({
-  text,
-  subtext,
-  color,
-  visible,
-}: {
-  text: string
-  subtext?: string
-  color: 'cyan' | 'red' | 'amber' | 'green' | 'white'
-  visible: boolean
-}) {
-  const colorMap = {
-    cyan: { text: 'text-cyan-300', glow: 'rgba(0,240,255,0.6)', border: 'border-cyan-500/50' },
-    red: { text: 'text-red-300', glow: 'rgba(255,46,76,0.6)', border: 'border-red-500/50' },
-    amber: { text: 'text-amber-300', glow: 'rgba(255,157,0,0.6)', border: 'border-amber-500/50' },
-    green: { text: 'text-green-300', glow: 'rgba(0,255,136,0.6)', border: 'border-green-500/50' },
-    white: { text: 'text-white', glow: 'rgba(255,255,255,0.5)', border: 'border-white/30' },
-  }
-  const c = colorMap[color]
+
+export default function MatchV2Page() {
+  const [playing, setPlaying] = useState(false)
+  const [speed, setSpeed] = useState(1)
+  const [currentRound, setCurrentRound] = useState(-1)
+  const [phase, setPhase] = useState<'idle' | 'round-intro' | 'bot1-announce' | 'bot1-attack' | 'bot1-hit' | 'pause1' | 'bot2-announce' | 'bot2-attack' | 'bot2-hit' | 'pause2' | 'hp-drain' | 'ko' | 'result'>('idle')
+  const [bot1Hp, setBot1Hp] = useState(BOT1.maxHp)
+  const [bot2Hp, setBot2Hp] = useState(BOT2.maxHp)
+  const [bot1Energy, setBot1Energy] = useState(100)
+  const [bot2Energy, setBot2Energy] = useState(100)
+  const [bot1Hit, setBot1Hit] = useState(false)
+  const [bot2Hit, setBot2Hit] = useState(false)
+  const [bot1Attacking, setBot1Attacking] = useState(false)
+  const [bot2Attacking, setBot2Attacking] = useState(false)
+  const [showBot1Dmg, setShowBot1Dmg] = useState(false)
+  const [showBot2Dmg, setShowBot2Dmg] = useState(false)
+  const [screenShake, setScreenShake] = useState(false)
+  const [screenFlash, setScreenFlash] = useState(false)
+  const [showEffect, setShowEffect] = useState<React.ReactNode>(null)
+  const [announcement, setAnnouncement] = useState<{ text: string; color: string } | null>(null)
+  const [counterBanner, setCounterBanner] = useState(false)
+  const [actionLog, setActionLog] = useState<string[]>([])
+  const [isDead, setIsDead] = useState(false)
+  const [slowMo, setSlowMo] = useState(false)
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+  const logRef = useRef<HTMLDivElement>(null)
+
+  const addLog = useCallback((msg: string) => {
+    setActionLog(prev => [...prev, msg])
+    setTimeout(() => logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' }), 50)
+  }, [])
+
+  const delay = useCallback((ms: number) => new Promise<void>(resolve => {
+    timerRef.current = setTimeout(resolve, ms / speed)
+  }), [speed])
+
+  const playRound = useCallback(async (roundIdx: number) => {
+    const round = ROUNDS[roundIdx]
+    if (!round) return
+
+    // Round intro
+    setPhase('round-intro')
+    setAnnouncement({ text: `ROUND ${round.round}`, color: '#ffffff' })
+    addLog(`══ Round ${round.round} ══`)
+    await delay(1000)
+    setAnnouncement(null)
+    await delay(300)
+
+    // Slow-mo on final round
+    if (round.isKO) setSlowMo(true)
+
+    // Bot1 attacks
+    setPhase('bot1-announce')
+    setAnnouncement({ text: round.bot1Move.toUpperCase(), color: TYPE_COLORS[round.bot1Type] })
+    addLog(`${BOT1.name} uses ${round.bot1Move}!`)
+    await delay(800)
+
+    setPhase('bot1-attack')
+    setBot1Attacking(true)
+    setShowEffect(getAttackEffect(round.bot1Move, 'bot2'))
+    await delay(500)
+    setBot1Attacking(false)
+
+    // Bot2 gets hit
+    if (round.bot1Dmg > 0) {
+      setPhase('bot1-hit')
+      setBot2Hit(true)
+      setShowBot2Dmg(true)
+      if (round.bot1Dmg >= 15 || round.bot1Counter) {
+        setScreenShake(true)
+        setScreenFlash(true)
+        setTimeout(() => setScreenFlash(false), 150 / speed)
+        setTimeout(() => setScreenShake(false), 300 / speed)
+      }
+      if (round.bot1Counter) {
+        setCounterBanner(true)
+        addLog('⚡ COUNTER!')
+        setTimeout(() => setCounterBanner(false), 1000 / speed)
+      }
+      addLog(`  → ${round.bot1Dmg} damage to ${BOT2.name}`)
+      await delay(600)
+      setBot2Hit(false)
+      setShowBot2Dmg(false)
+    }
+    setShowEffect(null)
+    setAnnouncement(null)
+    await delay(400)
+
+    // Update bot2 HP
+    setBot2Hp(round.bot2HpAfter)
+
+    // Bot2 attacks (if alive)
+    if (round.bot2HpAfter > 0) {
+      setPhase('bot2-announce')
+      setAnnouncement({ text: round.bot2Move.toUpperCase(), color: TYPE_COLORS[round.bot2Type] })
+      addLog(`${BOT2.name} uses ${round.bot2Move}!`)
+      await delay(800)
+
+      setPhase('bot2-attack')
+      setBot2Attacking(true)
+      setShowEffect(getAttackEffect(round.bot2Move, 'bot1'))
+      await delay(500)
+      setBot2Attacking(false)
+
+      if (round.bot2Dmg > 0) {
+        setPhase('bot2-hit')
+        setBot1Hit(true)
+        setShowBot1Dmg(true)
+        if (round.bot2Dmg >= 15 || round.bot2Counter) {
+          setScreenShake(true)
+          setTimeout(() => setScreenShake(false), 300 / speed)
+        }
+        if (round.bot2Counter) {
+          setCounterBanner(true)
+          addLog('🛡️ COUNTER!')
+          setTimeout(() => setCounterBanner(false), 1000 / speed)
+        }
+        addLog(`  → ${round.bot2Dmg} damage to ${BOT1.name}`)
+        await delay(600)
+        setBot1Hit(false)
+        setShowBot1Dmg(false)
+      }
+      setShowEffect(null)
+      setAnnouncement(null)
+    }
+
+    // Update HPs and energy
+    setBot1Hp(round.bot1HpAfter)
+    setBot1Energy(round.bot1Energy)
+    setBot2Energy(round.bot2Energy)
+    setPhase('hp-drain')
+    await delay(800)
+
+    setSlowMo(false)
+
+    // KO check
+    if (round.isKO) {
+      setIsDead(true)
+      setPhase('ko')
+      await delay(500)
+      setScreenFlash(true)
+      await delay(200)
+      setScreenFlash(false)
+      await delay(1000)
+      setPhase('result')
+      addLog(`🏆 ${BOT1.name} WINS!`)
+      return
+    }
+
+    await delay(500)
+  }, [delay, addLog, speed])
+
+  const startDemo = useCallback(async () => {
+    // Reset
+    setBot1Hp(BOT1.maxHp)
+    setBot2Hp(BOT2.maxHp)
+    setBot1Energy(100)
+    setBot2Energy(100)
+    setActionLog([])
+    setCurrentRound(-1)
+    setPhase('idle')
+    setIsDead(false)
+    setPlaying(true)
+
+    await new Promise(r => setTimeout(r, 300))
+
+    for (let i = 0; i < ROUNDS.length; i++) {
+      setCurrentRound(i)
+      await playRound(i)
+      if (ROUNDS[i].isKO) break
+    }
+    setPlaying(false)
+  }, [playRound])
+
+  const skipToEnd = useCallback(() => {
+    if (timerRef.current) clearTimeout(timerRef.current)
+    const lastRound = ROUNDS[ROUNDS.length - 1]
+    setBot1Hp(lastRound.bot1HpAfter)
+    setBot2Hp(lastRound.bot2HpAfter)
+    setBot1Energy(lastRound.bot1Energy)
+    setBot2Energy(lastRound.bot2Energy)
+    setCurrentRound(ROUNDS.length - 1)
+    setIsDead(true)
+    setPhase('result')
+    setPlaying(false)
+    addLog(`🏆 ${BOT1.name} WINS!`)
+  }, [addLog])
+
+  const curRound = currentRound >= 0 ? ROUNDS[currentRound] : null
 
   return (
-    <div
-      className={`fixed inset-0 z-[100] flex items-center justify-center pointer-events-none transition-all duration-200 ${
-        visible ? 'opacity-100' : 'opacity-0'
-      }`}
-    >
-      <div
-        className={`transform transition-all duration-300 ease-[cubic-bezier(0.34,1.56,0.64,1)] ${
-          visible ? 'scale-100 translate-y-0' : 'scale-50 translate-y-8'
-        }`}
-      >
-        <div
-          className={`px-8 py-3 bg-black/80 backdrop-blur-md border-2 ${c.border} rounded-sm`}
-          style={{ boxShadow: `0 0 40px ${c.glow}, 0 0 80px ${c.glow}` }}
-        >
-          <div
-            className={`text-3xl sm:text-5xl font-black tracking-[0.2em] ${c.text}`}
-            style={{ fontFamily: 'var(--font-display)', textShadow: `0 0 30px ${c.glow}` }}
+    <div className="min-h-screen bg-[#050510] relative overflow-hidden">
+      <Navbar />
+
+      {/* Demo Controls */}
+      <div className="sticky top-12 z-50 bg-[#0a0a1aee] border-b border-gray-800 px-4 py-2 flex items-center justify-between backdrop-blur-sm">
+        <div className="flex items-center gap-2">
+          <button
+            onClick={playing ? () => {} : startDemo}
+            disabled={playing && phase !== 'result'}
+            className="flex items-center gap-1.5 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded transition"
           >
-            {text}
-          </div>
-          {subtext && (
-            <div className="text-center text-sm text-white/60 font-mono mt-1 tracking-wider">
-              {subtext}
-            </div>
+            <Play className="w-3 h-3" /> {phase === 'result' ? 'REPLAY' : 'PLAY DEMO'}
+          </button>
+          {playing && (
+            <button onClick={skipToEnd} className="flex items-center gap-1 text-gray-400 hover:text-white text-xs px-3 py-2 border border-gray-700 rounded transition">
+              <SkipForward className="w-3 h-3" /> SKIP
+            </button>
           )}
         </div>
+        <div className="flex items-center gap-2 text-[10px] text-gray-400 font-mono">
+          <span>SPEED:</span>
+          <button onClick={() => setSpeed(1)} className={`px-2 py-1 rounded ${speed === 1 ? 'bg-cyan-800 text-cyan-300' : 'hover:text-white'}`}>1x</button>
+          <button onClick={() => setSpeed(2)} className={`px-2 py-1 rounded ${speed === 2 ? 'bg-cyan-800 text-cyan-300' : 'hover:text-white'}`}>2x</button>
+        </div>
+        <div className="text-xs font-mono text-gray-500">
+          {currentRound >= 0 ? `ROUND ${currentRound + 1}/7` : 'READY'}
+        </div>
       </div>
-    </div>
-  )
-}
 
-// ============================================================
-// Screen Flash Component
-// ============================================================
-function ScreenFlash({ active, intensity }: { active: boolean; intensity: 'normal' | 'heavy' }) {
-  return (
-    <div
-      className={`fixed inset-0 z-[90] pointer-events-none transition-opacity ${
-        active ? (intensity === 'heavy' ? 'opacity-40' : 'opacity-20') : 'opacity-0'
-      }`}
-      style={{
-        background: 'radial-gradient(ellipse at center, rgba(255,255,255,0.8) 0%, transparent 70%)',
-        transitionDuration: active ? '50ms' : '400ms',
-      }}
-    />
-  )
-}
-
-// ============================================================
-// Match Result Overlay with Circle Wipe
-// ============================================================
-function MatchResultOverlay({
-  visible,
-  winner,
-  bot1Name,
-  bot2Name,
-  rounds,
-  onReplay,
-}: {
-  visible: boolean
-  winner: 'bot1' | 'bot2' | 'draw'
-  bot1Name: string
-  bot2Name: string
-  rounds: number
-  onReplay: () => void
-}) {
-  const [expanded, setExpanded] = useState(false)
-  const [showContent, setShowContent] = useState(false)
-
-  useEffect(() => {
-    if (visible) {
-      // Circle wipe expand
-      const t1 = setTimeout(() => setExpanded(true), 100)
-      const t2 = setTimeout(() => setShowContent(true), 700)
-      return () => { clearTimeout(t1); clearTimeout(t2) }
-    } else {
-      setExpanded(false)
-      setShowContent(false)
-    }
-  }, [visible])
-
-  if (!visible) return null
-
-  const winnerName = winner === 'bot1' ? bot1Name : winner === 'bot2' ? bot2Name : 'DRAW'
-  const isBot1 = winner === 'bot1'
-
-  return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center">
-      {/* Circle wipe background */}
-      <div
-        className="absolute inset-0 bg-black/95 transition-all ease-[cubic-bezier(0.4,0,0.2,1)]"
-        style={{
-          clipPath: expanded
-            ? 'circle(150% at 50% 50%)'
-            : 'circle(0% at 50% 50%)',
-          transitionDuration: '800ms',
-        }}
-      />
-
-      {/* Content */}
-      <div className={`relative z-10 text-center transition-all duration-500 ${showContent ? 'opacity-100 scale-100' : 'opacity-0 scale-90'}`}>
-        {/* Victory / Defeat label */}
-        <div
-          className="text-sm tracking-[0.5em] text-white/40 font-mono uppercase mb-2"
-        >
-          {winner === 'draw' ? 'MATCH RESULT' : 'MATCH WINNER'}
+      {/* Arena */}
+      <div className={`relative w-full aspect-[16/9] max-h-[65vh] overflow-hidden ${screenShake ? 'animate-screen-shake' : ''} ${slowMo ? 'transition-all duration-1000' : ''}`}>
+        {/* Background — TRON arena */}
+        <div className="absolute inset-0 bg-gradient-to-b from-[#0a0a2a] via-[#050515] to-[#0a0a1a]">
+          {/* Grid floor (perspective) */}
+          <div className="absolute bottom-0 left-0 right-0 h-[55%]" style={{
+            background: 'linear-gradient(transparent 0%, #050510 100%)',
+            perspective: '400px',
+          }}>
+            <div style={{
+              position: 'absolute', inset: 0,
+              backgroundImage: `linear-gradient(rgba(0,240,255,0.07) 1px, transparent 1px), linear-gradient(90deg, rgba(0,240,255,0.07) 1px, transparent 1px)`,
+              backgroundSize: '40px 40px',
+              transform: 'rotateX(60deg)',
+              transformOrigin: 'bottom',
+            }} />
+          </div>
+          {/* Floating particles */}
+          {[...Array(15)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-1 h-1 rounded-full animate-float-particle"
+              style={{
+                left: `${5 + Math.random() * 90}%`,
+                top: `${10 + Math.random() * 70}%`,
+                background: i % 3 === 0 ? '#00f0ff' : i % 3 === 1 ? '#ffaa00' : '#ffffff',
+                opacity: 0.3 + Math.random() * 0.3,
+                animationDelay: `${Math.random() * 5}s`,
+                animationDuration: `${3 + Math.random() * 4}s`,
+              }}
+            />
+          ))}
+          {/* Vignette */}
+          <div className="absolute inset-0" style={{ boxShadow: 'inset 0 0 150px rgba(0,0,0,0.7)' }} />
         </div>
 
-        {/* Winner name */}
-        <div
-          className={`text-4xl sm:text-6xl font-black tracking-wider mb-4 ${
-            isBot1 ? 'text-cyan-400' : winner === 'draw' ? 'text-amber-400' : 'text-red-400'
-          }`}
-          style={{
-            fontFamily: 'var(--font-display)',
-            textShadow: isBot1
-              ? '0 0 40px rgba(0,240,255,0.5)'
-              : winner === 'draw'
-              ? '0 0 40px rgba(255,157,0,0.5)'
-              : '0 0 40px rgba(255,46,76,0.5)',
-          }}
-        >
-          {winnerName}
-        </div>
+        {/* Screen flash overlay */}
+        {screenFlash && <div className="absolute inset-0 bg-white/30 z-40 animate-flash" />}
 
-        {winner !== 'draw' && (
-          <div
-            className="text-6xl sm:text-8xl mb-6 animate-[bounceIn_0.6s_ease-out]"
-          >
-            🏆
+        {/* Attack effects */}
+        {showEffect}
+
+        {/* Counter banner */}
+        {counterBanner && (
+          <div className="absolute inset-0 flex items-center justify-center z-40 pointer-events-none">
+            <div className="text-4xl sm:text-5xl font-bold animate-banner-slam" style={{ fontFamily: 'Orbitron, sans-serif', color: '#ffaa00', textShadow: '0 0 30px #ffaa0066, 0 0 60px #ffaa0033' }}>
+              COUNTER!
+            </div>
           </div>
         )}
 
-        {/* Stats */}
-        <div className="flex gap-6 justify-center text-sm font-mono text-white/50 mb-8">
-          <div>
-            <span className="text-white/80">{rounds}</span> rounds
+        {/* Move announcement */}
+        {announcement && (
+          <div className="absolute inset-0 flex items-center justify-center z-35 pointer-events-none">
+            <div
+              className={`text-3xl sm:text-4xl font-bold animate-announce-in ${announcement.text.startsWith('ROUND') ? 'text-5xl sm:text-6xl' : ''}`}
+              style={{ fontFamily: 'Orbitron, sans-serif', color: announcement.color, textShadow: `0 0 20px ${announcement.color}44, 0 2px 10px rgba(0,0,0,0.8)` }}
+            >
+              {announcement.text}
+            </div>
           </div>
-          <div>
-            {winner === 'bot1' ? 'VICTORY' : winner === 'bot2' ? 'DEFEAT' : 'STALEMATE'}
-          </div>
+        )}
+
+        {/* Player bot (bottom-left) */}
+        <div className="absolute bottom-[8%] left-[5%] sm:left-[10%] z-20">
+          <BotSprite side="player" color={BOT1.color} isHit={bot1Hit} isAttacking={bot1Attacking} isDead={false} />
         </div>
 
-        {/* Replay button */}
-        <button
-          onClick={onReplay}
-          className="inline-flex items-center gap-2 px-6 py-3 bg-white/10 border border-white/20 rounded-sm hover:bg-white/20 transition-all text-white font-mono tracking-wider"
-        >
-          <RotateCcw className="w-4 h-4" />
-          REPLAY MATCH
-        </button>
+        {/* Opponent bot (top-right) */}
+        <div className="absolute top-[10%] right-[8%] sm:right-[15%] z-20">
+          <BotSprite side="opponent" color={BOT2.color} isHit={bot2Hit} isAttacking={bot2Attacking} isDead={isDead} />
+        </div>
+
+        {/* HP Panels */}
+        <div className="absolute top-4 right-4 z-30">
+          <HPPanel name={BOT2.name} level={BOT2.level} hp={bot2Hp} maxHp={BOT2.maxHp} energy={bot2Energy} maxEnergy={100} side="opponent" showDmg={showBot2Dmg} dmgAmount={curRound?.bot1Dmg ?? 0} isCounter={curRound?.bot1Counter ?? false} />
+        </div>
+        <div className="absolute bottom-4 left-4 z-30">
+          <HPPanel name={BOT1.name} level={BOT1.level} hp={bot1Hp} maxHp={BOT1.maxHp} energy={bot1Energy} maxEnergy={100} side="player" showDmg={showBot1Dmg} dmgAmount={curRound?.bot2Dmg ?? 0} isCounter={curRound?.bot2Counter ?? false} />
+        </div>
+
+        {/* Victory overlay */}
+        {phase === 'result' && (
+          <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/60 animate-fade-in">
+            <div className="text-center animate-victory-pop">
+              <div className="text-6xl sm:text-7xl font-bold mb-4" style={{ fontFamily: 'Orbitron, sans-serif', color: '#00f0ff', textShadow: '0 0 40px #00f0ff66, 0 0 80px #00f0ff33' }}>
+                VICTORY
+              </div>
+              <div className="text-xl text-gray-300 font-mono">{BOT1.name} wins in {ROUNDS.length} rounds</div>
+              <div className="mt-4 flex gap-6 justify-center text-sm font-mono">
+                <div className="text-green-400">+32 ELO</div>
+                <div className="text-amber-400">+180 CR</div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
-  )
-}
 
-// ============================================================
-// Action Log Ticker
-// ============================================================
-function ActionLogTicker({ entries }: { entries: string[] }) {
-  const scrollRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    if (scrollRef.current) {
-      scrollRef.current.scrollLeft = scrollRef.current.scrollWidth
-    }
-  }, [entries.length])
-
-  if (entries.length === 0) return null
-
-  return (
-    <div className="w-full bg-black/60 backdrop-blur-sm border-t border-white/5">
-      <div
-        ref={scrollRef}
-        className="flex gap-4 px-4 py-2 overflow-x-auto scrollbar-hide"
-        style={{ scrollBehavior: 'smooth' }}
-      >
-        {entries.map((entry, i) => (
-          <span
-            key={i}
-            className="text-[11px] font-mono text-white/50 whitespace-nowrap flex-shrink-0 animate-[fadeSlideIn_0.3s_ease-out]"
-          >
-            <span className="text-white/20 mr-1">▸</span>
-            {entry}
-          </span>
-        ))}
+      {/* Action Log */}
+      <div className="bg-[#0a0a1a] border-t border-gray-800 px-4 py-2">
+        <div ref={logRef} className="max-h-24 overflow-y-auto scrollbar-thin">
+          {actionLog.length === 0 ? (
+            <div className="text-gray-600 text-xs font-mono text-center py-2">// press PLAY to start demo match</div>
+          ) : (
+            actionLog.map((log, i) => (
+              <div key={i} className="text-[11px] font-mono text-gray-400 py-0.5">
+                {log.includes('COUNTER') ? <span className="text-amber-400">{log}</span> :
+                 log.includes('WINS') ? <span className="text-cyan-400 font-bold">{log}</span> :
+                 log.includes('damage') ? <span className="text-red-400">{log}</span> :
+                 log.startsWith('══') ? <span className="text-gray-500">{log}</span> :
+                 log}
+              </div>
+            ))
+          )}
+        </div>
       </div>
-    </div>
-  )
-}
 
-// ============================================================
-// Main Demo Page
-// ============================================================
-type DemoPhase = 'idle' | 'playing' | 'round-intro' | 'animating' | 'ko-pause' | 'result'
-
-export default function MatchV2Page() {
-  // Playback state
-  const [phase, setPhase] = useState<DemoPhase>('idle')
-  const [currentRoundIdx, setCurrentRoundIdx] = useState(-1)
-  const [speed, setSpeed] = useState<1 | 2>(1)
-  const [roundHistory, setRoundHistory] = useState<RoundResult[]>([])
-
-  // Animation state for Arena3DView
-  const [animRound, setAnimRound] = useState<RoundResult | null>(null)
-  const [prevRound, setPrevRound] = useState<RoundResult | null>(null)
-  const [isAnimating, setIsAnimating] = useState(false)
-
-  // VFX states
-  const [screenFlash, setScreenFlash] = useState(false)
-  const [flashIntensity, setFlashIntensity] = useState<'normal' | 'heavy'>('normal')
-  const [announcement, setAnnouncement] = useState<{ text: string; subtext?: string; color: 'cyan' | 'red' | 'amber' | 'green' | 'white' } | null>(null)
-  const [showAnnouncement, setShowAnnouncement] = useState(false)
-  const [showResult, setShowResult] = useState(false)
-  const [winner, setWinner] = useState<'bot1' | 'bot2' | 'draw'>('bot1')
-
-  // HP display (for overlaid HP bars)
-  const [bot1Hp, setBot1Hp] = useState(BOT1_MAX_HP)
-  const [bot2Hp, setBot2Hp] = useState(BOT2_MAX_HP)
-
-  // Damage number display
-  const [bot1Damage, setBot1Damage] = useState({ show: false, amount: 0, isCounter: false })
-  const [bot2Damage, setBot2Damage] = useState({ show: false, amount: 0, isCounter: false })
-
-  // Action log
-  const [logEntries, setLogEntries] = useState<string[]>([])
-
-  // Refs for cleanup
-  const timeoutRefs = useRef<ReturnType<typeof setTimeout>[]>([])
-  const abortRef = useRef(false)
-
-  const delay = useCallback((ms: number) => {
-    return new Promise<void>((resolve) => {
-      const t = setTimeout(resolve, ms / speed)
-      timeoutRefs.current.push(t)
-    })
-  }, [speed])
-
-  // Cleanup timeouts on unmount
-  useEffect(() => {
-    return () => {
-      // eslint-disable-next-line react-hooks/exhaustive-deps
-      timeoutRefs.current.forEach(clearTimeout)
-    }
-  }, [])
-
-  const clearAllTimeouts = useCallback(() => {
-    timeoutRefs.current.forEach(clearTimeout)
-    timeoutRefs.current = []
-  }, [])
-
-  // Flash helper
-  const flash = useCallback((intensity: 'normal' | 'heavy' = 'normal') => {
-    setFlashIntensity(intensity)
-    setScreenFlash(true)
-    setTimeout(() => setScreenFlash(false), 150)
-  }, [])
-
-  // Announcement helper
-  const announce = useCallback((text: string, color: 'cyan' | 'red' | 'amber' | 'green' | 'white', durationMs: number, subtext?: string) => {
-    setAnnouncement({ text, color, subtext })
-    setShowAnnouncement(true)
-    return new Promise<void>((resolve) => {
-      const t = setTimeout(() => {
-        setShowAnnouncement(false)
-        setTimeout(resolve, 200)
-      }, durationMs)
-      timeoutRefs.current.push(t)
-    })
-  }, [])
-
-  // Add log entry
-  const addLog = useCallback((msg: string) => {
-    setLogEntries((prev) => [...prev, msg])
-  }, [])
-
-  // ============================================================
-  // Play through one round
-  // ============================================================
-  const playRound = useCallback(async (roundIdx: number) => {
-    if (abortRef.current) return
-
-    const round = MOCK_ROUNDS[roundIdx]
-    const prev = roundIdx > 0 ? MOCK_ROUNDS[roundIdx - 1] : null
-    const isLastRound = round.bot1_hp <= 0 || round.bot2_hp <= 0
-
-    // === Round intro announcement ===
-    setPhase('round-intro')
-    await announce(`ROUND ${round.round}`, 'white', 800 / speed)
-    if (abortRef.current) return
-
-    await delay(300)
-    if (abortRef.current) return
-
-    // === Check for counters and announce them ===
-    const bot1Counter = round.bot1_counter !== 'none'
-    const bot2Counter = round.bot2_counter !== 'none'
-
-    // === KO pause for final blow ===
-    if (isLastRound) {
-      setPhase('ko-pause')
-      await announce('FINAL BLOW', 'red', 1500 / speed, 'decisive moment...')
-      if (abortRef.current) return
-    }
-
-    // === Play the 3D animation ===
-    setPhase('animating')
-    setPrevRound(prev)
-    setAnimRound(round)
-    setIsAnimating(true)
-
-    // Show damage numbers after a brief delay (synced with animation)
-    await delay(900)
-    if (abortRef.current) return
-
-    // Bot1 deals damage to bot2
-    if (round.bot1_damage_dealt > 0) {
-      setBot2Damage({ show: true, amount: round.bot1_damage_dealt, isCounter: bot1Counter })
-      if (round.bot1_damage_dealt >= 20) flash('heavy')
-      else flash('normal')
-
-      addLog(`R${round.round}: ${BOT1_NAME} ${actionLabel(round.bot1_action)} → ${round.bot1_damage_dealt} DMG`)
-    }
-
-    if (bot1Counter) {
-      await delay(200)
-      if (abortRef.current) return
-      await announce('COUNTER!', 'amber', 600 / speed)
-      addLog(`R${round.round}: ${BOT1_NAME} COUNTER! (${round.bot1_counter.replace(/_/g, ' ')})`)
-    }
-
-    await delay(600)
-    if (abortRef.current) return
-    setBot2Damage({ show: false, amount: 0, isCounter: false })
-
-    // Bot2 deals damage to bot1
-    if (round.bot2_damage_dealt > 0) {
-      setBot1Damage({ show: true, amount: round.bot2_damage_dealt, isCounter: bot2Counter })
-      if (round.bot2_damage_dealt >= 20) flash('heavy')
-      else if (round.bot2_damage_dealt > 0) flash('normal')
-
-      addLog(`R${round.round}: ${BOT2_NAME} ${actionLabel(round.bot2_action)} → ${round.bot2_damage_dealt} DMG`)
-    }
-
-    if (bot2Counter) {
-      await delay(200)
-      if (abortRef.current) return
-      await announce('COUNTER!', 'amber', 600 / speed)
-      addLog(`R${round.round}: ${BOT2_NAME} COUNTER! (${round.bot2_counter.replace(/_/g, ' ')})`)
-    }
-
-    await delay(600)
-    if (abortRef.current) return
-    setBot1Damage({ show: false, amount: 0, isCounter: false })
-
-    // Update HP (with delayed drain effect)
-    setBot1Hp(round.bot1_hp)
-    setBot2Hp(round.bot2_hp)
-
-    // Log effects
-    for (const eff of round.effects_applied) {
-      addLog(`R${round.round}: ${eff.bot === 'bot1' ? BOT1_NAME : BOT2_NAME} — ${eff.effect} (${eff.duration} rounds)`)
-    }
-
-    // Update round history
-    setRoundHistory((prev) => [...prev, round])
-    setCurrentRoundIdx(roundIdx)
-
-    await delay(800)
-    if (abortRef.current) return
-
-    // Critical hit announcement for big damage
-    const maxDmg = Math.max(round.bot1_damage_dealt, round.bot2_damage_dealt)
-    if (maxDmg >= 25) {
-      await announce('CRITICAL!', 'red', 600 / speed, `${maxDmg} DAMAGE`)
-      flash('heavy')
-    }
-
-  }, [speed, announce, delay, flash, addLog])
-
-  // ============================================================
-  // Arena3D animation complete callback
-  // ============================================================
-  const onAnimationComplete = useCallback(() => {
-    setIsAnimating(false)
-  }, [])
-
-  // ============================================================
-  // Start Demo Match
-  // ============================================================
-  const startDemo = useCallback(async () => {
-    // Reset everything
-    abortRef.current = false
-    clearAllTimeouts()
-    setPhase('playing')
-    setCurrentRoundIdx(-1)
-    setRoundHistory([])
-    setAnimRound(null)
-    setPrevRound(null)
-    setIsAnimating(false)
-    setBot1Hp(BOT1_MAX_HP)
-    setBot2Hp(BOT2_MAX_HP)
-    setBot1Damage({ show: false, amount: 0, isCounter: false })
-    setBot2Damage({ show: false, amount: 0, isCounter: false })
-    setLogEntries([])
-    setShowResult(false)
-    setShowAnnouncement(false)
-    setScreenFlash(false)
-
-    // Opening announcement
-    await announce('MATCH START', 'cyan', 1200 / speed, `${BOT1_NAME} vs ${BOT2_NAME}`)
-    if (abortRef.current) return
-
-    addLog(`Match: ${BOT1_NAME} vs ${BOT2_NAME} — 7 rounds`)
-
-    // Play each round
-    for (let i = 0; i < MOCK_ROUNDS.length; i++) {
-      if (abortRef.current) return
-      await playRound(i)
-      if (abortRef.current) return
-      // Inter-round pause
-      if (i < MOCK_ROUNDS.length - 1) {
-        await delay(600)
-      }
-    }
-
-    if (abortRef.current) return
-
-    // Determine winner
-    const lastRound = MOCK_ROUNDS[MOCK_ROUNDS.length - 1]
-    const w = lastRound.bot1_hp <= 0 && lastRound.bot2_hp <= 0
-      ? 'draw'
-      : lastRound.bot2_hp <= 0
-      ? 'bot1'
-      : lastRound.bot1_hp <= 0
-      ? 'bot2'
-      : lastRound.bot1_hp >= lastRound.bot2_hp ? 'bot1' : 'bot2'
-
-    await delay(500)
-    setWinner(w)
-    setPhase('result')
-    setShowResult(true)
-    addLog(`Result: ${w === 'bot1' ? BOT1_NAME : w === 'bot2' ? BOT2_NAME : 'DRAW'} wins!`)
-
-  }, [speed, clearAllTimeouts, announce, addLog, playRound, delay])
-
-  // Skip to result
-  const skipToResult = useCallback(() => {
-    abortRef.current = true
-    clearAllTimeouts()
-    setShowAnnouncement(false)
-    setScreenFlash(false)
-
-    // Set all rounds as played
-    setRoundHistory(MOCK_ROUNDS)
-    setCurrentRoundIdx(MOCK_ROUNDS.length - 1)
-
-    const lastRound = MOCK_ROUNDS[MOCK_ROUNDS.length - 1]
-    setBot1Hp(lastRound.bot1_hp)
-    setBot2Hp(lastRound.bot2_hp)
-    setAnimRound(lastRound)
-    setPrevRound(MOCK_ROUNDS[MOCK_ROUNDS.length - 2])
-    setIsAnimating(false)
-
-    const w = lastRound.bot1_hp <= 0 && lastRound.bot2_hp <= 0
-      ? 'draw'
-      : lastRound.bot2_hp <= 0
-      ? 'bot1'
-      : lastRound.bot1_hp <= 0
-      ? 'bot2'
-      : lastRound.bot1_hp >= lastRound.bot2_hp ? 'bot1' : 'bot2'
-
-    setWinner(w)
-    setPhase('result')
-
-    // Fill log
-    const logs: string[] = [`Match: ${BOT1_NAME} vs ${BOT2_NAME} — 7 rounds`]
-    for (const r of MOCK_ROUNDS) {
-      if (r.bot1_damage_dealt > 0) logs.push(`R${r.round}: ${BOT1_NAME} → ${r.bot1_damage_dealt} DMG`)
-      if (r.bot2_damage_dealt > 0) logs.push(`R${r.round}: ${BOT2_NAME} → ${r.bot2_damage_dealt} DMG`)
-    }
-    logs.push(`Result: ${w === 'bot1' ? BOT1_NAME : w === 'bot2' ? BOT2_NAME : 'DRAW'} wins!`)
-    setLogEntries(logs)
-
-    setTimeout(() => setShowResult(true), 300)
-  }, [clearAllTimeouts])
-
-  // Replay
-  const replay = useCallback(() => {
-    setShowResult(false)
-    abortRef.current = false
-    setTimeout(() => startDemo(), 300)
-  }, [startDemo])
-
-  // Current round display number
-  const displayRound = currentRoundIdx >= 0 ? MOCK_ROUNDS[currentRoundIdx].round : 0
-
-  return (
-    <>
-      {/* Inject keyframes */}
+      {/* CSS Animations */}
       <style jsx global>{`
-        @keyframes floatDamage {
-          0% { transform: translateY(0) scale(1); opacity: 1; }
-          30% { transform: translateY(-20px) scale(1.3); opacity: 1; }
-          100% { transform: translateY(-50px) scale(0.8); opacity: 0; }
-        }
-        @keyframes fadeSlideIn {
-          from { transform: translateX(20px); opacity: 0; }
-          to { transform: translateX(0); opacity: 1; }
-        }
-        @keyframes bounceIn {
-          0% { transform: scale(0) rotate(-15deg); opacity: 0; }
-          50% { transform: scale(1.2) rotate(5deg); }
-          100% { transform: scale(1) rotate(0deg); opacity: 1; }
-        }
-        @keyframes slideUpCard {
-          from { transform: translateY(100%); opacity: 0; }
-          to { transform: translateY(0); opacity: 1; }
-        }
-        @keyframes pulseGlow {
-          0%, 100% { box-shadow: 0 0 10px rgba(0,240,255,0.3); }
-          50% { box-shadow: 0 0 25px rgba(0,240,255,0.6); }
-        }
+        @keyframes idle-bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+        .animate-idle-bob { animation: idle-bob 2.5s ease-in-out infinite; }
+
+        @keyframes lunge-right { 0% { transform: translateX(0); } 40% { transform: translateX(40px) translateY(-10px); } 100% { transform: translateX(0); } }
+        .animate-lunge-right { animation: lunge-right 0.4s ease-out; }
+
+        @keyframes lunge-left { 0% { transform: translateX(0); } 40% { transform: translateX(-40px) translateY(10px); } 100% { transform: translateX(0); } }
+        .animate-lunge-left { animation: lunge-left 0.4s ease-out; }
+
+        @keyframes bot-hit { 0% { transform: translateX(0); filter: brightness(1); } 15% { transform: translateX(-8px); filter: brightness(3); } 30% { transform: translateX(6px); filter: brightness(1); } 50% { transform: translateX(-4px); filter: brightness(2.5); } 70% { transform: translateX(3px); filter: brightness(1); } 100% { transform: translateX(0); filter: brightness(1); } }
+        .animate-bot-hit { animation: bot-hit 0.5s ease-out; }
+
+        @keyframes screen-shake { 0%,100% { transform: translate(0); } 10% { transform: translate(-4px, 2px); } 20% { transform: translate(4px, -2px); } 30% { transform: translate(-3px, -1px); } 40% { transform: translate(3px, 1px); } 50% { transform: translate(-2px, 2px); } }
+        .animate-screen-shake { animation: screen-shake 0.3s ease-out; }
+
+        @keyframes flash { 0% { opacity: 0.5; } 100% { opacity: 0; } }
+        .animate-flash { animation: flash 0.15s ease-out forwards; }
+
+        @keyframes dmg-float { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-40px); opacity: 0; } }
+        .animate-dmg-float { animation: dmg-float 1.2s ease-out forwards; }
+
+        @keyframes announce-in { 0% { transform: scale(2); opacity: 0; } 20% { transform: scale(1); opacity: 1; } 80% { transform: scale(1); opacity: 1; } 100% { transform: scale(0.8); opacity: 0; } }
+        .animate-announce-in { animation: announce-in 1s ease-out forwards; }
+
+        @keyframes banner-slam { 0% { transform: scale(3) rotate(-5deg); opacity: 0; } 15% { transform: scale(1) rotate(0); opacity: 1; } 70% { transform: scale(1); opacity: 1; } 100% { transform: scale(1.1); opacity: 0; } }
+        .animate-banner-slam { animation: banner-slam 1s ease-out forwards; }
+
+        @keyframes victory-pop { 0% { transform: scale(0); opacity: 0; } 50% { transform: scale(1.1); } 100% { transform: scale(1); opacity: 1; } }
+        .animate-victory-pop { animation: victory-pop 0.6s ease-out; }
+
+        @keyframes fade-in { 0% { opacity: 0; } 100% { opacity: 1; } }
+        .animate-fade-in { animation: fade-in 0.5s ease-out; }
+
+        @keyframes float-particle { 0%,100% { transform: translateY(0) translateX(0); opacity: 0.3; } 50% { transform: translateY(-20px) translateX(10px); opacity: 0.6; } }
+        .animate-float-particle { animation: float-particle 4s ease-in-out infinite; }
+
+        @keyframes spark { 0% { transform: scale(1); opacity: 1; } 100% { transform: scale(0) translate(var(--tx, 20px), var(--ty, -20px)); opacity: 0; } }
+        .animate-spark { animation: spark 0.4s ease-out forwards; }
+
+        @keyframes draw-slash { 0% { stroke-dasharray: 200; stroke-dashoffset: 200; } 100% { stroke-dashoffset: 0; } }
+        .animate-draw-slash { animation: draw-slash 0.3s ease-out forwards; stroke-dasharray: 200; }
+
+        @keyframes beam-draw { 0% { stroke-dasharray: 150; stroke-dashoffset: 150; opacity: 0; } 30% { opacity: 1; } 100% { stroke-dashoffset: 0; opacity: 1; } }
+        .animate-beam-draw { animation: beam-draw 0.3s ease-out forwards; stroke-dasharray: 150; }
+
+        @keyframes beam-flash { 0%,60% { opacity: 1; } 100% { opacity: 0; } }
+        .animate-beam-flash { animation: beam-flash 0.8s ease-out forwards; }
+
+        @keyframes lightning-branch { 0% { opacity: 0; transform: scale(0.5); } 30% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.2); } }
+        .animate-lightning-branch { animation: lightning-branch 0.5s ease-out forwards; }
+
+        @keyframes electrocute { 0%,20%,40%,60%,80% { opacity: 0.8; } 10%,30%,50%,70%,90% { opacity: 0; } 100% { opacity: 0; } }
+        .animate-electrocute { animation: electrocute 0.6s ease-out forwards; }
+
+        @keyframes shield-appear { 0% { transform: translate(-50%, -50%) scale(0); opacity: 0; } 40% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; } 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; } }
+        .animate-shield-appear { animation: shield-appear 0.5s ease-out forwards; }
+
+        @keyframes shield-pulse { 0%,100% { opacity: 0.4; } 50% { opacity: 0.7; } }
+        .animate-shield-pulse { animation: shield-pulse 1s ease-in-out infinite; }
+
+        @keyframes hex-pop { 0% { opacity: 0; transform: scale(0); } 100% { opacity: 1; transform: scale(1); } }
+        .animate-hex-pop { animation: hex-pop 0.3s ease-out forwards; }
+
+        @keyframes ghost-rush { 0% { transform: translate(0, 0); opacity: 0.7; } 70% { opacity: 0.5; } 100% { transform: translate(var(--target-x), var(--target-y)); opacity: 0; } }
+        .animate-ghost-rush { animation: ghost-rush 0.5s ease-in forwards; }
+
+        @keyframes code-rain { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(80px); opacity: 0; } }
+        .animate-code-rain { animation: code-rain 0.7s ease-in forwards; }
+
+        @keyframes glitch-tear { 0%,100% { opacity: 0; } 20%,80% { opacity: 1; } 30% { transform: translateX(-3px); } 50% { transform: translateX(3px); } 70% { transform: translateX(-1px); } }
+        .animate-glitch-tear { animation: glitch-tear 0.6s linear forwards; }
+
+        @keyframes scan-sweep { 0% { transform: translateY(0); opacity: 0; } 20% { opacity: 1; } 100% { transform: translateY(120px); opacity: 0; } }
+        .animate-scan-sweep { animation: scan-sweep 1s ease-in-out forwards; }
+
+        @keyframes stats-reveal { 0% { opacity: 0; transform: translateX(-10px); } 30% { opacity: 1; transform: translateX(0); } 80% { opacity: 1; } 100% { opacity: 0; } }
+        .animate-stats-reveal { animation: stats-reveal 1.5s ease-out forwards; }
+
+        @keyframes memory-particle { 0% { transform: translate(0, 0) scale(1); opacity: 1; } 100% { transform: translate(calc(cos(var(--angle)) * var(--dist)), calc(sin(var(--angle)) * var(--dist))) scale(0); opacity: 0; } }
+        .animate-memory-particle { animation: memory-particle 0.6s ease-out forwards; }
+
+        @keyframes burst-ring { 0% { width: 0; height: 0; opacity: 1; } 100% { width: 80px; height: 80px; opacity: 0; } }
+        .animate-burst-ring { animation: burst-ring 0.5s ease-out forwards; }
+
+        @keyframes bomb-tick { 0%,50% { transform: translate(-50%, -50%) scale(1); } 25% { transform: translate(-50%, -50%) scale(1.2); } 75% { transform: translate(-50%, -50%) scale(0.9); } 100% { transform: translate(-50%, -50%) scale(2); opacity: 0; } }
+        .animate-bomb-tick { animation: bomb-tick 0.8s ease-in-out forwards; }
+
+        @keyframes explosion-ring { 0% { width: 4px; height: 4px; opacity: 1; } 100% { width: 120px; height: 120px; opacity: 0; } }
+        .animate-explosion-ring { animation: explosion-ring 0.4s ease-out forwards; }
+
+        @keyframes shockwave-particle { 0% { transform: translate(0,0); opacity: 1; } 100% { transform: translate(calc(cos(var(--angle)) * var(--dist)), calc(sin(var(--angle)) * var(--dist))); opacity: 0; } }
+        .animate-shockwave-particle { animation: shockwave-particle 0.4s ease-out forwards; }
+
+        @keyframes inject-text { 0% { opacity: 0; transform: translateX(-20px); } 20% { opacity: 1; transform: translateX(0); } 60% { opacity: 1; } 100% { opacity: 0; transform: translateX(10px); } }
+        .animate-inject-text { animation: inject-text 0.6s ease-out forwards; }
+
+        @keyframes screen-tear { 0%,100% { opacity: 0; transform: scaleX(0); } 20%,80% { opacity: 1; transform: scaleX(1); } }
+        .animate-screen-tear { animation: screen-tear 0.4s ease-out forwards; }
+
+        @keyframes rewind-spin { 0% { transform: translate(-50%, -50%) rotate(0deg) scale(0); opacity: 0; } 30% { transform: translate(-50%, -50%) rotate(-180deg) scale(1); opacity: 1; } 100% { transform: translate(-50%, -50%) rotate(-720deg) scale(0.5); opacity: 0; } }
+        .animate-rewind-spin { animation: rewind-spin 1s ease-out forwards; }
+
+        @keyframes heal-float { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(-30px); opacity: 0; } }
+        .animate-heal-float { animation: heal-float 0.8s ease-out forwards; }
+
+        .z-35 { z-index: 35; }
+
+        .scrollbar-thin::-webkit-scrollbar { width: 4px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
       `}</style>
-
-      <div className="h-screen w-screen flex flex-col bg-[var(--bg-void)] overflow-hidden relative">
-        {/* === Top Control Bar === */}
-        <div className="flex-shrink-0 flex items-center justify-between px-4 py-2 bg-black/40 border-b border-white/5 z-50">
-          {/* Left: Title */}
-          <div className="flex items-center gap-3">
-            <span
-              className="text-xs font-bold tracking-[0.3em] text-white/40 uppercase"
-              style={{ fontFamily: 'var(--font-display)' }}
-            >
-              ClawdArena
-            </span>
-            <span className="text-[10px] text-white/20 font-mono">v2 PROTOTYPE</span>
-          </div>
-
-          {/* Center: Demo controls */}
-          <div className="flex items-center gap-2">
-            {phase === 'idle' ? (
-              <button
-                onClick={startDemo}
-                className="flex items-center gap-2 px-4 py-1.5 bg-cyan-600/20 border border-cyan-500/40 rounded-sm hover:bg-cyan-600/30 hover:border-cyan-400 transition-all text-cyan-400 text-xs font-mono uppercase tracking-wider"
-                style={{ animation: 'pulseGlow 2s ease-in-out infinite' }}
-              >
-                <Play className="w-3.5 h-3.5" />
-                Play Demo Match
-              </button>
-            ) : phase === 'result' ? (
-              <button
-                onClick={replay}
-                className="flex items-center gap-2 px-4 py-1.5 bg-white/10 border border-white/20 rounded-sm hover:bg-white/20 transition-all text-white text-xs font-mono uppercase tracking-wider"
-              >
-                <RotateCcw className="w-3.5 h-3.5" />
-                Replay
-              </button>
-            ) : (
-              <button
-                onClick={skipToResult}
-                className="flex items-center gap-2 px-4 py-1.5 bg-white/10 border border-white/20 rounded-sm hover:bg-white/15 transition-all text-white/70 text-xs font-mono uppercase tracking-wider"
-              >
-                <SkipForward className="w-3.5 h-3.5" />
-                Skip to Result
-              </button>
-            )}
-          </div>
-
-          {/* Right: Speed + Round */}
-          <div className="flex items-center gap-3">
-            {/* Speed toggle */}
-            <button
-              onClick={() => setSpeed((s) => (s === 1 ? 2 : 1))}
-              className={`flex items-center gap-1 px-2.5 py-1 rounded-sm border text-[11px] font-mono transition-all ${
-                speed === 2
-                  ? 'bg-amber-600/20 border-amber-500/40 text-amber-400'
-                  : 'bg-white/5 border-white/10 text-white/40'
-              }`}
-            >
-              <Gauge className="w-3 h-3" />
-              {speed}x
-            </button>
-
-            {/* Round indicator */}
-            <div className="flex items-center gap-1.5 px-2.5 py-1 bg-white/5 border border-white/10 rounded-sm">
-              <span className="text-[10px] text-white/30 font-mono">RND</span>
-              <span
-                className="text-sm font-bold text-cyan-400 tabular-nums"
-                style={{ fontFamily: 'var(--font-display)' }}
-              >
-                {displayRound}/{MOCK_ROUNDS.length}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* === Arena (60% of viewport) === */}
-        <div className="relative flex-shrink-0" style={{ height: '60vh' }}>
-          <Arena3DView
-            bot1Name={BOT1_NAME}
-            bot2Name={BOT2_NAME}
-            bot1MaxHp={BOT1_MAX_HP}
-            bot2MaxHp={BOT2_MAX_HP}
-            currentRound={animRound}
-            previousRound={prevRound}
-            isAnimating={isAnimating}
-            onAnimationComplete={onAnimationComplete}
-          />
-
-          {/* Overlaid HP bars at bottom of arena */}
-          <div className="absolute bottom-4 left-4 right-4 flex gap-4 z-30">
-            <div className="relative flex-1">
-              <DelayedHPBar
-                current={bot1Hp}
-                max={BOT1_MAX_HP}
-                name={BOT1_NAME}
-                side="left"
-                showDamage={bot1Damage.show}
-                damageAmount={bot1Damage.amount}
-                isCounter={bot1Damage.isCounter}
-              />
-            </div>
-
-            {/* VS separator */}
-            <div className="flex items-end pb-1">
-              <span
-                className="text-xs font-black text-white/20 tracking-widest"
-                style={{ fontFamily: 'var(--font-display)' }}
-              >
-                VS
-              </span>
-            </div>
-
-            <div className="relative flex-1">
-              <DelayedHPBar
-                current={bot2Hp}
-                max={BOT2_MAX_HP}
-                name={BOT2_NAME}
-                side="right"
-                showDamage={bot2Damage.show}
-                damageAmount={bot2Damage.amount}
-                isCounter={bot2Damage.isCounter}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* === Bottom Section: Effects & Log === */}
-        <div className="flex-1 flex flex-col min-h-0">
-          {/* Status Effects Row */}
-          {roundHistory.length > 0 && (
-            <div className="flex-shrink-0 px-4 py-2 flex items-center justify-between border-b border-white/5 bg-black/30">
-              {/* Bot1 effects */}
-              <div className="flex gap-1.5">
-                {roundHistory[roundHistory.length - 1]?.effects_applied
-                  .filter((e) => e.bot === 'bot1')
-                  .map((e, i) => (
-                    <span key={i} className="px-2 py-0.5 text-[10px] font-mono rounded bg-cyan-900/30 border border-cyan-700/30 text-cyan-300">
-                      {e.effect}
-                    </span>
-                  ))}
-              </div>
-
-              {/* Momentum display */}
-              <div className="flex items-center gap-4">
-                {roundHistory[roundHistory.length - 1] && (
-                  <>
-                    <div className="flex items-center gap-1">
-                      <span className="text-[10px] text-cyan-400/60 font-mono">MTM</span>
-                      <div className="flex gap-0.5">
-                        {Array.from({ length: Math.min(roundHistory[roundHistory.length - 1].bot1_momentum, 4) }).map((_, i) => (
-                          <div key={i} className="w-2 h-2 rounded-full bg-cyan-400 shadow-sm shadow-cyan-400/50" />
-                        ))}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <div className="flex gap-0.5">
-                        {Array.from({ length: Math.min(roundHistory[roundHistory.length - 1].bot2_momentum, 4) }).map((_, i) => (
-                          <div key={i} className="w-2 h-2 rounded-full bg-red-400 shadow-sm shadow-red-400/50" />
-                        ))}
-                      </div>
-                      <span className="text-[10px] text-red-400/60 font-mono">MTM</span>
-                    </div>
-                  </>
-                )}
-              </div>
-
-              {/* Bot2 effects */}
-              <div className="flex gap-1.5">
-                {roundHistory[roundHistory.length - 1]?.effects_applied
-                  .filter((e) => e.bot === 'bot2')
-                  .map((e, i) => (
-                    <span key={i} className="px-2 py-0.5 text-[10px] font-mono rounded bg-red-900/30 border border-red-700/30 text-red-300">
-                      {e.effect}
-                    </span>
-                  ))}
-              </div>
-            </div>
-          )}
-
-          {/* Round History Timeline */}
-          {roundHistory.length > 0 && (
-            <div className="flex-shrink-0 px-4 py-2 border-b border-white/5 bg-black/20">
-              <div className="flex gap-1 justify-center">
-                {MOCK_ROUNDS.map((r, i) => {
-                  const played = i <= currentRoundIdx
-                  const bot1Won = r.bot1_damage_dealt > r.bot2_damage_dealt
-                  const draw = r.bot1_damage_dealt === r.bot2_damage_dealt
-                  return (
-                    <div
-                      key={i}
-                      className={`w-8 h-1.5 rounded-full transition-all duration-300 ${
-                        !played
-                          ? 'bg-white/10'
-                          : draw
-                          ? 'bg-amber-500/60'
-                          : bot1Won
-                          ? 'bg-cyan-400/60'
-                          : 'bg-red-400/60'
-                      }`}
-                    />
-                  )
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Idle state / instructions */}
-          {phase === 'idle' && (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center">
-                <div className="text-4xl mb-3">⚔️</div>
-                <h2
-                  className="text-lg font-bold tracking-wider text-white/60 mb-1"
-                  style={{ fontFamily: 'var(--font-display)' }}
-                >
-                  COMBAT ARENA v2
-                </h2>
-                <p className="text-xs text-white/30 font-mono">
-                  Press ▶ Play Demo Match to watch a 7-round simulated battle
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Action Log Ticker (always at bottom when playing) */}
-          {logEntries.length > 0 && (
-            <div className="flex-shrink-0 mt-auto">
-              <ActionLogTicker entries={logEntries} />
-            </div>
-          )}
-        </div>
-
-        {/* === VFX Overlays === */}
-        <ScreenFlash active={screenFlash} intensity={flashIntensity} />
-        <AnnouncementBanner
-          text={announcement?.text ?? ''}
-          subtext={announcement?.subtext}
-          color={announcement?.color ?? 'white'}
-          visible={showAnnouncement}
-        />
-        <MatchResultOverlay
-          visible={showResult}
-          winner={winner}
-          bot1Name={BOT1_NAME}
-          bot2Name={BOT2_NAME}
-          rounds={MOCK_ROUNDS.length}
-          onReplay={replay}
-        />
-      </div>
-    </>
+    </div>
   )
 }
