@@ -1134,11 +1134,14 @@ export default function MatchV2Page() {
     if (tagTeamMode) {
       setFocusPoints(3)
       setLastFocusRegen(0)
-      setBotSuggestion(null)
+      // Generate initial suggestion for Round 1
+      const initialSuggestion = generateBotSuggestion(1, BOT2.maxHp, 100)
+      setBotSuggestion(initialSuggestion)
+      setDecisionTimer(20)
       setChatMessages([{
         id: '1',
         role: 'bot',
-        content: 'Tag Team mode active! I\'ll provide strategic suggestions each round.',
+        content: 'Tag Team mode active! I\'ll provide strategic suggestions each round. Here\'s my opening move recommendation.',
         timestamp: Date.now(),
       }])
     }
