@@ -96,6 +96,9 @@ const ENERGY_START = 100
 const ENERGY_REGEN_PER_ROUND = 15
 const ENERGY_DEFEND_BONUS = 10
 const BASE_DAMAGE = 8
+const DAMAGE_FLOOR_BASIC = 3
+const DAMAGE_FLOOR_SKILL = 4
+const DEFENSE_REDUCTION_MULTIPLIER = 0.6
 
 // ============================================================
 // V2 Skill Definitions (16 + basic attack)
@@ -176,43 +179,126 @@ function getMomentumMultiplier(streak: number): number {
 }
 
 // ============================================================
-// Damage Calculation
+// Stat-Based Damage Calculation
 // ============================================================
 
-function calculateDamage(
+/**
+ * Calculate basic attack damage using stat-based formula
+ * Formula: BaseDamage = Power × 0.8 + Speed × 0.2 + 3
+ */
+function calculateBasicAttackDamage(
   attacker: BotCombatState,
   defender: BotCombatState,
   defenderAction: string,
   counterType: string = 'none',
   momentumStreak: number = 0
 ): number {
-  let effectiveDefense = defender.defense
+  // Base damage from attacker stats (hybrid Power/Speed)
+  let baseDamage = attacker.attack * 0.8 + attacker.speed * 0.2 + 3
 
-  // Defend action bonus (halved if countered by skill)
+  // Defense reduction
+  let effectiveDefense = defender.defense * DEFENSE_REDUCTION_MULTIPLIER
+
+  // Defend action bonus (increases defense efficiency)
   if (defenderAction === 'defend') {
     effectiveDefense *= counterType === 'skill_vs_defend' ? 1.25 : 1.5
   }
 
-  // Armor broken
+  // Armor broken debuff
   if (defender.statusEffects.some((e) => e.type === 'armor_broken')) {
     effectiveDefense = Math.max(0, effectiveDefense - 3)
   }
 
-  let damage = Math.max(1, BASE_DAMAGE + (attacker.attack - effectiveDefense) * 0.5)
+  // Scan debuff (reduces defense by 15%)
+  if (defender.statusEffects.some((e) => e.type === 'scanned')) {
+    effectiveDefense *= 0.85
+  }
+
+  // Calculate final damage
+  let damage = baseDamage - effectiveDefense
 
   // Counter bonus
   if (counterType === 'attack_vs_skill') damage *= 1.5
 
   // Overclock bonus
   if (attacker.overclockNextAttack) {
-    damage *= 1.5
+    const overclockMult = 1.3 + (attacker.speed / 50)
+    damage *= Math.min(1.8, overclockMult)
     attacker.overclockNextAttack = false
   }
 
   // Momentum
   damage *= getMomentumMultiplier(momentumStreak)
 
-  return Math.max(1, Math.round(damage))
+  return Math.max(DAMAGE_FLOOR_BASIC, Math.round(damage))
+}
+
+/**
+ * Calculate skill damage using stat-based formulas
+ */
+function calculateSkillDamage(
+  skillId: string,
+  attacker: BotCombatState,
+  defender: BotCombatState,
+  rng: () => number
+): number {
+  let baseDamage = 0
+  let defenseMultiplier = DEFENSE_REDUCTION_MULTIPLIER
+
+  switch (skillId) {
+    case 'power_strike':
+      // Power-focused: Power × 1.2 + 8
+      baseDamage = attacker.attack * 1.2 + 8
+      break
+
+    case 'reasoning_burst':
+      // Speed-focused: Speed × 1.4 + 6
+      baseDamage = attacker.speed * 1.4 + 6
+      defenseMultiplier = 0.5 // Lower defense penetration
+      break
+
+    case 'spawn_attack':
+      // Multi-hit hybrid: 3 × (Power × 0.4 + Speed × 0.3 + 2)
+      const hitDamage = attacker.attack * 0.4 + attacker.speed * 0.3 + 2
+      baseDamage = hitDamage * 3
+      defenseMultiplier = 0.4 // Lower per-hit defense
+      break
+
+    case 'berserker_rush':
+      // High-risk power: Power × 1.8 + Speed × 0.4 + 10
+      baseDamage = attacker.attack * 1.8 + attacker.speed * 0.4 + 10
+      defenseMultiplier = 0.5
+      break
+
+    case 'time_bomb':
+      // Delayed burst: Power × 1.0 + Speed × 0.5 + 12
+      baseDamage = attacker.attack * 1.0 + attacker.speed * 0.5 + 12
+      defenseMultiplier = 0.4
+      break
+
+    case 'virus':
+      // DoT per tick: (Power × 0.4 + Speed × 0.3)
+      baseDamage = (attacker.attack * 0.4 + attacker.speed * 0.3)
+      defenseMultiplier = 0.3 // Defense-piercing DoT
+      break
+
+    default:
+      // Fallback to basic attack formula
+      baseDamage = attacker.attack * 0.8 + attacker.speed * 0.2 + 3
+      break
+  }
+
+  // Apply defense reduction
+  let effectiveDefense = defender.defense * defenseMultiplier
+
+  // Scan debuff
+  if (defender.statusEffects.some((e) => e.type === 'scanned')) {
+    effectiveDefense *= 0.85
+  }
+
+  const finalDamage = baseDamage - effectiveDefense
+
+  return Math.max(DAMAGE_FLOOR_SKILL, Math.round(finalDamage))
 }
 
 // ============================================================
@@ -268,7 +354,9 @@ function getEffectiveStats(bot: BotCombatState): { attack: number; defense: numb
         speed += 3
         break
       case 'iron_fortress':
-        defense += Math.round(defense * 0.8)
+        // Stat-based defense bonus from effect data
+        const defBonus = effect.data.defenseBonus || Math.round(defense * 0.8)
+        defense += defBonus
         break
       case 'berserker':
         attack += 8
@@ -315,75 +403,86 @@ function resolveSkillV2(
   switch (skillId) {
     // === DEFENSIVE ===
     case 'firewall':
-      // Block 100% of next incoming attack (handled in damage resolution)
-      user.statusEffects.push({ type: 'firewall', duration: 1, data: {} })
-      effects.push({ bot: user.id, effect: 'firewall', duration: 1 })
+      // Block next attack up to ShieldStrength = Defense × 1.5 + 10
+      const shieldStrength = user.defense * 1.5 + 10
+      user.statusEffects.push({ type: 'firewall', duration: 1, data: { shieldStrength } })
+      effects.push({ bot: user.id, effect: 'firewall', duration: 1, value: Math.round(shieldStrength) })
       break
 
     case 'iron_fortress':
-      // +80% DEF for 2 rounds, can't attack
-      user.statusEffects.push({ type: 'iron_fortress', duration: 2, data: {} })
-      effects.push({ bot: user.id, effect: 'iron_fortress', duration: 2 })
+      // Tank mode: +Defense × 0.8 for 2 rounds, can't attack
+      const defenseBonus = user.defense * 0.8
+      user.statusEffects.push({ type: 'iron_fortress', duration: 2, data: { defenseBonus } })
+      effects.push({ bot: user.id, effect: 'iron_fortress', duration: 2, value: Math.round(defenseBonus) })
       break
 
     case 'mirror_coat':
-      // Reflect 50% incoming damage for 1 round
-      user.statusEffects.push({ type: 'mirror_coat', duration: 1, data: { reflect_pct: 0.5 } })
-      effects.push({ bot: user.id, effect: 'mirror_coat', duration: 1 })
+      // Reflect: 40% + (Defense / 100), max = Defense × 0.8
+      const reflectPct = Math.min(0.85, 0.4 + (user.defense / 100))
+      const maxReflect = user.defense * 0.8
+      user.statusEffects.push({ type: 'mirror_coat', duration: 1, data: { reflect_pct: reflectPct, max_reflect: maxReflect } })
+      effects.push({ bot: user.id, effect: 'mirror_coat', duration: 1, value: Math.round(reflectPct * 100) })
       break
 
     case 'rollback':
-      // Heal 15-20 HP, max 2 uses per match
+      // Heal: 10 + (Defense × 0.6) + (MaxHP × 0.12), max 30% of MaxHP, max 2 uses
       const rollbackUses = user.skillUsesThisMatch.get('rollback') || 0
       if (rollbackUses >= 2) {
         effects.push({ bot: user.id, effect: 'rollback_exhausted', duration: 0 })
         break
       }
-      const healAmount = 15 + Math.round(rng() * 5)
+      const baseHeal = 10 + (user.defense * 0.6) + (user.maxHp * 0.12)
+      const maxHeal = user.maxHp * 0.3
+      const healAmount = Math.min(maxHeal, baseHeal)
       user.hp = Math.min(user.maxHp, user.hp + healAmount)
       user.skillUsesThisMatch.set('rollback', rollbackUses + 1)
-      effects.push({ bot: user.id, effect: 'rollback_heal', duration: 0, value: healAmount })
+      effects.push({ bot: user.id, effect: 'rollback_heal', duration: 0, value: Math.round(healAmount) })
       break
 
     // === AGGRESSIVE ===
     case 'power_strike':
-      // Reliable damage 12-18
-      damage = 12 + Math.round(rng() * 6)
+      // Power × 1.2 + 8
+      damage = calculateSkillDamage('power_strike', user, opponent, rng)
       break
 
     case 'reasoning_burst':
-      // High damage 20-28
-      damage = 20 + Math.round(rng() * 8)
+      // Speed × 1.4 + 6
+      damage = calculateSkillDamage('reasoning_burst', user, opponent, rng)
       break
 
     case 'spawn_attack':
-      // Multi-hit 3x (5-8 each), breaks single-hit shields
-      const hit1 = 5 + Math.round(seededRandom(matchSeed + round + 301) * 3)
-      const hit2 = 5 + Math.round(seededRandom(matchSeed + round + 302) * 3)
-      const hit3 = 5 + Math.round(seededRandom(matchSeed + round + 303) * 3)
-      damage = hit1 + hit2 + hit3
+      // Multi-hit: 3 × (Power × 0.4 + Speed × 0.3 + 2)
+      damage = calculateSkillDamage('spawn_attack', user, opponent, rng)
       // Spawn attack breaks firewall (multi-hit pierces single shields)
       const fwIdx = opponent.statusEffects.findIndex(e => e.type === 'firewall')
       if (fwIdx >= 0) {
-        opponent.statusEffects.splice(fwIdx, 1)
-        // First hit blocked, rest go through
-        damage = hit2 + hit3
-        effects.push({ bot: opponent.id, effect: 'firewall_broken', duration: 0 })
+        const shield = opponent.statusEffects[fwIdx]
+        const shieldStr = shield.data.shieldStrength || 9999
+        const hitDamage = Math.round(damage / 3)
+        if (hitDamage > shieldStr) {
+          opponent.statusEffects.splice(fwIdx, 1)
+          damage = Math.max(0, damage - shieldStr)
+          effects.push({ bot: opponent.id, effect: 'firewall_broken', duration: 0 })
+        } else {
+          damage = 0
+          effects.push({ bot: opponent.id, effect: 'firewall_absorbed', duration: 0 })
+        }
       }
       effects.push({ bot: user.id, effect: 'spawn_attack', duration: 0, value: damage })
       break
 
     case 'berserker_rush':
-      // 25 damage + 8 self-damage
-      damage = 25
-      selfDamage = 8
-      effects.push({ bot: user.id, effect: 'berserker_self_damage', duration: 0, value: 8 })
+      // Power × 1.8 + Speed × 0.4 + 10
+      damage = calculateSkillDamage('berserker_rush', user, opponent, rng)
+      selfDamage = 8 + Math.round(user.attack * 0.15)
+      effects.push({ bot: user.id, effect: 'berserker_self_damage', duration: 0, value: selfDamage })
       break
 
     // === TACTICAL ===
     case 'sleep_bomb':
-      // 60% chance opponent skips next turn
-      if (rng() < 0.6) {
+      // Sleep chance: 0.5 + (Speed / 80), max 0.85
+      const sleepChance = Math.min(0.85, 0.5 + (user.speed / 80))
+      if (rng() < sleepChance) {
         opponent.statusEffects.push({ type: 'sleep', duration: 1, data: {} })
         effects.push({ bot: opponent.id, effect: 'sleep', duration: 1 })
       } else {
@@ -392,35 +491,39 @@ function resolveSkillV2(
       break
 
     case 'emp_pulse':
-      // Drain 30 energy from opponent
-      const drained = Math.min(30, opponent.energy)
+      // Drain: 25 + (Speed × 0.5), min 20
+      const drainAmount = Math.max(20, 25 + (user.speed * 0.5))
+      const drained = Math.min(Math.round(drainAmount), opponent.energy)
       opponent.energy -= drained
       effects.push({ bot: opponent.id, effect: 'emp_drain', duration: 0, value: drained })
       break
 
     case 'time_bomb':
-      // Plant bomb, explodes in 2 rounds for 25 damage
+      // Delayed: Power × 1.0 + Speed × 0.5 + 12
       if (!opponent.timeBombs) opponent.timeBombs = []
-      opponent.timeBombs.push({ plantedByBotId: user.id, roundsRemaining: 2, damage: 25 })
-      effects.push({ bot: opponent.id, effect: 'time_bomb_planted', duration: 2 })
+      const bombDamage = calculateSkillDamage('time_bomb', user, opponent, rng)
+      opponent.timeBombs.push({ plantedByBotId: user.id, roundsRemaining: 2, damage: bombDamage })
+      effects.push({ bot: opponent.id, effect: 'time_bomb_planted', duration: 2, value: bombDamage })
       break
 
     case 'overclock':
-      // Skip this turn's damage, next attack does +50%
+      // Next attack multiplier: 1.3 + (Speed / 50), max 1.8
       user.overclockNextAttack = true
-      effects.push({ bot: user.id, effect: 'overclock', duration: 1 })
+      const overclockBonus = Math.min(1.8, 1.3 + (user.speed / 50))
+      effects.push({ bot: user.id, effect: 'overclock', duration: 1, value: Math.round(overclockBonus * 100) })
       break
 
     // === EXPLOIT ===
     case 'scan':
-      // Reveal opponent's next move for 1 round (info effect, handled client-side)
-      opponent.statusEffects.push({ type: 'scanned', duration: 1, data: {} })
-      effects.push({ bot: opponent.id, effect: 'scanned', duration: 1 })
+      // Reveal stats + reduce defense by 15% for 1 round
+      opponent.statusEffects.push({ type: 'scanned', duration: 1, data: { defense_reduction: 0.15 } })
+      effects.push({ bot: opponent.id, effect: 'scanned', duration: 1, value: 15 })
       break
 
     case 'prompt_injection':
-      // 40% chance opponent's move targets themselves
-      if (rng() < 0.4) {
+      // Confuse chance: 0.35 + (Speed / 100), max 0.65
+      const confuseChance = Math.min(0.65, 0.35 + (user.speed / 100))
+      if (rng() < confuseChance) {
         opponent.statusEffects.push({ type: 'confused', duration: 1, data: {} })
         effects.push({ bot: opponent.id, effect: 'confused', duration: 1 })
       } else {
@@ -429,11 +532,10 @@ function resolveSkillV2(
       break
 
     case 'memory_bomb':
-      // Disable opponent's last-used skill for 2 rounds
+      // Disable opponent's last-used skill for 2 rounds (not stat-based)
       if (opponent.lastUsedSkillId) {
         if (!opponent.disabledSkills) opponent.disabledSkills = new Set()
         opponent.disabledSkills.add(opponent.lastUsedSkillId)
-        // Set a timer to re-enable
         opponent.statusEffects.push({
           type: 'memory_bombed',
           duration: 2,
@@ -446,9 +548,10 @@ function resolveSkillV2(
       break
 
     case 'virus':
-      // 5 damage/round for 3 rounds (DOT)
-      opponent.statusEffects.push({ type: 'virus', duration: 3, data: { tick_damage: 5 } })
-      effects.push({ bot: opponent.id, effect: 'virus', duration: 3 })
+      // DoT: (Power × 0.4 + Speed × 0.3) per tick for 3 rounds
+      const virusTickDamage = calculateSkillDamage('virus', user, opponent, rng)
+      opponent.statusEffects.push({ type: 'virus', duration: 3, data: { tick_damage: virusTickDamage } })
+      effects.push({ bot: opponent.id, effect: 'virus', duration: 3, value: virusTickDamage })
       break
 
     default:
@@ -665,13 +768,33 @@ export function resolveRound(
 
   // 7. Resolve basic attacks
   if (action1.action === 'attack') {
-    // Check firewall
-    const hasFirewall2 = bot2.statusEffects.some(e => e.type === 'firewall')
-    if (hasFirewall2) {
-      bot2.statusEffects = bot2.statusEffects.filter(e => e.type !== 'firewall')
-      effects.push({ bot: bot2.id, effect: 'firewall_blocked', duration: 0 })
+    // Check firewall shield
+    const fwEffect2 = bot2.statusEffects.find(e => e.type === 'firewall')
+    if (fwEffect2) {
+      const shieldStrength = fwEffect2.data.shieldStrength || 9999
+      let atkDmg = calculateBasicAttackDamage(bot1, bot2, action2.action, counter1.type, bot1.momentumStreak)
+      
+      if (atkDmg <= shieldStrength) {
+        // Shield absorbs all damage
+        bot2.statusEffects = bot2.statusEffects.filter(e => e.type !== 'firewall')
+        effects.push({ bot: bot2.id, effect: 'firewall_blocked', duration: 0, value: atkDmg })
+        atkDmg = 0
+      } else {
+        // Damage exceeds shield
+        atkDmg -= shieldStrength
+        bot2.statusEffects = bot2.statusEffects.filter(e => e.type !== 'firewall')
+        effects.push({ bot: bot2.id, effect: 'firewall_broken', duration: 0, value: shieldStrength })
+      }
+      
+      // Confused: damage self instead
+      if (isConfused1) {
+        bot1.hp = Math.max(0, bot1.hp - Math.round(atkDmg * 0.5))
+        effects.push({ bot: bot1.id, effect: 'confused_self_hit', duration: 0, value: Math.round(atkDmg * 0.5) })
+        atkDmg = 0
+      }
+      bot1Damage += atkDmg
     } else {
-      let atkDmg = calculateDamage(bot1, bot2, action2.action, counter1.type, bot1.momentumStreak)
+      let atkDmg = calculateBasicAttackDamage(bot1, bot2, action2.action, counter1.type, bot1.momentumStreak)
       // Confused: damage self instead
       if (isConfused1) {
         bot1.hp = Math.max(0, bot1.hp - Math.round(atkDmg * 0.5))
@@ -684,18 +807,38 @@ export function resolveRound(
 
   // Defend counter-attack
   if (counter1.type === 'defend_vs_attack' && action2.action === 'attack') {
-    const blocked = calculateDamage(bot2, bot1, 'defend', 'none', 0)
+    const blocked = calculateBasicAttackDamage(bot2, bot1, 'defend', 'none', 0)
     bot1Damage += Math.max(1, Math.round(blocked * 0.25 * getMomentumMultiplier(bot1.momentumStreak)))
     effects.push({ bot: bot1.id, effect: 'counter_attack', duration: 0 })
   }
 
   if (action2.action === 'attack') {
-    const hasFirewall1 = bot1.statusEffects.some(e => e.type === 'firewall')
-    if (hasFirewall1) {
-      bot1.statusEffects = bot1.statusEffects.filter(e => e.type !== 'firewall')
-      effects.push({ bot: bot1.id, effect: 'firewall_blocked', duration: 0 })
+    // Check firewall shield
+    const fwEffect1 = bot1.statusEffects.find(e => e.type === 'firewall')
+    if (fwEffect1) {
+      const shieldStrength = fwEffect1.data.shieldStrength || 9999
+      let atkDmg = calculateBasicAttackDamage(bot2, bot1, action1.action, counter2.type, bot2.momentumStreak)
+      
+      if (atkDmg <= shieldStrength) {
+        // Shield absorbs all damage
+        bot1.statusEffects = bot1.statusEffects.filter(e => e.type !== 'firewall')
+        effects.push({ bot: bot1.id, effect: 'firewall_blocked', duration: 0, value: atkDmg })
+        atkDmg = 0
+      } else {
+        // Damage exceeds shield
+        atkDmg -= shieldStrength
+        bot1.statusEffects = bot1.statusEffects.filter(e => e.type !== 'firewall')
+        effects.push({ bot: bot1.id, effect: 'firewall_broken', duration: 0, value: shieldStrength })
+      }
+      
+      if (isConfused2) {
+        bot2.hp = Math.max(0, bot2.hp - Math.round(atkDmg * 0.5))
+        effects.push({ bot: bot2.id, effect: 'confused_self_hit', duration: 0, value: Math.round(atkDmg * 0.5) })
+        atkDmg = 0
+      }
+      bot2Damage += atkDmg
     } else {
-      let atkDmg = calculateDamage(bot2, bot1, action1.action, counter2.type, bot2.momentumStreak)
+      let atkDmg = calculateBasicAttackDamage(bot2, bot1, action1.action, counter2.type, bot2.momentumStreak)
       if (isConfused2) {
         bot2.hp = Math.max(0, bot2.hp - Math.round(atkDmg * 0.5))
         effects.push({ bot: bot2.id, effect: 'confused_self_hit', duration: 0, value: Math.round(atkDmg * 0.5) })
@@ -706,7 +849,7 @@ export function resolveRound(
   }
 
   if (counter2.type === 'defend_vs_attack' && action1.action === 'attack') {
-    const blocked = calculateDamage(bot1, bot2, 'defend', 'none', 0)
+    const blocked = calculateBasicAttackDamage(bot1, bot2, 'defend', 'none', 0)
     bot2Damage += Math.max(1, Math.round(blocked * 0.25 * getMomentumMultiplier(bot2.momentumStreak)))
     effects.push({ bot: bot2.id, effect: 'counter_attack', duration: 0 })
   }
@@ -715,12 +858,16 @@ export function resolveRound(
   const mirror1 = bot1.statusEffects.find(e => e.type === 'mirror_coat')
   const mirror2 = bot2.statusEffects.find(e => e.type === 'mirror_coat')
   if (mirror1 && bot2Damage > 0) {
-    const reflected = Math.round(bot2Damage * 0.5)
+    const reflectPct = mirror1.data.reflect_pct || 0.5
+    const maxReflect = mirror1.data.max_reflect || 999
+    const reflected = Math.min(maxReflect, Math.round(bot2Damage * reflectPct))
     bot1Damage += reflected
     effects.push({ bot: bot1.id, effect: 'mirror_reflect', duration: 0, value: reflected })
   }
   if (mirror2 && bot1Damage > 0) {
-    const reflected = Math.round(bot1Damage * 0.5)
+    const reflectPct = mirror2.data.reflect_pct || 0.5
+    const maxReflect = mirror2.data.max_reflect || 999
+    const reflected = Math.min(maxReflect, Math.round(bot1Damage * reflectPct))
     bot2Damage += reflected
     effects.push({ bot: bot2.id, effect: 'mirror_reflect', duration: 0, value: reflected })
   }
