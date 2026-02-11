@@ -22,6 +22,8 @@ interface DemoRound {
   bot2Counter: boolean
   bot1Energy: number
   bot2Energy: number
+  bot1Effect?: string // status effect applied
+  bot2Effect?: string
   isKO: boolean
 }
 
@@ -32,20 +34,66 @@ const BOT1_POS = { x: 18, y: 62 }
 const BOT2_POS = { x: 72, y: 22 }
 
 // ============================================================
-// Demo Data
+// Skill Database — descriptions + metadata for action log
 // ============================================================
 
-const BOT1 = { name: 'CLAWD-X9', level: 5, maxHp: 100, color: '#00f0ff' }
-const BOT2 = { name: 'NEUROVIPER', level: 7, maxHp: 100, color: '#ff4040' }
+interface SkillInfo {
+  name: string
+  emoji: string
+  type: 'aggressive' | 'defensive' | 'tactical' | 'exploit'
+  description: string
+  energyCost: number
+}
+
+const SKILLS: Record<string, SkillInfo> = {
+  'Power Strike':      { name: 'Power Strike',      emoji: '⚔️',  type: 'aggressive', description: 'Reliable direct damage (12-18)', energyCost: 10 },
+  'Reasoning Burst':   { name: 'Reasoning Burst',   emoji: '⚡',  type: 'aggressive', description: 'High damage energy beam (20-28)', energyCost: 30 },
+  'Spawn Attack':      { name: 'Spawn Attack',      emoji: '👻',  type: 'aggressive', description: 'Multi-hit: 3 strikes that break shields', energyCost: 20 },
+  'Berserker Rush':    { name: 'Berserker Rush',    emoji: '😤',  type: 'aggressive', description: '25 damage but take 8 self-damage', energyCost: 15 },
+  'Firewall':          { name: 'Firewall',          emoji: '🛡️',  type: 'defensive',  description: 'Block 100% of next incoming attack', energyCost: 15 },
+  'Iron Fortress':     { name: 'Iron Fortress',     emoji: '🏰',  type: 'defensive',  description: '+80% DEF for 2 rounds, can\'t attack', energyCost: 20 },
+  'Mirror Coat':       { name: 'Mirror Coat',       emoji: '🪞',  type: 'defensive',  description: 'Reflect 50% incoming damage for 1 round', energyCost: 25 },
+  'Rollback':          { name: 'Rollback',          emoji: '💚',  type: 'defensive',  description: 'Heal 15-20 HP (max 2 uses per match)', energyCost: 20 },
+  'Sleep Bomb':        { name: 'Sleep Bomb',        emoji: '💤',  type: 'tactical',   description: '60% chance opponent skips next turn', energyCost: 20 },
+  'EMP Pulse':         { name: 'EMP Pulse',         emoji: '🔋',  type: 'tactical',   description: 'Drain 30 energy from opponent', energyCost: 15 },
+  'Time Bomb':         { name: 'Time Bomb',         emoji: '💣',  type: 'tactical',   description: 'Plant bomb — explodes in 2 rounds for 25 dmg', energyCost: 20 },
+  'Overclock':         { name: 'Overclock',         emoji: '⏫',  type: 'tactical',   description: 'Skip turn, next attack does +50% damage', energyCost: 10 },
+  'Scan':              { name: 'Scan',              emoji: '🔍',  type: 'exploit',    description: 'Reveal opponent\'s next move for 1 round', energyCost: 15 },
+  'Prompt Injection':  { name: 'Prompt Injection',  emoji: '💉',  type: 'exploit',    description: '40% chance opponent\'s move targets themselves', energyCost: 25 },
+  'Memory Bomb':       { name: 'Memory Bomb',       emoji: '🧠',  type: 'exploit',    description: 'Disable opponent\'s last move for 2 rounds', energyCost: 20 },
+  'Virus':             { name: 'Virus',             emoji: '🦠',  type: 'exploit',    description: '5 damage/round for 3 rounds (DOT)', energyCost: 15 },
+  // Legacy aliases
+  'Stack Overflow':    { name: 'Stack Overflow',    emoji: '💥',  type: 'aggressive', description: 'Code cascade dealing moderate damage', energyCost: 15 },
+}
+
+function getSkill(name: string): SkillInfo {
+  return SKILLS[name] ?? { name, emoji: '⚔️', type: 'aggressive', description: 'Unknown move', energyCost: 10 }
+}
+
+// ============================================================
+// Demo Data — 8 rounds showcasing strategic combat
+// ============================================================
+
+const BOT1 = { name: 'CLAWD-X9', level: 8, maxHp: 100, color: '#00f0ff', type: '🧠 LOGIC' }
+const BOT2 = { name: 'NEUROVIPER', level: 10, maxHp: 100, color: '#ff4040', type: '💥 BRUTE' }
 
 const ROUNDS: DemoRound[] = [
-  { round: 1, bot1Move: 'Power Strike', bot1Type: 'aggressive', bot2Move: 'Firewall', bot2Type: 'defensive', bot1Dmg: 5, bot2Dmg: 0, bot1HpAfter: 100, bot2HpAfter: 95, bot1Counter: false, bot2Counter: true, bot1Energy: 85, bot2Energy: 80, isKO: false },
-  { round: 2, bot1Move: 'Reasoning Burst', bot1Type: 'aggressive', bot2Move: 'Spawn Attack', bot2Type: 'aggressive', bot1Dmg: 18, bot2Dmg: 14, bot1HpAfter: 86, bot2HpAfter: 77, bot1Counter: false, bot2Counter: false, bot1Energy: 65, bot2Energy: 40, isKO: false },
-  { round: 3, bot1Move: 'Scan', bot1Type: 'exploit', bot2Move: 'Memory Bomb', bot2Type: 'exploit', bot1Dmg: 8, bot2Dmg: 12, bot1HpAfter: 74, bot2HpAfter: 69, bot1Counter: false, bot2Counter: false, bot1Energy: 70, bot2Energy: 45, isKO: false },
-  { round: 4, bot1Move: 'Firewall', bot1Type: 'defensive', bot2Move: 'Stack Overflow', bot2Type: 'aggressive', bot1Dmg: 0, bot2Dmg: 4, bot1HpAfter: 74, bot2HpAfter: 65, bot1Counter: true, bot2Counter: false, bot1Energy: 75, bot2Energy: 20, isKO: false },
-  { round: 5, bot1Move: 'Time Bomb', bot1Type: 'tactical', bot2Move: 'Prompt Injection', bot2Type: 'exploit', bot1Dmg: 22, bot2Dmg: 10, bot1HpAfter: 64, bot2HpAfter: 43, bot1Counter: false, bot2Counter: false, bot1Energy: 60, bot2Energy: 30, isKO: false },
-  { round: 6, bot1Move: 'Spawn Attack', bot1Type: 'aggressive', bot2Move: 'Rollback', bot2Type: 'defensive', bot1Dmg: 3, bot2Dmg: 0, bot1HpAfter: 64, bot2HpAfter: 40, bot1Counter: false, bot2Counter: true, bot1Energy: 35, bot2Energy: 50, isKO: false },
-  { round: 7, bot1Move: 'Reasoning Burst', bot1Type: 'aggressive', bot2Move: 'Power Strike', bot2Type: 'aggressive', bot1Dmg: 40, bot2Dmg: 12, bot1HpAfter: 52, bot2HpAfter: 0, bot1Counter: true, bot2Counter: false, bot1Energy: 15, bot2Energy: 0, isKO: true },
+  // R1: Standard opener — both attack
+  { round: 1, bot1Move: 'Power Strike', bot1Type: 'aggressive', bot2Move: 'Power Strike', bot2Type: 'aggressive', bot1Dmg: 15, bot2Dmg: 14, bot1HpAfter: 86, bot2HpAfter: 85, bot1Counter: false, bot2Counter: false, bot1Energy: 90, bot2Energy: 90, isKO: false },
+  // R2: Bot1 scans, Bot2 plants virus — both tactical
+  { round: 2, bot1Move: 'Scan', bot1Type: 'exploit', bot2Move: 'Virus', bot2Type: 'exploit', bot1Dmg: 0, bot2Dmg: 0, bot1HpAfter: 86, bot2HpAfter: 85, bot1Counter: false, bot2Counter: false, bot1Energy: 75, bot2Energy: 75, bot2Effect: '🦠 Virus (3 rounds)', isKO: false },
+  // R3: Bot1 knows attack is coming (scanned), uses Mirror Coat! Bot2's nuke reflected
+  { round: 3, bot1Move: 'Mirror Coat', bot1Type: 'defensive', bot2Move: 'Reasoning Burst', bot2Type: 'aggressive', bot1Dmg: 12, bot2Dmg: 12, bot1HpAfter: 74, bot2HpAfter: 68, bot1Counter: true, bot2Counter: false, bot1Energy: 50, bot2Energy: 45, bot1Effect: '🪞 Reflected 12 dmg!', isKO: false },
+  // R4: Bot1 goes aggressive, Bot2 uses Firewall — blocked!
+  { round: 4, bot1Move: 'Spawn Attack', bot1Type: 'aggressive', bot2Move: 'Firewall', bot2Type: 'defensive', bot1Dmg: 0, bot2Dmg: 0, bot1HpAfter: 69, bot2HpAfter: 68, bot1Counter: false, bot2Counter: true, bot1Energy: 30, bot2Energy: 30, bot2Effect: '🛡️ Attack blocked!', isKO: false },
+  // R5: Bot2 tries Sleep Bomb — it lands! Bot1 will skip next turn
+  { round: 5, bot1Move: 'EMP Pulse', bot1Type: 'tactical', bot2Move: 'Sleep Bomb', bot2Type: 'tactical', bot1Dmg: 0, bot2Dmg: 0, bot1HpAfter: 64, bot2HpAfter: 68, bot1Counter: false, bot2Counter: false, bot1Energy: 15, bot2Energy: 0, bot1Effect: '💤 Asleep! Skipping next turn', bot2Effect: '🔋 -30 energy drained!', isKO: false },
+  // R6: Bot1 is asleep! Bot2 uses Overclock to power up
+  { round: 6, bot1Move: 'Sleeping...', bot1Type: 'defensive', bot2Move: 'Overclock', bot2Type: 'tactical', bot1Dmg: 0, bot2Dmg: 0, bot1HpAfter: 59, bot2HpAfter: 68, bot1Counter: false, bot2Counter: false, bot1Energy: 25, bot2Energy: 10, bot2Effect: '⏫ Next attack +50% damage!', isKO: false },
+  // R7: Bot1 wakes up and heals, Bot2 unleashes powered-up Berserker Rush!
+  { round: 7, bot1Move: 'Rollback', bot1Type: 'defensive', bot2Move: 'Berserker Rush', bot2Type: 'aggressive', bot1Dmg: 37, bot2Dmg: 0, bot1HpAfter: 39, bot2HpAfter: 60, bot1Counter: false, bot2Counter: false, bot1Energy: 5, bot2Energy: 0, bot1Effect: '💚 Healed +17 HP!', bot2Effect: '😤 Self-damage: -8 HP', isKO: false },
+  // R8: Bot1 desperate — Reasoning Burst with type advantage! Bot2 down!
+  { round: 8, bot1Move: 'Reasoning Burst', bot1Type: 'aggressive', bot2Move: 'Power Strike', bot2Type: 'aggressive', bot1Dmg: 60, bot2Dmg: 12, bot1HpAfter: 27, bot2HpAfter: 0, bot1Counter: true, bot2Counter: false, bot1Energy: 0, bot2Energy: 0, bot1Effect: '🧠 LOGIC vs BRUTE: +20% damage!', isKO: true },
 ]
 
 // ============================================================
@@ -500,9 +548,9 @@ function BotSprite({ side, color, anim }: { side: 'player' | 'opponent'; color: 
 // HP Panel
 // ============================================================
 
-function HPPanel({ name, level, hp, maxHp, energy, maxEnergy, side, showDmg, dmgAmount, isCounter }: {
+function HPPanel({ name, level, hp, maxHp, energy, maxEnergy, side, showDmg, dmgAmount, isCounter, botType }: {
   name: string; level: number; hp: number; maxHp: number; energy: number; maxEnergy: number
-  side: 'player' | 'opponent'; showDmg: boolean; dmgAmount: number; isCounter: boolean
+  side: 'player' | 'opponent'; showDmg: boolean; dmgAmount: number; isCounter: boolean; botType?: string
 }) {
   const [displayHp, setDisplayHp] = useState(hp)
   const [delayHp, setDelayHp] = useState(hp)
@@ -522,7 +570,8 @@ function HPPanel({ name, level, hp, maxHp, energy, maxEnergy, side, showDmg, dmg
       <div className={`inline-block bg-[#0a0a1aee] border rounded-lg px-4 py-2.5 backdrop-blur-sm min-w-[220px] sm:min-w-[280px] ${side === 'opponent' ? 'border-red-800/40' : 'border-cyan-800/40'}`}>
         <div className="flex justify-between items-center mb-1.5">
           <span className="font-bold text-sm text-white tracking-wide" style={{ fontFamily: 'Orbitron, sans-serif' }}>{name}</span>
-          <span className="text-[10px] text-gray-400 font-mono ml-3">Lv.{level}</span>
+          <span className="text-[10px] text-gray-400 font-mono ml-2">Lv.{level}</span>
+          {botType && <span className="text-[9px] text-gray-500 ml-1.5">{botType}</span>}
         </div>
         <div className="relative h-3.5 bg-gray-800 rounded-full overflow-hidden mb-1 border border-gray-700/50">
           <div className="absolute inset-0 h-full rounded-full transition-all duration-[800ms] ease-out" style={{ width: `${delayPct}%`, background: '#991b1b' }} />
@@ -601,43 +650,60 @@ export default function MatchV2Page() {
     if (r.isKO) setSlowMo(true)
 
     // BOT1 ATTACKS
-    setAnnouncement({ text: r.bot1Move.toUpperCase(), color: TYPE_COLORS[r.bot1Type] })
-    addLog(`${BOT1.name} uses ${r.bot1Move}!`)
-    await delay(1200)
+    const isSleeping1 = r.bot1Move === 'Sleeping...'
+    if (isSleeping1) {
+      setAnnouncement({ text: '💤 SLEEPING...', color: '#8844cc' })
+      addLog(`${BOT1.name} is asleep! 💤 Turn skipped.`)
+      await delay(1500)
+      setAnnouncement(null)
+      await delay(400)
+    } else {
+      const sk1 = getSkill(r.bot1Move)
+      setAnnouncement({ text: `${sk1.emoji} ${r.bot1Move.toUpperCase()}`, color: TYPE_COLORS[r.bot1Type] })
+      addLog(`${BOT1.name} uses ${r.bot1Move}! ${sk1.emoji}`)
+      addLog(`  "${sk1.description}" (-${sk1.energyCost} ⚡)`)
+      await delay(1200)
 
-    setBot1Anim('attack-right')
-    await delay(300)
-    setShowEffect(getAttackEffect(r.bot1Move, 'bot2'))
-    await delay(800)
+      setBot1Anim('attack-right')
+      await delay(300)
+      setShowEffect(getAttackEffect(r.bot1Move, 'bot2'))
+      await delay(800)
 
-    if (r.bot1Dmg > 0) {
-      setBot1Anim('idle')
-      setBot2Anim('hit')
-      setShowBot2Dmg(true)
-      if (r.bot1Dmg >= 15 || r.bot1Counter) {
-        setScreenShake(true); setScreenFlash(true)
-        setTimeout(() => setScreenFlash(false), 200 / speed)
-        setTimeout(() => setScreenShake(false), 400 / speed)
+      if (r.bot1Dmg > 0) {
+        setBot1Anim('idle')
+        setBot2Anim('hit')
+        setShowBot2Dmg(true)
+        if (r.bot1Dmg >= 15 || r.bot1Counter) {
+          setScreenShake(true); setScreenFlash(true)
+          setTimeout(() => setScreenFlash(false), 200 / speed)
+          setTimeout(() => setScreenShake(false), 400 / speed)
+        }
+        if (r.bot1Counter) {
+          setCounterBanner(true)
+          addLog('  ⚡ COUNTER!')
+          setTimeout(() => setCounterBanner(false), 1400 / speed)
+        }
+        addLog(`  → ${r.bot1Dmg} damage to ${BOT2.name}`)
+        await delay(1000)
+        setBot2Anim('idle')
+        setShowBot2Dmg(false)
+      } else {
+        setBot1Anim('idle')
+        if (r.bot1Dmg === 0 && r.bot2Effect?.includes('blocked')) addLog(`  → Attack BLOCKED!`)
       }
-      if (r.bot1Counter) {
-        setCounterBanner(true)
-        addLog('  ⚡ COUNTER!')
-        setTimeout(() => setCounterBanner(false), 1400 / speed)
-      }
-      addLog(`  → ${r.bot1Dmg} damage to ${BOT2.name}`)
-      await delay(1000)
-      setBot2Anim('idle')
-      setShowBot2Dmg(false)
-    } else { setBot1Anim('idle') }
-    setShowEffect(null)
-    setAnnouncement(null)
+      if (r.bot2Effect) addLog(`  ${r.bot2Effect}`)
+      setShowEffect(null)
+      setAnnouncement(null)
+    } // end non-sleeping bot1
     setBot2Hp(r.bot2HpAfter)
     await delay(600)
 
     // BOT2 ATTACKS (if alive)
     if (r.bot2HpAfter > 0 && !cancelRef.current) {
-      setAnnouncement({ text: r.bot2Move.toUpperCase(), color: TYPE_COLORS[r.bot2Type] })
-      addLog(`${BOT2.name} uses ${r.bot2Move}!`)
+      const sk2 = getSkill(r.bot2Move)
+      setAnnouncement({ text: `${sk2.emoji} ${r.bot2Move.toUpperCase()}`, color: TYPE_COLORS[r.bot2Type] })
+      addLog(`${BOT2.name} uses ${r.bot2Move}! ${sk2.emoji}`)
+      addLog(`  "${sk2.description}" (-${sk2.energyCost} ⚡)`)
       await delay(1200)
 
       setBot2Anim('attack-left')
@@ -662,7 +728,11 @@ export default function MatchV2Page() {
         await delay(1000)
         setBot1Anim('idle')
         setShowBot1Dmg(false)
-      } else { setBot2Anim('idle') }
+      } else {
+        setBot2Anim('idle')
+        if (r.bot2Dmg === 0 && r.bot1Effect?.includes('blocked')) addLog(`  → Attack BLOCKED!`)
+      }
+      if (r.bot1Effect) addLog(`  ${r.bot1Effect}`)
       setShowEffect(null)
       setAnnouncement(null)
     }
@@ -807,17 +877,17 @@ export default function MatchV2Page() {
         </div>
 
         <div className="absolute top-3 right-3 sm:top-4 sm:right-4 z-30">
-          <HPPanel name={BOT2.name} level={BOT2.level} hp={bot2Hp} maxHp={BOT2.maxHp} energy={bot2Energy} maxEnergy={100} side="opponent" showDmg={showBot2Dmg} dmgAmount={curRound?.bot1Dmg ?? 0} isCounter={curRound?.bot1Counter ?? false} />
+          <HPPanel name={BOT2.name} level={BOT2.level} hp={bot2Hp} maxHp={BOT2.maxHp} energy={bot2Energy} maxEnergy={100} side="opponent" showDmg={showBot2Dmg} dmgAmount={curRound?.bot1Dmg ?? 0} isCounter={curRound?.bot1Counter ?? false} botType={BOT2.type} />
         </div>
         <div className="absolute bottom-3 left-3 sm:bottom-4 sm:left-4 z-30">
-          <HPPanel name={BOT1.name} level={BOT1.level} hp={bot1Hp} maxHp={BOT1.maxHp} energy={bot1Energy} maxEnergy={100} side="player" showDmg={showBot1Dmg} dmgAmount={curRound?.bot2Dmg ?? 0} isCounter={curRound?.bot2Counter ?? false} />
+          <HPPanel name={BOT1.name} level={BOT1.level} hp={bot1Hp} maxHp={BOT1.maxHp} energy={bot1Energy} maxEnergy={100} side="player" showDmg={showBot1Dmg} dmgAmount={curRound?.bot2Dmg ?? 0} isCounter={curRound?.bot2Counter ?? false} botType={BOT1.type} />
         </div>
 
         {phase === 'result' && (
           <div className="absolute inset-0 flex items-center justify-center z-50 bg-black/60 animate-fade-in">
             <div className="text-center animate-victory-pop">
               <div className="text-6xl sm:text-8xl font-black mb-4" style={{ fontFamily: 'Orbitron, sans-serif', color: '#00f0ff', textShadow: '0 0 50px #00f0ff88, 0 0 100px #00f0ff44' }}>VICTORY</div>
-              <div className="text-lg sm:text-xl text-gray-300 font-mono">{BOT1.name} wins in {ROUNDS.length} rounds</div>
+              <div className="text-lg sm:text-xl text-gray-300 font-mono">{BOT1.name} wins in {currentRound + 1} rounds</div>
               <div className="mt-5 flex gap-8 justify-center text-base sm:text-lg font-mono font-bold">
                 <div className="text-green-400">+32 ELO ↑</div>
                 <div className="text-amber-400">+180 CR</div>
@@ -839,7 +909,18 @@ export default function MatchV2Page() {
                log.includes('damage') ? <span className="text-red-400">{log}</span> :
                log.includes('is down') ? <span className="text-red-500 font-bold">{log}</span> :
                log.startsWith('══') ? <span className="text-gray-500 font-bold">{log}</span> :
-               log.includes('MATCH START') ? <span className="text-cyan-300 font-bold">{log}</span> : log}
+               log.includes('MATCH START') ? <span className="text-cyan-300 font-bold">{log}</span> :
+               log.startsWith('  "') ? <span className="text-gray-500 italic">{log}</span> :
+               log.includes('blocked') || log.includes('BLOCKED') ? <span className="text-cyan-400">{log}</span> :
+               log.includes('Healed') || log.includes('💚') ? <span className="text-green-400">{log}</span> :
+               log.includes('Asleep') || log.includes('💤') || log.includes('Sleeping') ? <span className="text-purple-400">{log}</span> :
+               log.includes('drained') || log.includes('🔋') ? <span className="text-yellow-400">{log}</span> :
+               log.includes('Reflected') || log.includes('🪞') ? <span className="text-cyan-300">{log}</span> :
+               log.includes('Virus') || log.includes('🦠') ? <span className="text-green-500">{log}</span> :
+               log.includes('Self-damage') || log.includes('😤') ? <span className="text-orange-400">{log}</span> :
+               log.includes('⏫') || log.includes('+50%') ? <span className="text-amber-300">{log}</span> :
+               log.includes('LOGIC') || log.includes('BRUTE') || log.includes('SHIELD') || log.includes('CHAOS') ? <span className="text-cyan-400 font-bold">{log}</span> :
+               log}
             </div>
           ))}
         </div>
