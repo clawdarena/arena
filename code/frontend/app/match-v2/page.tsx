@@ -62,6 +62,7 @@ const SKILLS: Record<string, SkillInfo> = {
   'Prompt Injection':  { name: 'Prompt Injection',  emoji: '💉',  type: 'exploit',    description: '40% chance opponent\'s move targets themselves', energyCost: 25 },
   'Memory Bomb':       { name: 'Memory Bomb',       emoji: '🧠',  type: 'exploit',    description: 'Disable opponent\'s last move for 2 rounds', energyCost: 20 },
   'Virus':             { name: 'Virus',             emoji: '🦠',  type: 'exploit',    description: '5 damage/round for 3 rounds (DOT)', energyCost: 15 },
+  'Agent Overflow':    { name: 'Agent Overflow',    emoji: '🤖',  type: 'tactical',   description: 'Spawn 6 sub-agents to overwhelm opponent', energyCost: 35 },
   // Legacy aliases
   'Stack Overflow':    { name: 'Stack Overflow',    emoji: '💥',  type: 'aggressive', description: 'Code cascade dealing moderate damage', energyCost: 15 },
 }
@@ -84,16 +85,16 @@ const ROUNDS: DemoRound[] = [
   { round: 2, bot1Move: 'Scan', bot1Type: 'exploit', bot2Move: 'Virus', bot2Type: 'exploit', bot1Dmg: 0, bot2Dmg: 0, bot1HpAfter: 86, bot2HpAfter: 85, bot1Counter: false, bot2Counter: false, bot1Energy: 75, bot2Energy: 75, bot2Effect: '🦠 Virus (3 rounds)', isKO: false },
   // R3: Bot1 knows attack is coming (scanned), uses Mirror Coat! Bot2's nuke reflected
   { round: 3, bot1Move: 'Mirror Coat', bot1Type: 'defensive', bot2Move: 'Reasoning Burst', bot2Type: 'aggressive', bot1Dmg: 12, bot2Dmg: 12, bot1HpAfter: 74, bot2HpAfter: 68, bot1Counter: true, bot2Counter: false, bot1Energy: 50, bot2Energy: 45, bot1Effect: '🪞 Reflected 12 dmg!', isKO: false },
-  // R4: Bot1 goes aggressive, Bot2 uses Firewall — blocked!
-  { round: 4, bot1Move: 'Spawn Attack', bot1Type: 'aggressive', bot2Move: 'Firewall', bot2Type: 'defensive', bot1Dmg: 0, bot2Dmg: 0, bot1HpAfter: 69, bot2HpAfter: 68, bot1Counter: false, bot2Counter: true, bot1Energy: 30, bot2Energy: 30, bot2Effect: '🛡️ Attack blocked!', isKO: false },
+  // R4: Bot1 unleashes Agent Overflow — 6 sub-agents swarm Bot2! Bot2 defends but can't block them all
+  { round: 4, bot1Move: 'Agent Overflow', bot1Type: 'tactical', bot2Move: 'Firewall', bot2Type: 'defensive', bot1Dmg: 18, bot2Dmg: 0, bot1HpAfter: 74, bot2HpAfter: 50, bot1Counter: false, bot2Counter: false, bot1Energy: 15, bot2Energy: 30, bot2Effect: '🤖 Overwhelmed by sub-agents!', isKO: false },
   // R5: Bot2 tries Sleep Bomb — it lands! Bot1 will skip next turn
-  { round: 5, bot1Move: 'EMP Pulse', bot1Type: 'tactical', bot2Move: 'Sleep Bomb', bot2Type: 'tactical', bot1Dmg: 0, bot2Dmg: 0, bot1HpAfter: 64, bot2HpAfter: 68, bot1Counter: false, bot2Counter: false, bot1Energy: 15, bot2Energy: 0, bot1Effect: '💤 Asleep! Skipping next turn', bot2Effect: '🔋 -30 energy drained!', isKO: false },
+  { round: 5, bot1Move: 'EMP Pulse', bot1Type: 'tactical', bot2Move: 'Sleep Bomb', bot2Type: 'tactical', bot1Dmg: 0, bot2Dmg: 0, bot1HpAfter: 69, bot2HpAfter: 50, bot1Counter: false, bot2Counter: false, bot1Energy: 0, bot2Energy: 0, bot1Effect: '💤 Asleep! Skipping next turn', bot2Effect: '🔋 -30 energy drained!', isKO: false },
   // R6: Bot1 is asleep! Bot2 uses Overclock to power up
-  { round: 6, bot1Move: 'Sleeping...', bot1Type: 'defensive', bot2Move: 'Overclock', bot2Type: 'tactical', bot1Dmg: 0, bot2Dmg: 0, bot1HpAfter: 59, bot2HpAfter: 68, bot1Counter: false, bot2Counter: false, bot1Energy: 25, bot2Energy: 10, bot2Effect: '⏫ Next attack +50% damage!', isKO: false },
+  { round: 6, bot1Move: 'Sleeping...', bot1Type: 'defensive', bot2Move: 'Overclock', bot2Type: 'tactical', bot1Dmg: 0, bot2Dmg: 0, bot1HpAfter: 64, bot2HpAfter: 50, bot1Counter: false, bot2Counter: false, bot1Energy: 10, bot2Energy: 0, bot2Effect: '⏫ Next attack +50% damage!', isKO: false },
   // R7: Bot1 wakes up and heals, Bot2 unleashes powered-up Berserker Rush!
-  { round: 7, bot1Move: 'Rollback', bot1Type: 'defensive', bot2Move: 'Berserker Rush', bot2Type: 'aggressive', bot1Dmg: 37, bot2Dmg: 0, bot1HpAfter: 39, bot2HpAfter: 60, bot1Counter: false, bot2Counter: false, bot1Energy: 5, bot2Energy: 0, bot1Effect: '💚 Healed +17 HP!', bot2Effect: '😤 Self-damage: -8 HP', isKO: false },
+  { round: 7, bot1Move: 'Rollback', bot1Type: 'defensive', bot2Move: 'Berserker Rush', bot2Type: 'aggressive', bot1Dmg: 37, bot2Dmg: 0, bot1HpAfter: 44, bot2HpAfter: 42, bot1Counter: false, bot2Counter: false, bot1Energy: 0, bot2Energy: 0, bot1Effect: '💚 Healed +17 HP!', bot2Effect: '😤 Self-damage: -8 HP', isKO: false },
   // R8: Bot1 desperate — Reasoning Burst with type advantage! Bot2 down!
-  { round: 8, bot1Move: 'Reasoning Burst', bot1Type: 'aggressive', bot2Move: 'Power Strike', bot2Type: 'aggressive', bot1Dmg: 60, bot2Dmg: 12, bot1HpAfter: 27, bot2HpAfter: 0, bot1Counter: true, bot2Counter: false, bot1Energy: 0, bot2Energy: 0, bot1Effect: '🧠 LOGIC vs BRUTE: +20% damage!', isKO: true },
+  { round: 8, bot1Move: 'Reasoning Burst', bot1Type: 'aggressive', bot2Move: 'Power Strike', bot2Type: 'aggressive', bot1Dmg: 12, bot2Dmg: 45, bot1HpAfter: 32, bot2HpAfter: 0, bot1Counter: true, bot2Counter: false, bot1Energy: 0, bot2Energy: 0, bot1Effect: '🧠 LOGIC vs BRUTE: +20% damage!', isKO: true },
 ]
 
 // ============================================================
@@ -531,6 +532,93 @@ function BerserkerRushEffect({ target }: { target: 'bot1' | 'bot2' }) {
   )
 }
 
+function AgentOverflowEffect({ target }: { target: 'bot1' | 'bot2' }) {
+  const from = target === 'bot2' ? BOT1_POS : BOT2_POS
+  const to = target === 'bot2' ? BOT2_POS : BOT1_POS
+  const messages = ['TASK COMPLETE', 'SUBPROCESS', 'MULTITHREAD', 'SPAWNING', 'EXECUTING', 'OVERLOAD']
+  
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30">
+      {/* Spawn 6 mini agent heads */}
+      {[...Array(6)].map((_,i) => {
+        const angle = (i / 6) * 360
+        const startX = from.x + Math.cos(angle * Math.PI / 180) * 8
+        const startY = from.y + Math.sin(angle * Math.PI / 180) * 8
+        
+        return (
+          <div key={i} className="absolute animate-agent-swarm-slow" style={{
+            left: `${startX}%`,
+            top: `${startY}%`,
+            animationDelay: `${i * 0.1}s`,
+            '--swarm-dx': `${to.x - startX}%`,
+            '--swarm-dy': `${to.y - startY}%`,
+          } as React.CSSProperties}>
+            {/* Mini bot head */}
+            <svg viewBox="0 0 24 24" className="w-6 h-6" style={{ filter: 'drop-shadow(0 0 4px #00f0ff)' }}>
+              <circle cx="12" cy="12" r="10" fill="#00f0ff" opacity="0.3" />
+              <rect x="7" y="8" width="4" height="3" rx="1" fill="#00f0ff" opacity="0.8" />
+              <rect x="13" y="8" width="4" height="3" rx="1" fill="#00f0ff" opacity="0.8" />
+              <rect x="9" y="14" width="6" height="2" rx="1" fill="#00f0ff" opacity="0.6" />
+            </svg>
+            {/* Task bubble */}
+            <div className="absolute -top-4 left-0 text-[6px] font-mono whitespace-nowrap animate-task-bubble-slow" style={{
+              color: '#00f0ff',
+              textShadow: '0 0 4px #00f0ff',
+              animationDelay: `${i * 0.1 + 0.3}s`,
+            }}>
+              {messages[i]}
+            </div>
+          </div>
+        )
+      })}
+      
+      {/* System overload effect at target */}
+      <div className="absolute animate-system-overload-slow" style={{
+        left: `${to.x}%`,
+        top: `${to.y}%`,
+        transform: 'translate(-50%,-50%)',
+        animationDelay: '0.6s',
+      }}>
+        <div className="relative w-32 h-32">
+          {/* Glitch lines */}
+          {[...Array(8)].map((_,i) => (
+            <div key={i} className="absolute animate-glitch-line-slow" style={{
+              left: '0',
+              right: '0',
+              top: `${i * 15}%`,
+              height: '2px',
+              background: 'linear-gradient(90deg, transparent, #ff4040, transparent)',
+              animationDelay: `${0.6 + i * 0.05}s`,
+            }} />
+          ))}
+          {/* Warning text */}
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 animate-warning-flash-slow" style={{ animationDelay: '0.7s' }}>
+            <div className="text-xs font-mono font-bold text-red-400" style={{ textShadow: '0 0 8px #ff4040' }}>
+              SYSTEM
+            </div>
+            <div className="text-xs font-mono font-bold text-red-400" style={{ textShadow: '0 0 8px #ff4040' }}>
+              OVERLOAD
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      {/* Explosion particles */}
+      {[...Array(16)].map((_,i) => (
+        <div key={i} className="absolute w-1.5 h-1.5 rounded-full animate-overload-particle-slow" style={{
+          left: `${to.x}%`,
+          top: `${to.y}%`,
+          background: i % 3 === 0 ? '#ff4040' : i % 3 === 1 ? '#ffaa00' : '#00f0ff',
+          boxShadow: '0 0 6px currentColor',
+          animationDelay: `${0.8 + i * 0.03}s`,
+          '--particle-angle': `${(i / 16) * 360}deg`,
+          '--particle-dist': `${40 + Math.random() * 30}px`,
+        } as React.CSSProperties} />
+      ))}
+    </div>
+  )
+}
+
 function getAttackEffect(moveName: string, target: 'bot1' | 'bot2') {
   switch (moveName) {
     case 'Power Strike': return <PowerStrikeEffect target={target} />
@@ -549,6 +637,7 @@ function getAttackEffect(moveName: string, target: 'bot1' | 'bot2') {
     case 'Sleep Bomb': return <SleepBombEffect target={target} />
     case 'Overclock': return <OverclockEffect target={target} />
     case 'Berserker Rush': return <BerserkerRushEffect target={target} />
+    case 'Agent Overflow': return <AgentOverflowEffect target={target} />
     default: return <PowerStrikeEffect target={target} />
   }
 }
@@ -1265,6 +1354,55 @@ export default function MatchV2Page() {
 
         @keyframes impact-shockwave-slow { 0% { width: 0; height: 0; opacity: 1; } 100% { width: 140px; height: 140px; opacity: 0; } }
         .animate-impact-shockwave-slow { animation: impact-shockwave-slow 0.6s ease-out forwards; }
+
+        @keyframes agent-swarm-slow { 
+          0% { opacity: 0; transform: translate(0, 0) scale(0); } 
+          15% { opacity: 1; transform: translate(0, 0) scale(1); }
+          70% { opacity: 1; }
+          100% { opacity: 0; transform: translate(var(--swarm-dx), var(--swarm-dy)) scale(0.5); } 
+        }
+        .animate-agent-swarm-slow { animation: agent-swarm-slow 1s ease-in forwards; }
+
+        @keyframes task-bubble-slow { 
+          0% { opacity: 0; transform: translateY(0); } 
+          30% { opacity: 1; transform: translateY(-8px); }
+          70% { opacity: 1; }
+          100% { opacity: 0; transform: translateY(-16px); } 
+        }
+        .animate-task-bubble-slow { animation: task-bubble-slow 0.8s ease-out forwards; }
+
+        @keyframes system-overload-slow { 
+          0% { opacity: 0; transform: translate(-50%,-50%) scale(0.5); } 
+          40% { opacity: 1; transform: translate(-50%,-50%) scale(1.2); }
+          100% { opacity: 0; transform: translate(-50%,-50%) scale(1.5); } 
+        }
+        .animate-system-overload-slow { animation: system-overload-slow 1s ease-out forwards; }
+
+        @keyframes glitch-line-slow { 
+          0%, 100% { opacity: 0; transform: translateX(-20px); } 
+          30%, 70% { opacity: 0.8; transform: translateX(0); }
+          50% { transform: translateX(10px); }
+        }
+        .animate-glitch-line-slow { animation: glitch-line-slow 0.4s ease-out forwards; }
+
+        @keyframes warning-flash-slow { 
+          0%, 100% { opacity: 0; } 
+          20%, 40%, 60%, 80% { opacity: 1; }
+          30%, 50%, 70% { opacity: 0.3; }
+        }
+        .animate-warning-flash-slow { animation: warning-flash-slow 1s ease-out forwards; }
+
+        @keyframes overload-particle-slow { 
+          0% { opacity: 1; transform: translate(0, 0) scale(1); } 
+          100% { 
+            opacity: 0; 
+            transform: translate(
+              calc(cos(var(--particle-angle)) * var(--particle-dist)), 
+              calc(sin(var(--particle-angle)) * var(--particle-dist))
+            ) scale(0); 
+          } 
+        }
+        .animate-overload-particle-slow { animation: overload-particle-slow 0.7s ease-out forwards; }
 
         .scrollbar-thin::-webkit-scrollbar { width: 4px; }
         .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
