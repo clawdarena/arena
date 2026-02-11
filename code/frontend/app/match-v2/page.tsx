@@ -361,6 +361,176 @@ function RollbackEffect({ defender }: { defender: 'bot1' | 'bot2' }) {
   )
 }
 
+function VirusEffect({ target }: { target: 'bot1' | 'bot2' }) {
+  const pos = target === 'bot2' ? BOT2_POS : BOT1_POS
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30">
+      {[...Array(16)].map((_,i) => (
+        <div key={i} className="absolute w-3 h-3 animate-virus-spread-slow" style={{
+          left: `${pos.x}%`, top: `${pos.y}%`,
+          animationDelay: `${i*0.08}s`,
+          '--virus-angle': `${(i/16)*360}deg`,
+          '--virus-dist': `${25+Math.random()*35}px`,
+        } as React.CSSProperties}>
+          <div className="w-full h-full rounded-full" style={{
+            background: 'radial-gradient(circle, #00ff00, #00aa00)',
+            boxShadow: '0 0 8px #00ff00',
+          }}>
+            <div className="absolute inset-0 text-[8px] flex items-center justify-center">🦠</div>
+          </div>
+        </div>
+      ))}
+      <div className="absolute animate-virus-cloud-slow" style={{
+        left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%,-50%)',
+        width: '80px', height: '80px',
+        background: 'radial-gradient(circle, rgba(0,255,0,0.3), transparent)',
+      }} />
+    </div>
+  )
+}
+
+function MirrorCoatEffect({ defender }: { defender: 'bot1' | 'bot2' }) {
+  const pos = defender === 'bot1' ? BOT1_POS : BOT2_POS
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30">
+      <div className="absolute animate-mirror-shine-slow" style={{
+        left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%,-50%)',
+      }}>
+        <svg viewBox="0 0 120 140" className="w-32 h-40" style={{ filter: 'drop-shadow(0 0 12px #c0c0ff)' }}>
+          {/* Mirror surface */}
+          <rect x="20" y="20" width="80" height="100" rx="5" fill="url(#mirror-grad)" stroke="#e0e0ff" strokeWidth="3" opacity="0.6" />
+          <rect x="25" y="25" width="70" height="90" rx="3" fill="rgba(255,255,255,0.1)" stroke="#ffffff" strokeWidth="1" opacity="0.3" />
+          {/* Shine streaks */}
+          {[30,50,70].map((x,i) => (
+            <line key={i} x1={x} y1="20" x2={x+30} y2="120" stroke="white" strokeWidth="2" opacity="0.4" className="animate-shine-streak" style={{ animationDelay: `${i*0.15}s` }} />
+          ))}
+          <defs>
+            <linearGradient id="mirror-grad" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="#c0c0ff" />
+              <stop offset="50%" stopColor="#8080ff" />
+              <stop offset="100%" stopColor="#4040cc" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+    </div>
+  )
+}
+
+function EMPPulseEffect({ target }: { target: 'bot1' | 'bot2' }) {
+  const pos = target === 'bot2' ? BOT2_POS : BOT1_POS
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30">
+      {[0,1,2].map(i => (
+        <div key={i} className="absolute rounded-full animate-emp-ring-slow" style={{
+          left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%,-50%)',
+          border: `${3-i}px solid #ffff00`,
+          boxShadow: `0 0 20px #ffff00`,
+          animationDelay: `${i*0.2}s`,
+        }} />
+      ))}
+      {[...Array(12)].map((_,i) => (
+        <div key={i} className="absolute animate-emp-bolt-slow" style={{
+          left: `${pos.x}%`, top: `${pos.y}%`,
+          animationDelay: `${i*0.06}s`,
+          '--bolt-angle': `${(i/12)*360}deg`,
+          '--bolt-dist': '40px',
+        } as React.CSSProperties}>
+          <div className="w-1 h-6 bg-gradient-to-b from-yellow-400 to-transparent" style={{
+            boxShadow: '0 0 8px #ffff00',
+          }} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function SleepBombEffect({ target }: { target: 'bot1' | 'bot2' }) {
+  const pos = target === 'bot2' ? BOT2_POS : BOT1_POS
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30">
+      <div className="absolute w-12 h-12 rounded-full animate-sleep-cloud-slow" style={{
+        left: `${pos.x}%`, top: `${pos.y-10}%`, transform: 'translate(-50%,-50%)',
+        background: 'radial-gradient(circle, #8844cc, #4422aa)',
+        boxShadow: '0 0 30px #8844cc88',
+      }} />
+      {[...Array(8)].map((_,i) => (
+        <div key={i} className="absolute text-2xl animate-sleep-z-float-slow" style={{
+          left: `${pos.x-4+Math.random()*8}%`,
+          top: `${pos.y-8}%`,
+          animationDelay: `${i*0.2}s`,
+          opacity: 0.8,
+        }}>💤</div>
+      ))}
+    </div>
+  )
+}
+
+function OverclockEffect({ target }: { target: 'bot1' | 'bot2' }) {
+  const pos = target === 'bot2' ? BOT2_POS : BOT1_POS
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30">
+      <div className="absolute animate-overclock-glow-slow" style={{
+        left: `${pos.x}%`, top: `${pos.y}%`, transform: 'translate(-50%,-50%)',
+        width: '100px', height: '120px',
+        background: 'radial-gradient(circle, rgba(255,200,0,0.4), transparent)',
+        boxShadow: '0 0 40px #ffaa00',
+      }} />
+      {[-30,-15,0,15,30].map((angle,i) => (
+        <div key={i} className="absolute animate-speed-line-slow" style={{
+          left: `${pos.x}%`, top: `${pos.y}%`,
+          width: '60px', height: '2px',
+          background: 'linear-gradient(90deg, transparent, #ffaa00, transparent)',
+          transform: `rotate(${angle}deg)`,
+          animationDelay: `${i*0.1}s`,
+        }} />
+      ))}
+      {[...Array(10)].map((_,i) => (
+        <div key={i} className="absolute w-1 h-1 rounded-full animate-spark-fast-slow" style={{
+          left: `${pos.x}%`, top: `${pos.y}%`,
+          background: '#ffff00',
+          boxShadow: '0 0 6px #ffff00',
+          animationDelay: `${i*0.08}s`,
+          '--spark-angle': `${(i/10)*360}deg`,
+        } as React.CSSProperties} />
+      ))}
+    </div>
+  )
+}
+
+function BerserkerRushEffect({ target }: { target: 'bot1' | 'bot2' }) {
+  const from = target === 'bot2' ? BOT1_POS : BOT2_POS
+  const to = target === 'bot2' ? BOT2_POS : BOT1_POS
+  return (
+    <div className="absolute inset-0 pointer-events-none z-30">
+      <div className="absolute animate-berserker-charge-slow" style={{
+        left: `${from.x}%`, top: `${from.y}%`,
+        '--charge-dx': `${to.x-from.x}%`,
+        '--charge-dy': `${to.y-from.y}%`,
+      } as React.CSSProperties}>
+        <div className="w-24 h-28 rounded-lg" style={{
+          background: 'radial-gradient(circle, rgba(255,60,60,0.6), transparent)',
+          boxShadow: '0 0 40px #ff4040',
+        }} />
+      </div>
+      {[...Array(12)].map((_,i) => (
+        <div key={i} className="absolute w-2 h-2 rounded-full animate-rage-particle-slow" style={{
+          left: `${to.x}%`, top: `${to.y}%`,
+          background: '#ff4040',
+          boxShadow: '0 0 10px #ff4040',
+          animationDelay: `${0.5+i*0.04}s`,
+          '--rage-angle': `${(i/12)*360}deg`,
+        } as React.CSSProperties} />
+      ))}
+      <div className="absolute w-28 h-28 rounded-full animate-impact-shockwave-slow" style={{
+        left: `${to.x}%`, top: `${to.y}%`, transform: 'translate(-50%,-50%)',
+        border: '3px solid #ff4040',
+        animationDelay: '0.5s',
+      }} />
+    </div>
+  )
+}
+
 function getAttackEffect(moveName: string, target: 'bot1' | 'bot2') {
   switch (moveName) {
     case 'Power Strike': return <PowerStrikeEffect target={target} />
@@ -373,6 +543,12 @@ function getAttackEffect(moveName: string, target: 'bot1' | 'bot2') {
     case 'Time Bomb': return <TimeBombEffect target={target} />
     case 'Prompt Injection': return <PromptInjectionEffect target={target} />
     case 'Rollback': return <RollbackEffect defender={target==='bot2'?'bot1':'bot2'} />
+    case 'Virus': return <VirusEffect target={target} />
+    case 'Mirror Coat': return <MirrorCoatEffect defender={target==='bot2'?'bot1':'bot2'} />
+    case 'EMP Pulse': return <EMPPulseEffect target={target} />
+    case 'Sleep Bomb': return <SleepBombEffect target={target} />
+    case 'Overclock': return <OverclockEffect target={target} />
+    case 'Berserker Rush': return <BerserkerRushEffect target={target} />
     default: return <PowerStrikeEffect target={target} />
   }
 }
@@ -1047,6 +1223,48 @@ export default function MatchV2Page() {
 
         @keyframes heal-float-slow { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-40px); opacity: 0; } }
         .animate-heal-float-slow { animation: heal-float-slow 1.2s ease-out forwards; }
+
+        @keyframes virus-spread-slow { 0% { transform: translate(0,0) scale(0); opacity: 1; } 100% { transform: translate(calc(cos(var(--virus-angle)) * var(--virus-dist)), calc(sin(var(--virus-angle)) * var(--virus-dist))) scale(1); opacity: 0.3; } }
+        .animate-virus-spread-slow { animation: virus-spread-slow 1.2s ease-out forwards; }
+
+        @keyframes virus-cloud-slow { 0% { opacity: 0.6; transform: translate(-50%,-50%) scale(0.5); } 50% { opacity: 0.8; } 100% { opacity: 0; transform: translate(-50%,-50%) scale(2); } }
+        .animate-virus-cloud-slow { animation: virus-cloud-slow 1.5s ease-out forwards; }
+
+        @keyframes mirror-shine-slow { 0% { opacity: 0; transform: translate(-50%,-50%) scale(0.8); } 30% { opacity: 1; transform: translate(-50%,-50%) scale(1); } 100% { opacity: 0; transform: translate(-50%,-50%) scale(1.1); } }
+        .animate-mirror-shine-slow { animation: mirror-shine-slow 1.2s ease-out forwards; }
+
+        @keyframes shine-streak { 0% { opacity: 0; } 40% { opacity: 0.6; } 100% { opacity: 0; } }
+        .animate-shine-streak { animation: shine-streak 0.8s ease-out forwards; }
+
+        @keyframes emp-ring-slow { 0% { width: 0; height: 0; opacity: 1; } 100% { width: 120px; height: 120px; opacity: 0; } }
+        .animate-emp-ring-slow { animation: emp-ring-slow 0.8s ease-out forwards; }
+
+        @keyframes emp-bolt-slow { 0% { opacity: 1; transform: rotate(var(--bolt-angle)) translateX(0); } 100% { opacity: 0; transform: rotate(var(--bolt-angle)) translateX(var(--bolt-dist)); } }
+        .animate-emp-bolt-slow { animation: emp-bolt-slow 0.6s ease-out forwards; }
+
+        @keyframes sleep-cloud-slow { 0% { opacity: 0; transform: translate(-50%,-50%) scale(0.5); } 50% { opacity: 0.8; transform: translate(-50%,-50%) scale(1.2); } 100% { opacity: 0; transform: translate(-50%,-50%) scale(1.5); } }
+        .animate-sleep-cloud-slow { animation: sleep-cloud-slow 1.5s ease-out forwards; }
+
+        @keyframes sleep-z-float-slow { 0% { opacity: 0; transform: translateY(0); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-60px); } }
+        .animate-sleep-z-float-slow { animation: sleep-z-float-slow 1.5s ease-out forwards; }
+
+        @keyframes overclock-glow-slow { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
+        .animate-overclock-glow-slow { animation: overclock-glow-slow 1.2s ease-out forwards; }
+
+        @keyframes speed-line-slow { 0% { opacity: 0; transform-origin: left; transform: scaleX(0); } 40% { opacity: 1; transform: scaleX(1); } 100% { opacity: 0; transform: scaleX(1); } }
+        .animate-speed-line-slow { animation: speed-line-slow 0.6s ease-out forwards; }
+
+        @keyframes spark-fast-slow { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(calc(cos(var(--spark-angle)) * 40px), calc(sin(var(--spark-angle)) * 40px)); } }
+        .animate-spark-fast-slow { animation: spark-fast-slow 0.4s ease-out forwards; }
+
+        @keyframes berserker-charge-slow { 0% { opacity: 0.8; transform: translate(0,0); } 60% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--charge-dx), var(--charge-dy)); } }
+        .animate-berserker-charge-slow { animation: berserker-charge-slow 0.7s ease-in forwards; }
+
+        @keyframes rage-particle-slow { 0% { opacity: 1; transform: translate(0,0) scale(1); } 100% { opacity: 0; transform: translate(calc(cos(var(--rage-angle)) * 50px), calc(sin(var(--rage-angle)) * 50px)) scale(0); } }
+        .animate-rage-particle-slow { animation: rage-particle-slow 0.6s ease-out forwards; }
+
+        @keyframes impact-shockwave-slow { 0% { width: 0; height: 0; opacity: 1; } 100% { width: 140px; height: 140px; opacity: 0; } }
+        .animate-impact-shockwave-slow { animation: impact-shockwave-slow 0.6s ease-out forwards; }
 
         .scrollbar-thin::-webkit-scrollbar { width: 4px; }
         .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
