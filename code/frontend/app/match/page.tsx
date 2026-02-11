@@ -11,8 +11,13 @@ import { MatchResult } from '@/components/MatchResult'
 import { ArenaView } from '@/components/ArenaView'
 import { Arena3DView } from '@/components/3d/Arena3DWrapper'
 import { MoveSelector } from '@/components/combat/MoveSelector'
+import { BotSuggestion } from '@/components/combat/BotSuggestion'
+import { OverrideModal } from '@/components/combat/OverrideModal'
+import { BotChatModal } from '@/components/combat/BotChatModal'
 import { connectSocket } from '@/lib/socket'
 import type { Move } from '@/lib/moves'
+import type { BotSuggestion as BotSuggestionType } from '@/components/combat/BotSuggestion'
+import { MOVES } from '@/lib/moves'
 import type {
   RoundResult,
   RoundCompletePayload,
@@ -189,11 +194,25 @@ function MatchContent() {
   const [lastAction, setLastAction] = useState<string | null>(null)
   const [selectedMoveKey, setSelectedMoveKey] = useState<string | undefined>(undefined)
 
+  // Tag Team State
+  const [focusPoints, setFocusPoints] = useState(5)
+  const [botSuggestion, setBotSuggestion] = useState<BotSuggestionType | null>(null)
+  const [botAnalyzing, setBotAnalyzing] = useState(false)
+  const [showOverrideModal, setShowOverrideModal] = useState(false)
+  const [showChatModal, setShowChatModal] = useState(false)
+  const [overrideHistory, setOverrideHistory] = useState<Array<{
+    round: number
+    botSuggested: string
+    humanPicked: string
+    success: boolean
+  }>>([])
+
   // Reset action submitted when new round starts
   useEffect(() => {
     setActionSubmitted(false)
     setLastAction(null)
     setSelectedMoveKey(undefined)
+    setBotAnalyzing(false)
   }, [roundHistory.length])
 
   function sendAction(action: string, skillId?: string) {
@@ -220,6 +239,147 @@ function MatchContent() {
     setSelectedMoveKey(move.animationKey)
     setLastAction(move.name)
     sendAction(move.actionType, move.skillId)
+  }
+
+  // Generate bot suggestion based on current state (mock heuristic for now)
+  const generateBotSuggestion = useCallback((
+    myHp: number,
+    oppHp: number,
+    myEnergy: number,
+    oppEnergy: number
+  ): BotSuggestionType => {
+    const affordableMoves = MOVES.filter(m => m.energyCost <= myEnergy)
+    
+    // Simple heuristic logic
+    let move: Move
+    let reasoning: string
+    let confidence: number
+    let alternatives: Array<{ move: Move; reason: string }> = []
+
+    // Low HP? Suggest defensive
+    if (myHp < 40 && myEnergy >= 20) {
+      move = MOVES.find(m => m.name === 'Rollback') || affordableMoves[0]
+      reasoning = `HP critical at ${myHp}. Heal now to survive.`
+      confidence = 0.9
+      alternatives.push({
+        move: MOVES.find(m => m.name === 'Firewall') || affordableMoves[1],
+        reason: 'Shield instead if you expect heavy attack'
+      })
+    }
+    // Opponent low HP? Go aggressive
+    else if (oppHp < 30 && myEnergy >= 30) {
+      move = MOVES.find(m => m.name === 'Reasoning Burst') || affordableMoves[0]
+      reasoning = `Opponent at ${oppHp} HP. Finish them with high-damage beam!`
+      confidence = 0.85
+      alternatives.push({
+        move: MOVES.find(m => m.name === 'Agent Overflow') || affordableMoves[1],
+        reason: 'Multi-hit to break through shields'
+      })
+    }
+    // High energy? Use expensive skills
+    else if (myEnergy >= 60) {
+      move = MOVES.find(m => m.name === 'Agent Overflow') || affordableMoves[0]
+      reasoning = `High energy (${myEnergy}). Overwhelm opponent with sub-agents.`
+      confidence = 0.75
+      alternatives.push({
+        move: MOVES.find(m => m.name === 'Time Bomb') || affordableMoves[1],
+        reason: 'Plant bomb for delayed damage'
+      })
+    }
+    // Low energy? Defend to recover
+    else if (myEnergy < 25) {
+      move = MOVES.find(m => m.name === 'Defend') || { id: 'basic_defend', name: 'Defend', category: 'defensive', energyCost: 0, description: 'Recover energy', animationKey: 'basic_defend', actionType: 'defend' } as Move
+      reasoning = `Low energy (${myEnergy}). Defend to recover +15 energy.`
+      confidence = 0.8
+    }
+    // Default: balanced attack
+    else {
+      move = MOVES.find(m => m.name === 'Power Strike') || affordableMoves[0]
+      reasoning = `Balanced state. Reliable damage with Power Strike.`
+      confidence = 0.65
+      alternatives.push({
+        move: MOVES.find(m => m.name === 'EMP Pulse') || affordableMoves[1],
+        reason: 'Drain opponent energy instead'
+      })
+    }
+
+    return { move, reasoning, confidence, alternatives }
+  }, [])
+
+  // Generate bot suggestion each round
+  useEffect(() => {
+    if (phase === 'fighting' && !actionSubmitted && !botSuggestion) {
+      setBotAnalyzing(true)
+      // Simulate bot thinking time
+      setTimeout(() => {
+        const suggestion = generateBotSuggestion(myHp, oppHp, myEnergy, oppEnergy)
+        setBotSuggestion(suggestion)
+        setBotAnalyzing(false)
+      }, 800)
+    }
+  }, [phase, actionSubmitted, botSuggestion, myHp, oppHp, myEnergy, oppEnergy, generateBotSuggestion])
+
+  // Reset bot suggestion each round
+  useEffect(() => {
+    setBotSuggestion(null)
+  }, [roundHistory.length])
+
+  // Regenerate focus points every 3 rounds
+  useEffect(() => {
+    const round = roundHistory.length
+    if (round > 0 && round % 3 === 0 && focusPoints < 5) {
+      setFocusPoints(prev => Math.min(5, prev + 1))
+    }
+  }, [roundHistory.length, focusPoints])
+
+  // Tag Team Handlers
+  const handleAcceptSuggestion = () => {
+    if (!botSuggestion) return
+    handleMoveSelect(botSuggestion.move)
+  }
+
+  const handleOverride = () => {
+    if (focusPoints === 0 || !botSuggestion) return
+    setShowOverrideModal(true)
+  }
+
+  const handleConfirmOverride = (move: Move) => {
+    if (!botSuggestion) return
+    setFocusPoints(prev => Math.max(0, prev - 1))
+    setOverrideHistory(prev => [...prev, {
+      round: roundHistory.length + 1,
+      botSuggested: botSuggestion.move.name,
+      humanPicked: move.name,
+      success: false, // Will be determined post-round
+    }])
+    handleMoveSelect(move)
+    setShowOverrideModal(false)
+  }
+
+  const handleDiscuss = () => {
+    if (focusPoints < 0.5) return
+    setShowChatModal(true)
+  }
+
+  const handleSendChatMessage = async (message: string): Promise<string> => {
+    // Deduct 0.5 focus
+    setFocusPoints(prev => Math.max(0, prev - 0.5))
+    
+    // Mock bot response (will be replaced with real backend call)
+    await new Promise(resolve => setTimeout(resolve, 1000))
+    
+    // Simple pattern analysis
+    if (message.toLowerCase().includes('pattern')) {
+      return `Analyzing opponent's history... They've used ${roundHistory.length > 0 ? 'defensive moves after taking damage' : 'aggressive openers'}. Expect ${oppEnergy > 50 ? 'a high-energy skill' : 'basic attacks to conserve energy'}.`
+    }
+    if (message.toLowerCase().includes('energy')) {
+      return `Your energy: ${myEnergy}/100. Opponent: ${oppEnergy}/100. ${myEnergy > oppEnergy ? 'You have the advantage - use expensive skills!' : 'Conserve energy with basic moves.'}`
+    }
+    if (message.toLowerCase().includes('strike') || message.toLowerCase().includes('win')) {
+      return `Win condition: ${oppHp < myHp ? 'You\'re ahead. Play defensive and chip damage.' : 'Need to close HP gap. Go aggressive next 2 rounds.'}`
+    }
+    
+    return `Good question! Based on current state (HP: ${myHp} vs ${oppHp}, Energy: ${myEnergy} vs ${oppEnergy}), I'd recommend ${botSuggestion?.move.name || 'analyzing further'}.`
   }
 
   // If no match data, redirect to dashboard
@@ -525,9 +685,22 @@ function MatchContent() {
         </div>
       )}
 
-      {/* Move Selector — replaces old action buttons during fighting phase */}
+      {/* Tag Team Combat — Bot Suggestion + Move Selection */}
       {phase === 'fighting' && (
-        <div className="mb-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
+          {/* Bot Suggestion Panel */}
+          <BotSuggestion
+            suggestion={botSuggestion}
+            focusPoints={focusPoints}
+            maxFocus={5}
+            analyzing={botAnalyzing}
+            onAccept={handleAcceptSuggestion}
+            onOverride={handleOverride}
+            onDiscuss={handleDiscuss}
+            disabled={actionSubmitted}
+          />
+
+          {/* Move Selector (for manual override) */}
           <MoveSelector
             energy={myEnergy}
             maxEnergy={100}
@@ -547,6 +720,31 @@ function MatchContent() {
       {/* Match Result Overlay */}
       {phase === 'result' && matchResult && (
         <MatchResult result={matchResult} myBotId={myBotId} />
+      )}
+
+      {/* Override Modal */}
+      {showOverrideModal && botSuggestion && (
+        <OverrideModal
+          energy={myEnergy}
+          botSuggestion={botSuggestion.move}
+          botConfidence={botSuggestion.confidence}
+          onConfirm={handleConfirmOverride}
+          onCancel={() => setShowOverrideModal(false)}
+        />
+      )}
+
+      {/* Bot Chat Modal */}
+      {showChatModal && (
+        <BotChatModal
+          onSendMessage={handleSendChatMessage}
+          onClose={() => setShowChatModal(false)}
+          context={{
+            round: roundHistory.length + 1,
+            yourHp: myHp,
+            opponentHp: oppHp,
+            yourEnergy: myEnergy,
+          }}
+        />
       )}
     </div>
   )
