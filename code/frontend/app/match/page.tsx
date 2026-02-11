@@ -307,18 +307,6 @@ function MatchContent() {
   }, [])
 
   // Generate bot suggestion each round
-  useEffect(() => {
-    if (phase === 'fighting' && !actionSubmitted && !botSuggestion) {
-      setBotAnalyzing(true)
-      // Simulate bot thinking time
-      setTimeout(() => {
-        const suggestion = generateBotSuggestion(myHp, oppHp, myEnergy, oppEnergy)
-        setBotSuggestion(suggestion)
-        setBotAnalyzing(false)
-      }, 800)
-    }
-  }, [phase, actionSubmitted, botSuggestion, myHp, oppHp, myEnergy, oppEnergy, generateBotSuggestion])
-
   // Reset bot suggestion each round
   useEffect(() => {
     setBotSuggestion(null)
@@ -436,6 +424,19 @@ function MatchContent() {
   const oppEffects: string[] = latestRound
     ? latestRound.effects_applied.filter(e => e.bot === 'bot2').map(e => e.effect)
     : []
+
+  // Generate bot suggestion when round starts (moved here after variable declarations)
+  useEffect(() => {
+    if (phase === 'fighting' && !actionSubmitted && !botSuggestion) {
+      setBotAnalyzing(true)
+      // Simulate bot thinking time
+      setTimeout(() => {
+        const suggestion = generateBotSuggestion(myHp, oppHp, myEnergy, oppEnergy)
+        setBotSuggestion(suggestion)
+        setBotAnalyzing(false)
+      }, 800)
+    }
+  }, [phase, actionSubmitted, botSuggestion, myHp, oppHp, myEnergy, oppEnergy, generateBotSuggestion])
 
   function counterLabel(counter: string): string {
     switch (counter) {

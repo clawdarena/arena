@@ -2,7 +2,11 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Navbar } from '@/components/Navbar'
-import { Play, SkipForward, ChevronLeft, ChevronRight } from 'lucide-react'
+import { BotSuggestionPanel } from '@/components/BotSuggestionPanel'
+import { FocusPointTracker } from '@/components/FocusPointTracker'
+import { CoachingChat } from '@/components/CoachingChat'
+import { Play, SkipForward, ChevronLeft, ChevronRight, Zap } from 'lucide-react'
+import { BotSuggestion, ChatMessage, SKILL_DATABASE } from '@/lib/tagteam-types'
 
 // ============================================================
 // Types
@@ -865,9 +869,61 @@ function HPPanel({ name, level, hp, maxHp, energy, maxEnergy, side, showDmg, dmg
 // Main Page
 // ============================================================
 
+// Mock bot AI for tag team mode
+function generateBotSuggestion(round: number, opponentHp: number, playerEnergy: number): BotSuggestion {
+  const availableSkills = Object.values(SKILL_DATABASE).filter(
+    skill => skill.energyCost <= playerEnergy
+  )
+
+  let selectedSkill = SKILL_DATABASE['power_strike']
+  let reasoning: string[] = []
+  let confidence = 75
+  let riskLevel: 'low' | 'medium' | 'high' = 'medium'
+
+  if (opponentHp < 30) {
+    selectedSkill = SKILL_DATABASE['reasoning_burst']
+    reasoning = ['Opponent HP critical', 'High damage finishing move', 'Energy sufficient']
+    confidence = 90
+    riskLevel = 'low'
+  } else if (playerEnergy < 30) {
+    selectedSkill = SKILL_DATABASE['power_strike']
+    reasoning = ['Energy low - conserve', 'Reliable damage/cost ratio', 'Save energy for later']
+    confidence = 80
+    riskLevel = 'low'
+  } else if (round % 3 === 0) {
+    selectedSkill = SKILL_DATABASE['emp_pulse'] || selectedSkill
+    reasoning = ['Drain opponent energy', 'Limit offensive options', 'Strategic advantage']
+    confidence = 70
+    riskLevel = 'medium'
+  } else {
+    const aggressive = availableSkills.find(s => s.type === 'aggressive')
+    selectedSkill = aggressive || selectedSkill
+    reasoning = ['Maintain pressure', 'Favorable trade-off', 'Build momentum']
+    confidence = 75
+    riskLevel = 'medium'
+  }
+
+  const counters = selectedSkill.countered_by.map(id => SKILL_DATABASE[id]?.name || id)
+  const avgDamage = Math.floor((selectedSkill.damage_range[0] + selectedSkill.damage_range[1]) / 2)
+
+  return {
+    suggestionId: `sug_${round}_${Date.now()}`,
+    skillId: selectedSkill.id,
+    skillName: selectedSkill.name,
+    emoji: selectedSkill.emoji,
+    confidence,
+    reasoning,
+    counters,
+    expectedDamage: avgDamage,
+    riskLevel,
+    timestamp: Date.now(),
+  }
+}
+
 export default function MatchV2Page() {
   const [playing, setPlaying] = useState(false)
   const [speed, setSpeed] = useState(1)
+  const [tagTeamMode, setTagTeamMode] = useState(false)
   const [currentRound, setCurrentRound] = useState(-1)
   const [phase, setPhase] = useState<string>('idle')
   const [bot1Hp, setBot1Hp] = useState(BOT1.maxHp)
@@ -890,6 +946,14 @@ export default function MatchV2Page() {
   const logRef = useRef<HTMLDivElement>(null)
   const cancelRef = useRef(false)
 
+  // Tag Team Mode State
+  const [focusPoints, setFocusPoints] = useState(3)
+  const [maxFocusPoints] = useState(5)
+  const [lastFocusRegen, setLastFocusRegen] = useState(0)
+  const [botSuggestion, setBotSuggestion] = useState<BotSuggestion | null>(null)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [decisionTimer, setDecisionTimer] = useState(20)
+
   const arena = ARENAS[arenaIdx]
 
   const addLog = useCallback((msg: string) => {
@@ -904,6 +968,40 @@ export default function MatchV2Page() {
   const playRound = useCallback(async (ri: number) => {
     const r = ROUNDS[ri]
     if (!r || cancelRef.current) return
+
+    // Generate bot suggestion in tag team mode
+    if (tagTeamMode && ri < ROUNDS.length - 1) {
+      const suggestion = generateBotSuggestion(r.round + 1, r.bot2HpAfter, r.bot1Energy)
+      setBotSuggestion(suggestion)
+      setDecisionTimer(20)
+      
+      // Countdown timer
+      const timerInterval = setInterval(() => {
+        setDecisionTimer(prev => {
+          if (prev <= 1) {
+            clearInterval(timerInterval)
+            return 0
+          }
+          return prev - 1
+        })
+      }, 1000)
+      
+      // Auto-accept after timeout
+      setTimeout(() => {
+        clearInterval(timerInterval)
+        if (suggestion) {
+          addLog(`⏱️ Time out - Auto-accepted: ${suggestion.skillName}`)
+          setBotSuggestion(null)
+        }
+      }, 20000 / speed)
+    }
+
+    // Focus point regen every 3 rounds
+    if (tagTeamMode && r.round % 3 === 0 && r.round !== lastFocusRegen) {
+      setFocusPoints(prev => Math.min(prev + 1, maxFocusPoints))
+      setLastFocusRegen(r.round)
+      addLog('⭐ +1 Focus Point regenerated!')
+    }
 
     setPhase('round-intro')
     setAnnouncement({ text: `ROUND ${r.round}`, color: '#ffffff' })
@@ -1031,6 +1129,19 @@ export default function MatchV2Page() {
     setBot1Energy(100); setBot2Energy(100)
     setBot1Anim('idle'); setBot2Anim('idle')
     setActionLog([]); setCurrentRound(-1); setPhase('idle'); setPlaying(true)
+    
+    // Tag team mode initialization
+    if (tagTeamMode) {
+      setFocusPoints(3)
+      setLastFocusRegen(0)
+      setBotSuggestion(null)
+      setChatMessages([{
+        id: '1',
+        role: 'bot',
+        content: 'Tag Team mode active! I\'ll provide strategic suggestions each round.',
+        timestamp: Date.now(),
+      }])
+    }
 
     await new Promise(r => setTimeout(r, 400))
     addLog('⚔️ MATCH START')
@@ -1077,6 +1188,12 @@ export default function MatchV2Page() {
             style={{ fontFamily: 'Rajdhani, sans-serif' }}>
             <Play className="w-3.5 h-3.5" /> {phase === 'result' ? 'REPLAY' : 'PLAY DEMO'}
           </button>
+          <button
+            onClick={() => setTagTeamMode(!tagTeamMode)}
+            className={`flex items-center gap-1.5 ${tagTeamMode ? 'bg-purple-600 hover:bg-purple-500' : 'bg-gray-700 hover:bg-gray-600'} text-white text-xs font-bold px-3 sm:px-4 py-2 rounded transition`}
+            style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+            <Zap className="w-3.5 h-3.5" /> TAG TEAM {tagTeamMode ? 'ON' : 'OFF'}
+          </button>
           {playing && phase !== 'result' && (
             <button onClick={skipToEnd} className="flex items-center gap-1 text-gray-400 hover:text-white text-xs px-2 sm:px-3 py-2 border border-gray-700 rounded transition">
               <SkipForward className="w-3 h-3" /> SKIP
@@ -1096,6 +1213,11 @@ export default function MatchV2Page() {
           <div className="text-xs font-mono text-gray-500 hidden sm:block">{currentRound >= 0 ? `R${currentRound+1}/7` : 'READY'}</div>
         </div>
       </div>
+
+      {/* Main Content */}
+      <div className={tagTeamMode ? 'grid grid-cols-12 gap-4 px-4' : ''}>
+        {/* Arena Container */}
+        <div className={tagTeamMode ? 'col-span-9' : ''}>
 
       {/* Arena */}
       <div className={`relative w-full aspect-[16/9] max-h-[70vh] overflow-hidden ${screenShake ? 'animate-screen-shake-slow' : ''}`}>
@@ -1158,6 +1280,80 @@ export default function MatchV2Page() {
                 <div className="text-amber-400">+180 CR</div>
               </div>
             </div>
+          </div>
+        )}
+      </div>
+
+        </div>
+        {/* Close Arena Container */}
+
+        {/* Tag Team Sidebar */}
+        {tagTeamMode && (
+          <div className="col-span-3 space-y-4">
+            <FocusPointTracker
+              current={focusPoints}
+              max={maxFocusPoints}
+              roundsUntilRegen={currentRound >= 0 ? (3 - (currentRound % 3)) : 3}
+            />
+            <BotSuggestionPanel
+              suggestion={botSuggestion}
+              timeRemaining={decisionTimer}
+              focusPoints={focusPoints}
+              onAccept={() => {
+                if (botSuggestion) {
+                  addLog(`✅ Accepted: ${botSuggestion.skillName}`)
+                  setBotSuggestion(null)
+                }
+              }}
+              onOverride={() => {
+                if (botSuggestion && focusPoints > 0) {
+                  setFocusPoints(prev => prev - 1)
+                  addLog(`⚠️ Override! -1 Focus Point`)
+                  setBotSuggestion(null)
+                }
+              }}
+              onDiscuss={() => {
+                if (botSuggestion) {
+                  setChatMessages(prev => [
+                    ...prev,
+                    {
+                      id: `user_${Date.now()}`,
+                      role: 'user',
+                      content: `Why ${botSuggestion.skillName}?`,
+                      timestamp: Date.now(),
+                    },
+                    {
+                      id: `bot_${Date.now() + 1}`,
+                      role: 'bot',
+                      content: `${botSuggestion.reasoning[0]}. Confidence: ${botSuggestion.confidence}%`,
+                      timestamp: Date.now() + 100,
+                    },
+                  ])
+                }
+              }}
+              disabled={!playing || phase === 'result'}
+            />
+            <CoachingChat
+              messages={chatMessages}
+              onSendMessage={(msg) => {
+                setChatMessages(prev => [
+                  ...prev,
+                  {
+                    id: `user_${Date.now()}`,
+                    role: 'user',
+                    content: msg,
+                    timestamp: Date.now(),
+                  },
+                  {
+                    id: `bot_${Date.now() + 1}`,
+                    role: 'bot',
+                    content: 'Good question! Focus on maintaining energy while dealing consistent damage.',
+                    timestamp: Date.now() + 500,
+                  },
+                ])
+              }}
+              disabled={phase === 'result'}
+            />
           </div>
         )}
       </div>
