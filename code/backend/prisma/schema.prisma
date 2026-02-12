@@ -109,7 +109,7 @@ model BotSkill {
   id        String @id @default(uuid())
   bot_id    String
   skill_id  String
-  slot      Int    // 1 or 2
+  slot      Int    // 1-4 (4-skill loadout)
   
   bot       Bot   @relation(fields: [bot_id], references: [id], onDelete: Cascade)
   skill     Skill @relation(fields: [skill_id], references: [id])

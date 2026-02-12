@@ -5,7 +5,8 @@ import { verifySignature } from '../utils/crypto'
 import { calculateElo, getTierEconomics, getExpectedTier } from '../utils/elo'
 import { recordTransaction } from '../utils/credits'
 import { resolveRound, calculateXp, getLevelFromXp, type BotCombatState, type CombatAction, type RoundResult } from '../utils/combat'
-import { getPveAction } from '../routes/pve'
+import { getPveAction, PVE_BOT_SKILLS } from '../routes/pve'
+import { SKILL_DEFS } from '../utils/combat'
 import { GAUNTLET_TIERS } from '../routes/gauntlet'
 
 // ============================================================
@@ -378,7 +379,10 @@ export function setupMatchmaking(io: Server) {
             speed: aiBot.speed,
             statusEffects: [],
             skillCooldowns: new Map(),
-            equippedSkills: [],
+            equippedSkills: (PVE_BOT_SKILLS[data.ai_bot_id] || []).map((sid, i) => {
+              const def = SKILL_DEFS[sid]
+              return { id: sid, slot: i + 1, cooldown: def?.cooldown ?? 3, effect_data: {} }
+            }),
             timedOutConsecutive: 0,
             momentumStreak: 0,
             energy: 100,
@@ -408,8 +412,24 @@ export function setupMatchmaking(io: Server) {
         match_type: 'pve',
         entry_fee: 0,
         start_in_seconds: 2,
-        my_bot: { id: userBot.id, name: userBot.name, ...stats },
-        opponent: { name: aiBot.name, elo: 0, is_ai: true },
+        my_bot: {
+          id: userBot.id,
+          name: userBot.name,
+          ...stats,
+          skills: match.bot1.state.equippedSkills.map(s => {
+            const def = SKILL_DEFS[s.id]
+            return { id: s.id, slot: s.slot, name: def?.name || s.id, category: def?.category || 'unknown', energyCost: def?.energyCost ?? 20, cooldown: def?.cooldown ?? 3 }
+          }),
+        },
+        opponent: {
+          name: aiBot.name,
+          elo: 0,
+          is_ai: true,
+          skills: (PVE_BOT_SKILLS[data.ai_bot_id] || []).map((sid, i) => {
+            const def = SKILL_DEFS[sid]
+            return { id: sid, slot: i + 1, name: def?.name || sid, category: def?.category || 'unknown', energyCost: def?.energyCost ?? 20, cooldown: def?.cooldown ?? 3 }
+          }),
+        },
       })
 
       // Start immediately
@@ -671,17 +691,43 @@ function startMatch(io: Server, match: ActiveMatch) {
   const s1 = match.bot1.state
   const s2 = match.bot2.state
 
+  // Build skill info for each bot
+  const bot1Skills = s1.equippedSkills.map(s => {
+    const def = SKILL_DEFS[s.id]
+    return {
+      id: s.id,
+      slot: s.slot,
+      name: def?.name || s.id,
+      category: def?.category || 'unknown',
+      energyCost: def?.energyCost ?? 20,
+      cooldown: def?.cooldown ?? 3,
+    }
+  })
+  const bot2Skills = s2.equippedSkills.map(s => {
+    const def = SKILL_DEFS[s.id]
+    return {
+      id: s.id,
+      slot: s.slot,
+      name: def?.name || s.id,
+      category: def?.category || 'unknown',
+      energyCost: def?.energyCost ?? 20,
+      cooldown: def?.cooldown ?? 3,
+    }
+  })
+
   const payload = {
     match_id: match.id,
     max_rounds: match.maxRounds,
     time_limit_seconds: match.timeLimit,
-    bot1: { id: s1.id, name: s1.name, hp: s1.hp, attack: s1.attack, defense: s1.defense, speed: s1.speed },
-    bot2: { id: s2.id, name: s2.name, hp: s2.hp, attack: s2.attack, defense: s2.defense, speed: s2.speed },
+    bot1: { id: s1.id, name: s1.name, hp: s1.hp, attack: s1.attack, defense: s1.defense, speed: s1.speed, skills: bot1Skills },
+    bot2: { id: s2.id, name: s2.name, hp: s2.hp, attack: s2.attack, defense: s2.defense, speed: s2.speed, skills: bot2Skills },
     first_mover: s1.speed >= s2.speed ? 'bot1' : 'bot2',
   }
 
   io.to(match.bot1.socketId).emit('match_start', payload)
-  io.to(match.bot2.socketId).emit('match_start', payload)
+  if (match.bot2.socketId !== '__pve__') {
+    io.to(match.bot2.socketId).emit('match_start', payload)
+  }
 
   startRound(io, match)
 }
@@ -695,12 +741,32 @@ function startRound(io: Server, match: ActiveMatch) {
   const s2 = match.bot2.state
   const prevRound = match.rounds.length > 0 ? match.rounds[match.rounds.length - 1] : null
 
+  // Convert cooldown maps to objects for serialization
+  const bot1Cooldowns: Record<string, number> = {}
+  s1.skillCooldowns.forEach((v, k) => { if (v > 0) bot1Cooldowns[k] = v })
+  const bot2Cooldowns: Record<string, number> = {}
+  s2.skillCooldowns.forEach((v, k) => { if (v > 0) bot2Cooldowns[k] = v })
+
   const payload = {
     match_id: match.id,
     round: match.currentRound,
     time_limit_seconds: match.timeLimit,
-    bot1: { id: s1.id, hp: s1.hp, energy: s1.energy, status_effects: s1.statusEffects.map((e) => e.type) },
-    bot2: { id: s2.id, hp: s2.hp, energy: s2.energy, status_effects: s2.statusEffects.map((e) => e.type) },
+    bot1: {
+      id: s1.id,
+      hp: s1.hp,
+      energy: s1.energy,
+      status_effects: s1.statusEffects.map((e) => e.type),
+      skill_cooldowns: bot1Cooldowns,
+      disabled_skills: Array.from(s1.disabledSkills || []),
+    },
+    bot2: {
+      id: s2.id,
+      hp: s2.hp,
+      energy: s2.energy,
+      status_effects: s2.statusEffects.map((e) => e.type),
+      skill_cooldowns: bot2Cooldowns,
+      disabled_skills: Array.from(s2.disabledSkills || []),
+    },
     previous_round: prevRound,
   }
 
@@ -712,12 +778,25 @@ function startRound(io: Server, match: ActiveMatch) {
   // PvE: auto-submit AI action after short delay
   if ((match as any).isPve) {
     const strategy = (match as any).pveStrategy || 'random'
-    const aiAction = getPveAction(strategy, match.currentRound, s2.hp, s1.hp)
+    const aiAction = getPveAction(
+      strategy,
+      match.currentRound,
+      s2.hp,
+      s1.hp,
+      s2.energy,
+      s2.maxHp,
+      s2.skillCooldowns,
+      match.bot2.botId
+    )
     const delay = 500 + Math.random() * 1500  // 0.5-2s "thinking"
     setTimeout(() => {
       if (!match.pendingActions.bot2) {
         match.pendingActions.bot2 = {
-          action: { action: aiAction.action, target: aiAction.target } as CombatAction,
+          action: {
+            action: aiAction.action as any,
+            target: aiAction.target,
+            skill_id: aiAction.skill_id || null,
+          } as CombatAction,
           responseMs: delay,
           timedOut: false,
         }

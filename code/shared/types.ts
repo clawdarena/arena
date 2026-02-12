@@ -31,7 +31,7 @@ export interface Bot {
   base_speed: number
   skin_id: string | null
   accessories: string[]    // max 3
-  skills: EquippedSkill[]  // max 2 slots
+  skills: EquippedSkill[]  // max 4 slots
   created_at: string
 }
 
@@ -67,34 +67,70 @@ export interface Skill {
 }
 
 export interface EquippedSkill {
-  slot: 1 | 2
+  slot: 1 | 2 | 3 | 4
   skill_id: string
   cooldown_remaining: number  // 0 = ready
 }
 
-/** All available skills in the game */
+/** Skill info sent in match_start / match_found events */
+export interface MatchSkillInfo {
+  id: string
+  slot: number
+  name: string
+  category: 'defensive' | 'aggressive' | 'tactical' | 'exploit'
+  energyCost: number
+  cooldown: number
+}
+
+/** All V2 skills in the game (16 total) */
 export type SkillId =
-  | 'power_strike'
-  | 'shield_wall'
-  | 'overclock'
-  | 'scan'
-  | 'fireball'
+  // Defensive
+  | 'firewall'
   | 'iron_fortress'
+  | 'mirror_coat'
+  | 'rollback'
+  // Aggressive
+  | 'power_strike'
+  | 'reasoning_burst'
+  | 'spawn_attack'
+  | 'berserker_rush'
+  // Tactical
+  | 'sleep_bomb'
+  | 'emp_pulse'
+  | 'time_bomb'
+  | 'overclock'
+  // Exploit
+  | 'scan'
+  | 'prompt_injection'
+  | 'memory_bomb'
+  | 'virus'
+
+/** V1 legacy skill IDs (still supported for backwards compat) */
+export type LegacySkillId =
+  | 'shield_wall'
+  | 'fireball'
   | 'emp_blast'
   | 'regenerate'
   | 'berserker'
-  | 'mirror_coat'
 
 /** Status effects that can be applied during combat */
 export type StatusEffect =
-  | 'burning'          // 3 dmg/round for 2 rounds
-  | 'stunned'          // Auto-defend for 1 round
-  | 'armor_broken'     // -2 defense for 1 round
-  | 'overclock'        // +5 attack, +5 speed for 2 rounds
-  | 'iron_fortress'    // +10 defense, can't attack for 3 rounds
-  | 'regenerating'     // +8 HP/round for 3 rounds
-  | 'berserker'        // +15 attack, -5 defense for 3 rounds
-  | 'mirror_coat'      // Reflect 50% damage for 2 rounds
+  | 'firewall'         // Block next attack
+  | 'iron_fortress'    // +80% DEF, can't attack
+  | 'mirror_coat'      // Reflect 50% damage
+  | 'sleep'            // Skip next turn
+  | 'confused'         // Attack targets self
+  | 'scanned'          // Next move revealed
+  | 'virus'            // 5 dmg/round DOT
+  | 'burning'          // 3 dmg/round DOT
+  | 'stunned'          // Auto-defend
+  | 'armor_broken'     // Reduced defense
+  | 'overclock'        // Next attack +50%
+  | 'overclock_buff'   // +3 ATK, +3 SPD
+  | 'regenerating'     // +8 HP/round
+  | 'berserker'        // +8 ATK, -3 DEF
+  | 'memory_bombed'    // Skill disabled
+  | 'time_bomb_planted' // Bomb ticking
 
 // ============================================================
 // Combat Types (Trusted Referee Model)
@@ -150,6 +186,8 @@ export interface RoundResult {
   bot2_momentum: number
   bot1_energy: number
   bot2_energy: number
+  bot1_skill_id?: string
+  bot2_skill_id?: string
 }
 
 /** Status effects from skills */
@@ -191,6 +229,7 @@ export interface MatchBotState {
   defense: number
   speed: number
   status_effects: string[]
+  skills?: MatchSkillInfo[]  // V2: equipped skills with metadata
 }
 
 // ============================================================
@@ -222,8 +261,8 @@ export interface RoundStartPayload {
   match_id: string
   round: number
   time_limit_seconds: number
-  bot1: { id: string; hp: number; energy?: number; status_effects: string[] }
-  bot2: { id: string; hp: number; energy?: number; status_effects: string[] }
+  bot1: { id: string; hp: number; energy: number; status_effects: string[]; skill_cooldowns: Record<string, number>; disabled_skills: string[] }
+  bot2: { id: string; hp: number; energy: number; status_effects: string[]; skill_cooldowns: Record<string, number>; disabled_skills: string[] }
   previous_round: RoundResult | null
 }
 

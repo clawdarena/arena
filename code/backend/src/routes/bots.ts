@@ -38,6 +38,28 @@ botRoutes.post('/register', authMiddleware, validate(registerBotSchema), async (
     },
   })
 
+  // Auto-grant starter skills (4 free skills, one per category)
+  const STARTER_SKILLS = [
+    { skill_id: 'firewall', slot: 1 },
+    { skill_id: 'power_strike', slot: 2 },
+    { skill_id: 'sleep_bomb', slot: 3 },
+    { skill_id: 'scan', slot: 4 },
+  ]
+
+  // Ensure user owns the starter skills
+  for (const s of STARTER_SKILLS) {
+    await prisma.userSkill.upsert({
+      where: { user_id_skill_id: { user_id: userId, skill_id: s.skill_id } },
+      update: {},
+      create: { user_id: userId, skill_id: s.skill_id },
+    })
+  }
+
+  // Equip starter loadout on the new bot
+  await prisma.botSkill.createMany({
+    data: STARTER_SKILLS.map((s) => ({ bot_id: bot.id, skill_id: s.skill_id, slot: s.slot })),
+  })
+
   return c.json({ bot }, 201)
 })
 
@@ -218,7 +240,7 @@ botRoutes.post('/unequip', authMiddleware, validate(unequipSchema), async (c) =>
 const equipSkillSchema = z.object({
   bot_id: z.string().uuid(),
   skill_id: z.string(),
-  slot: z.number().int().min(1).max(2),
+  slot: z.number().int().min(1).max(4),
 })
 
 botRoutes.post('/equip-skill', authMiddleware, validate(equipSkillSchema), async (c) => {
@@ -254,7 +276,7 @@ botRoutes.post('/equip-skill', authMiddleware, validate(equipSkillSchema), async
 
 const unequipSkillSchema = z.object({
   bot_id: z.string().uuid(),
-  slot: z.number().int().min(1).max(2),
+  slot: z.number().int().min(1).max(4),
 })
 
 botRoutes.post('/unequip-skill', authMiddleware, validate(unequipSkillSchema), async (c) => {

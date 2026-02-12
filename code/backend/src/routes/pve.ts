@@ -92,32 +92,122 @@ pveRoutes.post('/start', authMiddleware, validate(startPveSchema), async (c) => 
   })
 })
 
-// PvE bot action generators
-export function getPveAction(strategy: string, round: number, myHp: number, opponentHp: number): { action: string; target: string | null } {
+// PvE bot skill loadouts by difficulty
+export const PVE_BOT_SKILLS: Record<string, string[]> = {
+  training_dummy: ['power_strike', 'firewall'],
+  bronze_bot:     ['power_strike', 'firewall', 'scan'],
+  silver_bot:     ['power_strike', 'firewall', 'sleep_bomb', 'scan'],
+  gold_bot:       ['reasoning_burst', 'mirror_coat', 'emp_pulse', 'overclock'],
+  platinum_bot:   ['berserker_rush', 'iron_fortress', 'time_bomb', 'virus'],
+}
+
+// PvE bot action generators — now uses skills
+export function getPveAction(
+  strategy: string,
+  round: number,
+  myHp: number,
+  opponentHp: number,
+  myEnergy?: number,
+  myMaxHp?: number,
+  cooldowns?: Map<string, number>,
+  botId?: string
+): { action: string; target: string | null; skill_id?: string } {
+  const energy = myEnergy ?? 100
+  const maxHp = myMaxHp ?? 100
+  const cd = cooldowns ?? new Map()
+  const skills = PVE_BOT_SKILLS[botId || ''] || []
+
+  // Helper: check if skill is available (off cooldown + enough energy)
+  const canUse = (id: string, cost: number) =>
+    skills.includes(id) && (cd.get(id) || 0) <= 0 && energy >= cost
+
   switch (strategy) {
-    case 'random':
-      const actions = ['attack', 'defend']
-      const targets = ['core', 'armor', 'processor']
-      return {
-        action: actions[Math.floor(Math.random() * actions.length)],
-        target: targets[Math.floor(Math.random() * targets.length)],
+    case 'random': {
+      // 30% chance to use a skill if available
+      if (Math.random() < 0.3 && canUse('power_strike', 10)) {
+        return { action: 'skill', target: 'opponent', skill_id: 'power_strike' }
       }
-    case 'attack_core':
-      return { action: 'attack', target: 'core' }
-    case 'alternate':
-      return round % 2 === 1
-        ? { action: 'attack', target: 'core' }
+      if (Math.random() < 0.2 && canUse('firewall', 15)) {
+        return { action: 'skill', target: null, skill_id: 'firewall' }
+      }
+      return Math.random() < 0.6
+        ? { action: 'attack', target: 'opponent' }
         : { action: 'defend', target: null }
-    case 'smart':
-      if (myHp < 30) return { action: 'defend', target: null }
-      if (opponentHp < 20) return { action: 'attack', target: 'processor' }
-      return { action: 'attack', target: round % 3 === 0 ? 'processor' : 'core' }
-    case 'adaptive':
-      if (myHp < opponentHp * 0.3) return { action: 'defend', target: null }
-      if (opponentHp < 30) return { action: 'attack', target: 'processor' }
-      if (round <= 2) return { action: 'attack', target: 'armor' }
-      return { action: 'attack', target: round % 2 === 0 ? 'processor' : 'core' }
+    }
+
+    case 'attack_core': {
+      // Aggressive — prefers power_strike, falls back to basic attack
+      if (canUse('power_strike', 10) && Math.random() < 0.5) {
+        return { action: 'skill', target: 'opponent', skill_id: 'power_strike' }
+      }
+      if (myHp < maxHp * 0.3 && canUse('firewall', 15)) {
+        return { action: 'skill', target: null, skill_id: 'firewall' }
+      }
+      return { action: 'attack', target: 'opponent' }
+    }
+
+    case 'alternate': {
+      // Alternates attack/defend with occasional skills
+      if (round % 3 === 0 && canUse('sleep_bomb', 20)) {
+        return { action: 'skill', target: 'opponent', skill_id: 'sleep_bomb' }
+      }
+      if (round % 2 === 1) {
+        if (canUse('power_strike', 10) && Math.random() < 0.4) {
+          return { action: 'skill', target: 'opponent', skill_id: 'power_strike' }
+        }
+        return { action: 'attack', target: 'opponent' }
+      }
+      if (canUse('firewall', 15) && Math.random() < 0.5) {
+        return { action: 'skill', target: null, skill_id: 'firewall' }
+      }
+      return { action: 'defend', target: null }
+    }
+
+    case 'smart': {
+      // Uses skills strategically
+      if (myHp < maxHp * 0.25 && canUse('mirror_coat', 25)) {
+        return { action: 'skill', target: null, skill_id: 'mirror_coat' }
+      }
+      if (round === 1 && canUse('overclock', 10)) {
+        return { action: 'skill', target: null, skill_id: 'overclock' }
+      }
+      if (opponentHp > maxHp * 0.5 && canUse('emp_pulse', 15)) {
+        return { action: 'skill', target: 'opponent', skill_id: 'emp_pulse' }
+      }
+      if (canUse('reasoning_burst', 30) && opponentHp < 40) {
+        return { action: 'skill', target: 'opponent', skill_id: 'reasoning_burst' }
+      }
+      if (myHp < maxHp * 0.3) return { action: 'defend', target: null }
+      return { action: 'attack', target: 'opponent' }
+    }
+
+    case 'adaptive': {
+      // Most dangerous — adapts to situation
+      const hpRatio = myHp / maxHp
+      const oppHpRatio = opponentHp / (maxHp * 1.5) // approx
+
+      // Opening: plant time bomb
+      if (round <= 2 && canUse('time_bomb', 20)) {
+        return { action: 'skill', target: 'opponent', skill_id: 'time_bomb' }
+      }
+      // Low HP: fortress up
+      if (hpRatio < 0.3 && canUse('iron_fortress', 20)) {
+        return { action: 'skill', target: null, skill_id: 'iron_fortress' }
+      }
+      // Apply virus for DOT pressure
+      if (round >= 3 && canUse('virus', 15)) {
+        return { action: 'skill', target: 'opponent', skill_id: 'virus' }
+      }
+      // Finish with berserker rush
+      if (opponentHp < 35 && canUse('berserker_rush', 15)) {
+        return { action: 'skill', target: 'opponent', skill_id: 'berserker_rush' }
+      }
+      // Otherwise play safe
+      if (hpRatio < 0.4) return { action: 'defend', target: null }
+      return { action: 'attack', target: 'opponent' }
+    }
+
     default:
-      return { action: 'attack', target: 'core' }
+      return { action: 'attack', target: 'opponent' }
   }
 }

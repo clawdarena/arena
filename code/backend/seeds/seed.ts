@@ -47,6 +47,42 @@ async function seed() {
   }
   console.log(`  ✅ ${skills.length} skills seeded`)
 
+  // Auto-grant free skills to all existing users who don't have them
+  const freeSkillIds = skills.filter(s => s.price === 0).map(s => s.id)
+  const allUsers = await prisma.user.findMany({ select: { id: true } })
+  let grantedCount = 0
+  for (const user of allUsers) {
+    for (const skillId of freeSkillIds) {
+      const exists = await prisma.userSkill.findUnique({
+        where: { user_id_skill_id: { user_id: user.id, skill_id: skillId } },
+      })
+      if (!exists) {
+        await prisma.userSkill.create({ data: { user_id: user.id, skill_id: skillId } })
+        grantedCount++
+      }
+    }
+  }
+  if (grantedCount > 0) console.log(`  ✅ Granted ${grantedCount} free skills to existing users`)
+
+  // Auto-equip starter loadout on bots with no skills
+  const STARTER_LOADOUT = [
+    { skill_id: 'firewall', slot: 1 },
+    { skill_id: 'power_strike', slot: 2 },
+    { skill_id: 'sleep_bomb', slot: 3 },
+    { skill_id: 'scan', slot: 4 },
+  ]
+  const botsWithoutSkills = await prisma.bot.findMany({
+    where: { equipped_skills: { none: {} } },
+    select: { id: true },
+  })
+  for (const bot of botsWithoutSkills) {
+    await prisma.botSkill.createMany({
+      data: STARTER_LOADOUT.map(s => ({ bot_id: bot.id, skill_id: s.skill_id, slot: s.slot })),
+      skipDuplicates: true,
+    })
+  }
+  if (botsWithoutSkills.length > 0) console.log(`  ✅ Equipped starter loadout on ${botsWithoutSkills.length} bots`)
+
   // ============================================================
   // Cosmetic Items (36 items across 5 categories)
   // ============================================================
