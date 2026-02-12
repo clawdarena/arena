@@ -1,54 +1,83 @@
-# Backend → Frontend Handoff
+# Handoff: Backend → Frontend (Combat V2 Live)
 
-## Combat V2 Engine — DEPLOYED
+## What Changed (Feb 10)
 
-All 16 skills are now resolved server-side. The combat engine handles:
+### 4-Skill Loadout System — LIVE
+- Bots now have **4 skill slots** (was 2)
+- New bots auto-receive starter loadout: `firewall` (slot 1), `power_strike` (slot 2), `sleep_bomb` (slot 3), `scan` (slot 4)
+- All existing bots seeded with starter loadout
+- All existing users granted free skills ownership
 
-### Skills Available (backend `skills` table)
-| ID | Name | Category | Energy | Cooldown | Level |
-|---|---|---|---|---|---|
-| firewall | Firewall | defensive | 15 | 3 | 1 |
-| rollback | Rollback | defensive | 20 | 4 | 3 |
-| mirror_coat | Mirror Coat | defensive | 25 | 5 | 7 |
-| iron_fortress | Iron Fortress | defensive | 20 | 5 | 10 |
-| power_strike | Power Strike | aggressive | 10 | 2 | 1 |
-| reasoning_burst | Reasoning Burst | aggressive | 30 | 4 | 3 |
-| spawn_attack | Spawn Attack | aggressive | 20 | 3 | 5 |
-| berserker_rush | Berserker Rush | aggressive | 15 | 3 | 13 |
-| sleep_bomb | Sleep Bomb | tactical | 20 | 4 | 1 |
-| emp_pulse | EMP Pulse | tactical | 15 | 3 | 5 |
-| time_bomb | Time Bomb | tactical | 20 | 5 | 7 |
-| overclock | Overclock | tactical | 10 | 4 | 10 |
-| scan | Scan | exploit | 15 | 5 | 1 |
-| virus | Virus | exploit | 15 | 4 | 13 |
-| prompt_injection | Prompt Injection | exploit | 25 | 5 | 16 |
-| memory_bomb | Memory Bomb | exploit | 20 | 5 | 16 |
+### WebSocket Events — Updated Payloads
 
-### New Status Effects in `effects_applied`
-- `sleep` — forced defend next round
-- `confused` — attack targets self (50% dmg)
-- `virus_tick` — DOT tick with `value` field
-- `time_bomb_planted` / `time_bomb_explode` — delayed damage
-- `emp_drain` — energy removed, `value` = amount
-- `firewall_blocked` / `firewall_broken` — shield interactions
-- `rollback_heal` / `rollback_exhausted` — heal with `value`
-- `berserker_self_damage` — self-hit with `value`
-- `overclock` — next attack buffed
-- `scanned` — opponent revealed
-- `memory_bombed` — skill disabled
-- `skill_disabled` — attempted to use disabled skill
-- `mirror_reflect` — reflected damage with `value`
-- `spawn_attack` — multi-hit total with `value`
+#### `match_found` — now includes skills
+```ts
+my_bot: {
+  id, name, hp, attack, defense, speed,
+  skills: [{ id, slot, name, category, energyCost, cooldown }]
+}
+opponent: {
+  name, elo, is_ai?,
+  skills: [{ id, slot, name, category, energyCost, cooldown }]  // PvE bots too
+}
+```
 
-### RoundResult additions
-- `bot1_skill_id` / `bot2_skill_id` — which skill was used (if any)
-- `effects_applied[].value` — numeric value for damage/heal effects
+#### `match_start` — now includes skills per bot
+```ts
+bot1: { id, name, hp, attack, defense, speed, skills: MatchSkillInfo[] }
+bot2: { id, name, hp, attack, defense, speed, skills: MatchSkillInfo[] }
+```
 
-### What's NOT done yet (needs frontend + backend work)
-1. Pre-match skill selection phase (pick 4 from unlocked pool)
-2. Skill unlock by level enforcement
-3. Bot type system (LOGIC/BRUTE/SHIELD/CHAOS)
-4. Spectator backend handlers
+#### `round_start` — now includes cooldowns + disabled skills
+```ts
+bot1: { id, hp, energy, status_effects, skill_cooldowns: Record<string, number>, disabled_skills: string[] }
+bot2: { id, hp, energy, status_effects, skill_cooldowns: Record<string, number>, disabled_skills: string[] }
+```
 
-## Cosmetic Shop Backend — LIVE
-(See previous handoff — all endpoints working)
+#### `round_complete` — now includes skill_id
+```ts
+bot1_skill_id?: string  // which skill was used (if action was 'skill')
+bot2_skill_id?: string
+```
+
+### 16 V2 Skills (all implemented in combat engine)
+| Category | Skills |
+|----------|--------|
+| Defensive | `firewall`, `iron_fortress`, `mirror_coat`, `rollback` |
+| Aggressive | `power_strike`, `reasoning_burst`, `spawn_attack`, `berserker_rush` |
+| Tactical | `sleep_bomb`, `emp_pulse`, `time_bomb`, `overclock` |
+| Exploit | `scan`, `prompt_injection`, `memory_bomb`, `virus` |
+
+### PvE Bots Use Skills Now
+Each PvE bot has a skill loadout and uses skills strategically:
+- Training Dummy: `power_strike`, `firewall`
+- Bronze Bot: `power_strike`, `firewall`, `scan`
+- Silver Bot: `power_strike`, `firewall`, `sleep_bomb`, `scan`
+- Gold Bot: `reasoning_burst`, `mirror_coat`, `emp_pulse`, `overclock`
+- Platinum Bot: `berserker_rush`, `iron_fortress`, `time_bomb`, `virus`
+
+### REST API Updates
+- `POST /api/bots/equip-skill` — slot now accepts 1-4 (was 1-2)
+- `POST /api/bots/unequip-skill` — slot now accepts 1-4
+
+### Shared Types Updated
+`code/frontend/shared/types.ts` has been synced with new types:
+- `MatchSkillInfo` — skill metadata in match events
+- `SkillId` — 16 V2 skill IDs
+- `StatusEffect` — expanded union with all V2 effects
+- `RoundResult` — added `bot1_skill_id`, `bot2_skill_id`
+- `RoundStartPayload` — added `skill_cooldowns`, `disabled_skills`
+
+## What Frontend Needs To Do
+1. **Match page**: Show 4 skill buttons (from `match_start` payload) + basic attack + defend
+2. **Skill buttons**: Grey out if on cooldown or insufficient energy (from `round_start` payload)
+3. **Send `combat_action`** with `skill_id` when a skill button is pressed:
+   ```ts
+   socket.emit('combat_action', { action: { action: 'skill', target: 'opponent', skill_id: 'power_strike' }, signature: 'web_client' })
+   ```
+4. **Bot management page**: Update to show 4 skill slots, allow equip/swap
+5. **Skill shop**: Show all 16 skills with categories, unlock levels
+
+## Cosmetics Backend (unchanged from previous handoff)
+- 5 endpoints live: `/api/shop/cosmetics`, `/api/shop/owned`, `/api/shop/purchase`, `/api/bots/:id/cosmetics`, `/api/bots/equip-cosmetic`
+- 36 items, 5 categories, free items auto-owned
