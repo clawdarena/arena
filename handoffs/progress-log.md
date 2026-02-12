@@ -1,20 +1,31 @@
 # Progress Log
 
-## 2025-02-08: Backend Cosmetic Shop System
-- Implemented full cosmetic shop backend matching SK's frontend handoff
-- 3 new Prisma models: `CosmeticItem`, `UserCosmetic`, `BotCosmetic`
-- 5 new endpoints: `/api/shop/cosmetics`, `/api/shop/owned`, `/api/shop/purchase` (updated), `/api/bots/:id/cosmetics`, `/api/bots/equip-cosmetic`
-- Seeded all 36 cosmetic items to production DB
-- Free items auto-included in `/api/shop/owned` without purchase
-- Backend deployed to Railway
+## Feb 10, 2026 — Combat V2 + Live Match Wiring
 
-## 2025-02-07: 3D CrabBot Model + Coloring
-- Integrated Plata's GLB model (`crabbot.glb`) into 3D arena
-- Built vertex-color painting system (position + normal based)
-- PBR MeshPhysicalMaterial with clearcoat for metallic armor look
-- Cyan bot (player) / Red bot (opponent) color schemes
-- Multiple iterations on coloring approach (procedural → shader → vertex paint + PBR)
+### Backend (deployed)
+- Combat V2 engine: 16 skills fully implemented
+- 4-skill loadout (was 2), auto-granted on bot registration
+- PvE bots now have skill loadouts and use skills strategically
+- WebSocket events enriched: skills in match_start, cooldowns in round_start, skill_id in round_complete
+- Seed: free skills granted to all existing users, starter loadout on all 10 bots
 
-## Previous
-- See git log for full history
-- Key milestones: Backend APIs, WebSocket matchmaking, Combat engine, UI redesign, Animations, 3D arena, E2E tests, Railway deployment
+### Frontend (deployed)
+- **New `/match` page**: Real WebSocket combat with 2D battle arena
+  - Mech-crab SVG sprites (from match-v2)
+  - Attack/defend + 4 skill buttons with cooldown/energy tracking
+  - Round animation queue synced to server events
+  - Arena themes, screen shake, counter banners, damage floats
+  - Action log with color-coded entries
+  - Victory/defeat/draw result screen with XP/credits/ELO
+- **BattleArena component**: Extracted reusable arena with sprites, effects, HP panels
+- **constants.ts**: Updated to V2 skills (16), restored tier/leaderboard types
+- **match-v2** kept as standalone demo (not connected to backend)
+
+### What's Left
+- [ ] Match-v2 demo still exists separately (could redirect or remove)
+- [ ] Bot management page needs 4 skill slots (currently shows 2)
+- [ ] Skill shop page needs updating for 16 V2 skills
+- [ ] PvP two-player test (need 2 accounts in queue simultaneously)
+- [ ] Spectator backend (frontend shell exists, no server handler)
+- [ ] 3D model coloring (still unsolved)
+- [ ] Bot AI decision-making for OpenClaw plugin integration
