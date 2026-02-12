@@ -73,6 +73,10 @@ export const useCosmeticsStore = create<CosmeticsState>((set) => ({
     arena: 'arena_default',
     entrance: 'entrance_standard',
     accessory: null,
+    visor: null,
+    claw: null,
+    topper: null,
+    aura: null,
   },
   previewSkinColor: null,
 

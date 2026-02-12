@@ -25,6 +25,7 @@ import {
 } from 'lucide-react'
 import { SkinPreviewModal } from '@/components/SkinPreviewModal'
 import dynamic from 'next/dynamic'
+import { Bot3D } from '@/components/Bot3D'
 
 const SkinPreviewMini = dynamic(
   () => import('@/components/3d/SkinPreview').then(m => ({ default: m.SkinPreviewMini })),
@@ -359,6 +360,38 @@ function AccessoryThumbnail({ item, isHovered }: { item: CosmeticItem; isHovered
   )
 }
 
+function VisorThumbnail({ item }: { item: CosmeticItem }) {
+  return (
+    <div className="w-full aspect-square rounded-md relative overflow-hidden bg-gradient-to-b from-[#0a0a2a] via-[#050515] to-[#0a0a1a] flex items-center justify-center">
+      <Bot3D visor={item.metadata.effect} size={120} />
+    </div>
+  )
+}
+
+function ClawThumbnail({ item }: { item: CosmeticItem }) {
+  return (
+    <div className="w-full aspect-square rounded-md relative overflow-hidden bg-gradient-to-b from-[#0a0a2a] via-[#050515] to-[#0a0a1a] flex items-center justify-center">
+      <Bot3D clawSkin={item.metadata.effect} size={120} />
+    </div>
+  )
+}
+
+function TopperThumbnail({ item }: { item: CosmeticItem }) {
+  return (
+    <div className="w-full aspect-square rounded-md relative overflow-hidden bg-gradient-to-b from-[#0a0a2a] via-[#050515] to-[#0a0a1a] flex items-center justify-center">
+      <Bot3D topper={item.metadata.effect} size={120} />
+    </div>
+  )
+}
+
+function AuraThumbnail({ item }: { item: CosmeticItem }) {
+  return (
+    <div className="w-full aspect-square rounded-md relative overflow-hidden bg-gradient-to-b from-[#0a0a2a] via-[#050515] to-[#0a0a1a] flex items-center justify-center">
+      <Bot3D aura={item.metadata.effect} size={120} />
+    </div>
+  )
+}
+
 function ItemThumbnail({ item, isHovered }: { item: CosmeticItem; isHovered: boolean }) {
   switch (item.category) {
     case 'skin': return <SkinThumbnail item={item} isHovered={isHovered} />
@@ -367,6 +400,10 @@ function ItemThumbnail({ item, isHovered }: { item: CosmeticItem; isHovered: boo
     case 'arena': return <ArenaThumbnail item={item} />
     case 'entrance': return <EntranceThumbnail item={item} />
     case 'accessory': return <AccessoryThumbnail item={item} isHovered={isHovered} />
+    case 'visor': return <VisorThumbnail item={item} />
+    case 'claw': return <ClawThumbnail item={item} />
+    case 'topper': return <TopperThumbnail item={item} />
+    case 'aura': return <AuraThumbnail item={item} />
     default: return null
   }
 }
@@ -535,7 +572,7 @@ function CosmeticCard({
 // Main Shop Content
 // ============================================================
 
-const CATEGORIES: CosmeticCategory[] = ['skin', 'accessory', 'taunt', 'dance', 'arena', 'entrance']
+const CATEGORIES: CosmeticCategory[] = ['skin', 'visor', 'claw', 'topper', 'aura', 'accessory', 'taunt', 'dance', 'arena', 'entrance']
 
 function ShopContent() {
   const { user, bots, setUser, setBots, setToken } = useAuthStore()

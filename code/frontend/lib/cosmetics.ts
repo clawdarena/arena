@@ -3,7 +3,7 @@
  * Categories: skin, taunt, dance, arena, entrance, accessory
  */
 
-export type CosmeticCategory = 'skin' | 'taunt' | 'dance' | 'arena' | 'entrance' | 'accessory'
+export type CosmeticCategory = 'skin' | 'taunt' | 'dance' | 'arena' | 'entrance' | 'accessory' | 'visor' | 'claw' | 'topper' | 'aura'
 export type Rarity = 'common' | 'uncommon' | 'rare' | 'super_rare' | 'legendary'
 
 export interface CosmeticItem {
@@ -562,6 +562,133 @@ export const ACCESSORIES: CosmeticItem[] = [
 ]
 
 // ============================================================
+// VISORS — Eye/visor visual effects for 3D bot
+// ============================================================
+
+export const VISORS: CosmeticItem[] = [
+  {
+    id: 'visor_rainbow',
+    name: 'Rainbow',
+    description: 'Multicolor gradient visor effect. Taste the rainbow.',
+    category: 'visor',
+    price: 400,
+    rarity: 'rare',
+    metadata: { effect: 'rainbow', type3d: 'visor' },
+  },
+  {
+    id: 'visor_laser',
+    name: 'Laser',
+    description: 'Red laser beam eyes. Intimidation factor 100.',
+    category: 'visor',
+    price: 800,
+    rarity: 'super_rare',
+    metadata: { effect: 'laser', type3d: 'visor', color: '#ff0000' },
+  },
+]
+
+// ============================================================
+// CLAWS — Claw skin overlays for 3D bot
+// ============================================================
+
+export const CLAWS: CosmeticItem[] = [
+  {
+    id: 'claw_flame',
+    name: 'Flame',
+    description: 'Blazing fire claws. Leave scorch marks everywhere.',
+    category: 'claw',
+    price: 500,
+    rarity: 'rare',
+    metadata: { effect: 'flame', type3d: 'claw', color: '#ff4400' },
+  },
+  {
+    id: 'claw_crystal',
+    name: 'Crystal',
+    description: 'Crystalline ice claws. Sharp and beautiful.',
+    category: 'claw',
+    price: 500,
+    rarity: 'rare',
+    metadata: { effect: 'crystal', type3d: 'claw', color: '#88ddff' },
+  },
+  {
+    id: 'claw_gold',
+    name: 'Gold',
+    description: 'Pure gold claws. Bling and brutality combined.',
+    category: 'claw',
+    price: 1000,
+    rarity: 'super_rare',
+    metadata: { effect: 'gold', type3d: 'claw', color: '#ffcc00' },
+  },
+]
+
+// ============================================================
+// TOPPERS — Shell-mounted decorations for 3D bot
+// ============================================================
+
+export const TOPPERS: CosmeticItem[] = [
+  {
+    id: 'topper_crown',
+    name: 'Crown',
+    description: 'Royal golden crown atop your shell. Rule the arena.',
+    category: 'topper',
+    price: 1200,
+    rarity: 'legendary',
+    metadata: { effect: 'crown', type3d: 'topper', color: '#ffcc00' },
+  },
+  {
+    id: 'topper_spike_mohawk',
+    name: 'Spike Mohawk',
+    description: 'Punk rock spikes down the shell. Attitude included.',
+    category: 'topper',
+    price: 300,
+    rarity: 'uncommon',
+    metadata: { effect: 'spike-mohawk', type3d: 'topper' },
+  },
+  {
+    id: 'topper_satellite',
+    name: 'Satellite',
+    description: 'Orbital satellite dish on your back. Always connected.',
+    category: 'topper',
+    price: 600,
+    rarity: 'rare',
+    metadata: { effect: 'satellite', type3d: 'topper' },
+  },
+]
+
+// ============================================================
+// AURAS — Surrounding particle/energy effects for 3D bot
+// ============================================================
+
+export const AURAS: CosmeticItem[] = [
+  {
+    id: 'aura_flames',
+    name: 'Flames',
+    description: 'Fiery aura orbiting around you. Walking inferno.',
+    category: 'aura',
+    price: 1000,
+    rarity: 'super_rare',
+    metadata: { effect: 'flames', type3d: 'aura', color: '#ff4400' },
+  },
+  {
+    id: 'aura_electric',
+    name: 'Electric',
+    description: 'Crackling electricity around your shell. Shocking presence.',
+    category: 'aura',
+    price: 1000,
+    rarity: 'super_rare',
+    metadata: { effect: 'electric', type3d: 'aura', color: '#00ffff' },
+  },
+  {
+    id: 'aura_particles',
+    name: 'Particles',
+    description: 'Floating energy particles. Mystical and mesmerizing.',
+    category: 'aura',
+    price: 700,
+    rarity: 'rare',
+    metadata: { effect: 'particles', type3d: 'aura', color: '#cc44ff' },
+  },
+]
+
+// ============================================================
 // Helpers
 // ============================================================
 
@@ -572,6 +699,10 @@ export const ALL_COSMETICS: CosmeticItem[] = [
   ...ARENAS,
   ...ENTRANCES,
   ...ACCESSORIES,
+  ...VISORS,
+  ...CLAWS,
+  ...TOPPERS,
+  ...AURAS,
 ]
 
 export const COSMETICS_BY_CATEGORY: Record<CosmeticCategory, CosmeticItem[]> = {
@@ -581,6 +712,10 @@ export const COSMETICS_BY_CATEGORY: Record<CosmeticCategory, CosmeticItem[]> = {
   arena: ARENAS,
   entrance: ENTRANCES,
   accessory: ACCESSORIES,
+  visor: VISORS,
+  claw: CLAWS,
+  topper: TOPPERS,
+  aura: AURAS,
 }
 
 export const CATEGORY_LABELS: Record<CosmeticCategory, string> = {
@@ -590,6 +725,10 @@ export const CATEGORY_LABELS: Record<CosmeticCategory, string> = {
   arena: 'ARENAS',
   entrance: 'ENTRANCES',
   accessory: 'ACCESSORIES',
+  visor: 'VISORS',
+  claw: 'CLAWS',
+  topper: 'TOPPERS',
+  aura: 'AURAS',
 }
 
 export const CATEGORY_ICONS: Record<CosmeticCategory, string> = {
@@ -599,6 +738,10 @@ export const CATEGORY_ICONS: Record<CosmeticCategory, string> = {
   arena: '🏟️',
   entrance: '⚡',
   accessory: '🎒',
+  visor: '👁️',
+  claw: '🦀',
+  topper: '🎩',
+  aura: '✨',
 }
 
 export function getDefaultForCategory(category: CosmeticCategory): CosmeticItem | undefined {
