@@ -22,10 +22,13 @@ import {
   Lock,
   Star,
   Sparkles,
+  ShoppingBag,
+  Zap,
 } from 'lucide-react'
 import { SkinPreviewModal } from '@/components/SkinPreviewModal'
 import dynamic from 'next/dynamic'
 import { Bot3D } from '@/components/Bot3D'
+import { ALL_SKILLS, SKILLS_BY_CATEGORY, CATEGORY_LABELS as SKILL_CATEGORY_LABELS, CATEGORY_COLORS, CATEGORY_BORDER_COLORS, CATEGORY_BG_COLORS, type SkillData, type SkillCategory } from '@/lib/skills'
 
 const SkinPreviewMini = dynamic(
   () => import('@/components/3d/SkinPreview').then(m => ({ default: m.SkinPreviewMini })),
@@ -444,6 +447,136 @@ function getRarityStyles(rarity: Rarity) {
 }
 
 // ============================================================
+// Skill Card
+// ============================================================
+
+function SkillCard({
+  skill,
+  owned,
+  equipped,
+  canAfford,
+  botLevel,
+  onPurchase,
+  onEquip,
+}: {
+  skill: SkillData
+  owned: boolean
+  equipped: boolean
+  canAfford: boolean
+  botLevel: number
+  onPurchase: () => void
+  onEquip: () => void
+}) {
+  const isLocked = botLevel < skill.unlockLevel
+  const isFree = skill.price === 0
+  const borderColor = CATEGORY_BORDER_COLORS[skill.category]
+  const bgColor = CATEGORY_BG_COLORS[skill.category]
+
+  return (
+    <div
+      className={`relative panel p-4 transition-all duration-200 hover:border-[var(--border-bright)] ${borderColor} ${
+        equipped ? 'ring-1 ring-[var(--neon-cyan)]/40' : ''
+      }`}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between mb-3">
+        <div className={`flex items-center gap-2 px-2 py-1 rounded-sm ${bgColor}`}>
+          <span className="text-lg">{skill.icon}</span>
+          <span className={`text-[9px] font-mono font-bold ${CATEGORY_COLORS[skill.category]}`}>
+            {SKILL_CATEGORY_LABELS[skill.category].toUpperCase()}
+          </span>
+        </div>
+        <div className="flex gap-1">
+          {equipped && (
+            <span className="flex items-center gap-0.5 text-[9px] font-mono font-bold text-[var(--neon-cyan)] bg-[var(--neon-cyan)]/10 px-1.5 py-0.5 rounded-sm">
+              <Star className="w-2.5 h-2.5" /> EQUIPPED
+            </span>
+          )}
+          {owned && !equipped && (
+            <span className="flex items-center gap-0.5 text-[9px] font-mono font-bold text-[var(--neon-green)] bg-[var(--neon-green-dim)] px-1.5 py-0.5 rounded-sm">
+              <Check className="w-2.5 h-2.5" /> OWNED
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Skill name */}
+      <h3 className="text-sm font-bold text-[var(--text-primary)] mb-2 font-body">{skill.name}</h3>
+
+      {/* Description */}
+      <p className="text-[11px] text-[var(--text-secondary)] leading-relaxed mb-3 min-h-[48px]">
+        {skill.description}
+      </p>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-2 mb-3 text-[10px] font-mono">
+        <div className="bg-[var(--bg-void)] border border-[var(--border-dim)] rounded-sm px-2 py-1.5 text-center">
+          <div className="text-[var(--neon-amber)] font-bold">⚡ {skill.energyCost}</div>
+          <div className="text-[var(--text-muted)] text-[8px]">ENERGY</div>
+        </div>
+        <div className="bg-[var(--bg-void)] border border-[var(--border-dim)] rounded-sm px-2 py-1.5 text-center">
+          <div className="text-[var(--neon-cyan)] font-bold">🔄 {skill.cooldown}</div>
+          <div className="text-[var(--text-muted)] text-[8px]">COOLDOWN</div>
+        </div>
+      </div>
+
+      {/* Level requirement badge */}
+      {skill.unlockLevel > 1 && (
+        <div className={`text-center text-[9px] font-mono font-bold mb-2 ${
+          isLocked ? 'text-[var(--neon-red)]' : 'text-[var(--text-muted)]'
+        }`}>
+          {isLocked ? '🔒' : '✓'} REQUIRES LEVEL {skill.unlockLevel}
+        </div>
+      )}
+
+      {/* Action button */}
+      {equipped ? (
+        <div className="w-full py-2 rounded-sm text-xs font-mono font-bold bg-[var(--neon-cyan)]/10 border border-[var(--neon-cyan)]/30 text-[var(--neon-cyan)] text-center">
+          ✦ EQUIPPED
+        </div>
+      ) : owned ? (
+        <button
+          onClick={onEquip}
+          className="w-full py-2 rounded-sm text-xs font-mono font-bold bg-[var(--bg-raised)] border border-[var(--border-mid)] text-[var(--text-primary)] hover:bg-[var(--bg-hover)] hover:border-[var(--neon-cyan)]/40 transition"
+        >
+          EQUIP TO LOADOUT
+        </button>
+      ) : isLocked ? (
+        <div className="w-full py-2 rounded-sm text-xs font-mono font-bold bg-[var(--bg-raised)] text-[var(--text-muted)] cursor-not-allowed text-center border border-[var(--border-dim)]">
+          <span className="flex items-center gap-1 justify-center">
+            <Lock className="w-3 h-3" /> LOCKED
+          </span>
+        </div>
+      ) : isFree ? (
+        <div className="w-full py-2 rounded-sm text-xs font-mono font-bold bg-[var(--neon-green-dim)] border border-[var(--neon-green)]/30 text-[var(--neon-green)] text-center">
+          FREE · DEFAULT
+        </div>
+      ) : (
+        <button
+          onClick={onPurchase}
+          disabled={!canAfford}
+          className={`w-full py-2 rounded-sm text-xs font-mono font-bold transition ${
+            canAfford
+              ? 'bg-[var(--neon-amber)] text-[var(--bg-void)] hover:shadow-lg hover:shadow-[var(--neon-amber-dim)]'
+              : 'bg-[var(--bg-raised)] text-[var(--text-muted)] cursor-not-allowed'
+          }`}
+        >
+          {canAfford ? (
+            <span className="flex items-center gap-1 justify-center">
+              <Sparkles className="w-3 h-3" /> {formatCredits(skill.price)} CR
+            </span>
+          ) : (
+            <span className="flex items-center gap-1 justify-center">
+              <Lock className="w-3 h-3" /> {formatCredits(skill.price)} CR
+            </span>
+          )}
+        </button>
+      )}
+    </div>
+  )
+}
+
+// ============================================================
 // Item Card
 // ============================================================
 
@@ -583,10 +716,13 @@ function ShopContent() {
     addOwnedItem,
     setEquippedItem,
   } = useCosmeticsStore()
-  const [activeTab, setActiveTab] = useState<CosmeticCategory>('skin')
+  const [shopMode, setShopMode] = useState<'skills' | 'cosmetics'>('skills')
+  const [activeTab, setActiveTab] = useState<CosmeticCategory | SkillCategory>('aggressive')
   const [loading, setLoading] = useState(true)
   const [purchasing, setPurchasing] = useState<string | null>(null)
   const [previewItem, setPreviewItem] = useState<CosmeticItem | null>(null)
+  const [ownedSkills, setOwnedSkills] = useState<Set<string>>(new Set())
+  const [equippedSkillIds, setEquippedSkillIds] = useState<Set<string>>(new Set())
 
   useEffect(() => {
     async function fetchData() {
@@ -625,6 +761,24 @@ function ShopContent() {
           }
         } catch {
           // Use defaults from store
+        }
+
+        // Fetch owned skills
+        try {
+          const skillsRes = await api<{ skills: string[] }>('/api/skills/owned')
+          if (skillsRes.skills) {
+            setOwnedSkills(new Set(skillsRes.skills))
+          }
+        } catch {
+          // Default skills
+          const defaultSkills = ALL_SKILLS.filter(s => s.price === 0).map(s => s.id)
+          setOwnedSkills(new Set(defaultSkills))
+        }
+
+        // Get equipped skills from bot
+        if (me.bots?.length && me.bots[0].skills) {
+          const equipped = new Set<string>(me.bots[0].skills.map((s: any) => s.skill_id))
+          setEquippedSkillIds(equipped)
         }
       } catch (err) {
         console.error('Failed to fetch shop data:', err)
@@ -667,6 +821,67 @@ function ShopContent() {
     setEquippedItem(item.category, item.id)
   }, [bots, setEquippedItem])
 
+  const handleSkillPurchase = useCallback(async (skill: SkillData) => {
+    if (!user || user.credits < skill.price || purchasing) return
+    const botId = bots[0]?.id
+    if (!botId) {
+      alert('No bot found')
+      return
+    }
+    setPurchasing(skill.id)
+    try {
+      const res = await api<{ new_balance: number }>('/api/skills/purchase', {
+        method: 'POST',
+        body: JSON.stringify({ bot_id: botId, skill_id: skill.id }),
+      })
+      setOwnedSkills(prev => new Set([...prev, skill.id]))
+      setUser({ ...user, credits: res.new_balance })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Purchase failed'
+      if (msg.includes('LEVEL_TOO_LOW')) {
+        alert(`This skill requires Level ${skill.unlockLevel}. Keep fighting to level up!`)
+      } else {
+        alert(msg)
+      }
+    } finally {
+      setPurchasing(null)
+    }
+  }, [user, bots, purchasing, setUser])
+
+  const handleSkillEquip = useCallback(async (skill: SkillData) => {
+    const botId = bots[0]?.id
+    if (!botId) return
+    
+    // Check if bot already has 4 skills equipped
+    const currentSkills = bots[0]?.skills || []
+    if (currentSkills.length >= 4) {
+      alert('All 4 skill slots are full! Unequip a skill from your dashboard first.')
+      return
+    }
+
+    // Find first available slot
+    const usedSlots = new Set(currentSkills.map((s: any) => s.slot))
+    const availableSlot = [1, 2, 3, 4].find(slot => !usedSlots.has(slot))
+    
+    if (!availableSlot) {
+      alert('All skill slots are full!')
+      return
+    }
+
+    try {
+      await api('/api/bots/equip-skill', {
+        method: 'POST',
+        body: JSON.stringify({ bot_id: botId, skill_id: skill.id, slot: availableSlot }),
+      })
+      setEquippedSkillIds(prev => new Set([...prev, skill.id]))
+      // Refresh to update bot data
+      window.location.reload()
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to equip skill'
+      alert(msg)
+    }
+  }, [bots])
+
   if (loading) return (
     <div className="flex items-center justify-center min-h-[60vh]">
       <div className="flex items-center gap-3 text-[var(--text-muted)]">
@@ -678,17 +893,14 @@ function ShopContent() {
 
   if (!user) return null
 
-  const items = COSMETICS_BY_CATEGORY[activeTab]
-  const sortedItems = [...items].sort((a, b) => {
-    return (RARITY_ORDER[a.rarity] ?? 99) - (RARITY_ORDER[b.rarity] ?? 99)
-  })
+  const botLevel = bots[0]?.level || 1
 
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-8 py-6">
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <h1 className="arena-title text-xl text-[var(--text-primary)]">COSMETIC SHOP</h1>
+          <h1 className="arena-title text-xl text-[var(--text-primary)]">SHOP</h1>
           <div className="h-px flex-1 bg-[var(--border-dim)] min-w-8" />
         </div>
         <div className="flex items-center gap-2 panel-raised px-3 py-1.5">
@@ -697,62 +909,154 @@ function ShopContent() {
         </div>
       </div>
 
-      {/* Category Tabs */}
-      <div className="mb-6 -mx-4 px-4 sm:mx-0 sm:px-0">
-        <div className="flex gap-1 overflow-x-auto scrollbar-hide pb-1">
-          {CATEGORIES.map((cat) => {
-            const isActive = activeTab === cat
-            return (
-              <button
-                key={cat}
-                onClick={() => setActiveTab(cat)}
-                className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-sm text-xs font-mono font-bold transition-all
-                  ${isActive
-                    ? 'bg-[var(--neon-cyan)]/10 text-[var(--neon-cyan)] border border-[var(--neon-cyan)]/30'
-                    : 'bg-[var(--bg-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] hover:text-[var(--text-secondary)] hover:border-[var(--border-mid)]'
-                  }
-                `}
-              >
-                <span>{CATEGORY_ICONS[cat]}</span>
-                <span>{CATEGORY_LABELS[cat]}</span>
-                <span className="text-[9px] opacity-60">({COSMETICS_BY_CATEGORY[cat].length})</span>
-              </button>
-            )
-          })}
-        </div>
+      {/* Shop Mode Tabs (Skills vs Cosmetics) */}
+      <div className="mb-6 flex gap-2">
+        <button
+          onClick={() => {
+            setShopMode('skills')
+            setActiveTab('aggressive')
+          }}
+          className={`flex items-center gap-2 px-6 py-3 rounded-sm text-sm font-mono font-bold transition-all ${
+            shopMode === 'skills'
+              ? 'bg-[var(--neon-cyan)]/10 text-[var(--neon-cyan)] border-2 border-[var(--neon-cyan)]/30'
+              : 'bg-[var(--bg-raised)] text-[var(--text-muted)] border-2 border-[var(--border-dim)] hover:text-[var(--text-secondary)] hover:border-[var(--border-mid)]'
+          }`}
+        >
+          <Zap className="w-4 h-4" />
+          SKILLS ({ALL_SKILLS.length})
+        </button>
+        <button
+          onClick={() => {
+            setShopMode('cosmetics')
+            setActiveTab('skin')
+          }}
+          className={`flex items-center gap-2 px-6 py-3 rounded-sm text-sm font-mono font-bold transition-all ${
+            shopMode === 'cosmetics'
+              ? 'bg-[var(--neon-cyan)]/10 text-[var(--neon-cyan)] border-2 border-[var(--neon-cyan)]/30'
+              : 'bg-[var(--bg-raised)] text-[var(--text-muted)] border-2 border-[var(--border-dim)] hover:text-[var(--text-secondary)] hover:border-[var(--border-mid)]'
+          }`}
+        >
+          <ShoppingBag className="w-4 h-4" />
+          COSMETICS ({ALL_COSMETICS.length})
+        </button>
       </div>
 
-      {/* Cosmetic info banner */}
-      <div className="mb-4 panel px-4 py-2 flex items-center gap-2 text-[11px] text-[var(--text-muted)] font-mono">
-        <Sparkles className="w-3.5 h-3.5 text-[var(--neon-amber)] flex-shrink-0" />
-        <span>All items are <span className="text-[var(--text-primary)] font-bold">purely cosmetic</span> — zero gameplay advantage. Look cool, fight fair.</span>
-      </div>
-
-      {/* Items Grid */}
-      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
-        {sortedItems.map((item, i) => {
-          const isOwned = ownedItems.has(item.id) || item.isDefault === true
-          const isEquipped = equippedItems[item.category] === item.id
-
-          return (
-            <div
-              key={item.id}
-              className="animate-grid-in"
-              style={{ animationDelay: `${i * 40}ms` }}
-            >
-              <CosmeticCard
-                item={item}
-                owned={isOwned}
-                equipped={isEquipped}
-                canAfford={user.credits >= item.price}
-                onPurchase={() => handlePurchase(item)}
-                onEquip={() => handleEquip(item)}
-                onPreview={() => setPreviewItem(item)}
-              />
+      {shopMode === 'skills' ? (
+        <>
+          {/* Skill Category Tabs */}
+          <div className="mb-6 -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="flex gap-1 overflow-x-auto scrollbar-hide pb-1">
+              {(['defensive', 'aggressive', 'tactical', 'exploit'] as SkillCategory[]).map((cat) => {
+                const isActive = activeTab === cat
+                const skills = SKILLS_BY_CATEGORY[cat]
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveTab(cat)}
+                    className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-sm text-xs font-mono font-bold transition-all
+                      ${isActive
+                        ? 'bg-[var(--neon-cyan)]/10 text-[var(--neon-cyan)] border border-[var(--neon-cyan)]/30'
+                        : 'bg-[var(--bg-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] hover:text-[var(--text-secondary)] hover:border-[var(--border-mid)]'
+                      }
+                    `}
+                  >
+                    <span>{skills[0]?.icon || '⚡'}</span>
+                    <span>{SKILL_CATEGORY_LABELS[cat]}</span>
+                    <span className="text-[9px] opacity-60">({skills.length})</span>
+                  </button>
+                )
+              })}
             </div>
-          )
-        })}
-      </div>
+          </div>
+
+          {/* Skills Grid */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {SKILLS_BY_CATEGORY[activeTab as SkillCategory].map((skill, i) => {
+              const isOwned = ownedSkills.has(skill.id) || skill.price === 0
+              const isEquipped = equippedSkillIds.has(skill.id)
+
+              return (
+                <div
+                  key={skill.id}
+                  className="animate-grid-in"
+                  style={{ animationDelay: `${i * 40}ms` }}
+                >
+                  <SkillCard
+                    skill={skill}
+                    owned={isOwned}
+                    equipped={isEquipped}
+                    canAfford={user.credits >= skill.price}
+                    botLevel={botLevel}
+                    onPurchase={() => handleSkillPurchase(skill)}
+                    onEquip={() => handleSkillEquip(skill)}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </>
+      ) : (
+        <>
+          {/* Cosmetic Category Tabs */}
+          <div className="mb-6 -mx-4 px-4 sm:mx-0 sm:px-0">
+            <div className="flex gap-1 overflow-x-auto scrollbar-hide pb-1">
+              {CATEGORIES.map((cat) => {
+                const isActive = activeTab === cat
+                return (
+                  <button
+                    key={cat}
+                    onClick={() => setActiveTab(cat)}
+                    className={`flex-shrink-0 flex items-center gap-1.5 px-4 py-2 rounded-sm text-xs font-mono font-bold transition-all
+                      ${isActive
+                        ? 'bg-[var(--neon-cyan)]/10 text-[var(--neon-cyan)] border border-[var(--neon-cyan)]/30'
+                        : 'bg-[var(--bg-raised)] text-[var(--text-muted)] border border-[var(--border-dim)] hover:text-[var(--text-secondary)] hover:border-[var(--border-mid)]'
+                      }
+                    `}
+                  >
+                    <span>{CATEGORY_ICONS[cat]}</span>
+                    <span>{CATEGORY_LABELS[cat]}</span>
+                    <span className="text-[9px] opacity-60">({COSMETICS_BY_CATEGORY[cat].length})</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* Cosmetic info banner */}
+          <div className="mb-4 panel px-4 py-2 flex items-center gap-2 text-[11px] text-[var(--text-muted)] font-mono">
+            <Sparkles className="w-3.5 h-3.5 text-[var(--neon-amber)] flex-shrink-0" />
+            <span>All items are <span className="text-[var(--text-primary)] font-bold">purely cosmetic</span> — zero gameplay advantage. Look cool, fight fair.</span>
+          </div>
+
+          {/* Cosmetics Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+            {COSMETICS_BY_CATEGORY[activeTab as CosmeticCategory].sort((a, b) => {
+              return (RARITY_ORDER[a.rarity] ?? 99) - (RARITY_ORDER[b.rarity] ?? 99)
+            }).map((item, i) => {
+              const isOwned = ownedItems.has(item.id) || item.isDefault === true
+              const isEquipped = equippedItems[item.category] === item.id
+
+              return (
+                <div
+                  key={item.id}
+                  className="animate-grid-in"
+                  style={{ animationDelay: `${i * 40}ms` }}
+                >
+                  <CosmeticCard
+                    item={item}
+                    owned={isOwned}
+                    equipped={isEquipped}
+                    canAfford={user.credits >= item.price}
+                    onPurchase={() => handlePurchase(item)}
+                    onEquip={() => handleEquip(item)}
+                    onPreview={() => setPreviewItem(item)}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        </>
+      )}
 
       {/* Preview Modal */}
       {previewItem && (

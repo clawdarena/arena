@@ -9,9 +9,127 @@ import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Navbar } from '@/components/Navbar'
 import { type MatchHistoryEntry } from '@/lib/constants'
 import { api } from '@/lib/api'
-import { Swords, Shield, Zap, Heart, TrendingUp, TrendingDown, Minus, ChevronRight, Trophy, Activity } from 'lucide-react'
+import { Swords, Shield, Zap, Heart, TrendingUp, TrendingDown, Minus, ChevronRight, Trophy, Activity, Lock, X } from 'lucide-react'
 import { PageTransition } from '@/components/PageTransition'
 import { Skeleton, SkeletonStats } from '@/components/Skeleton'
+import { MOVES_BY_ID, getCategoryIcon } from '@/lib/moves'
+import type { EquippedSkill } from '@/shared/types'
+
+// ============================================================
+// Skill Loadout Panel (4 Slots)
+// ============================================================
+
+function SkillLoadoutPanel({ botId, skills }: { botId: string; skills: EquippedSkill[] }) {
+  const [loadingSkillId, setLoadingSkillId] = useState<string | null>(null)
+  const router = useRouter()
+
+  // Prepare 4 slots with skill data
+  const slots = [1, 2, 3, 4].map((slotNum) => {
+    const equipped = skills.find((s) => s.slot === slotNum)
+    if (!equipped) return { slot: slotNum, empty: true }
+    
+    const move = MOVES_BY_ID[equipped.skill_id]
+    return {
+      slot: slotNum,
+      empty: false,
+      skill: equipped,
+      move,
+    }
+  })
+
+  async function handleUnequip(slot: number) {
+    setLoadingSkillId(`slot-${slot}`)
+    try {
+      await api('/api/bots/unequip-skill', {
+        method: 'POST',
+        body: JSON.stringify({ bot_id: botId, slot }),
+      })
+      // Refresh page to update
+      window.location.reload()
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to unequip'
+      alert(msg)
+    } finally {
+      setLoadingSkillId(null)
+    }
+  }
+
+  return (
+    <div className="panel p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="arena-subtitle text-[10px] text-[var(--text-muted)] flex items-center gap-2">
+          ⚡ SKILL LOADOUT
+        </h3>
+        <Link
+          href="/shop"
+          className="arena-subtitle text-[10px] text-[var(--neon-cyan)] hover:underline flex items-center gap-1"
+        >
+          SHOP <ChevronRight className="w-3 h-3" />
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        {slots.map((slotData) => (
+          <div
+            key={slotData.slot}
+            className={`relative rounded-sm border-2 p-3 transition-all ${
+              slotData.empty
+                ? 'border-dashed border-[var(--border-dim)] bg-[var(--bg-void)]/50 hover:border-[var(--border-mid)] cursor-pointer'
+                : 'border-[var(--border-mid)] bg-[var(--bg-raised)] hover:border-[var(--neon-cyan)]/30'
+            }`}
+            onClick={() => slotData.empty && router.push('/shop')}
+          >
+            {/* Slot number badge */}
+            <div className="absolute top-1.5 left-1.5 w-5 h-5 rounded-sm bg-[var(--bg-void)] border border-[var(--border-dim)] flex items-center justify-center">
+              <span className="text-[9px] font-mono font-bold text-[var(--text-muted)]">{slotData.slot}</span>
+            </div>
+
+            {slotData.empty ? (
+              <div className="flex flex-col items-center justify-center py-4 text-center">
+                <Lock className="w-6 h-6 text-[var(--text-muted)] mb-1 opacity-40" />
+                <span className="text-[9px] text-[var(--text-muted)] font-mono">EMPTY SLOT</span>
+                <span className="text-[8px] text-[var(--text-muted)] font-mono opacity-60 mt-0.5">Click to equip</span>
+              </div>
+            ) : (
+              <>
+                {/* Unequip button */}
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleUnequip(slotData.slot)
+                  }}
+                  disabled={loadingSkillId === `slot-${slotData.slot}`}
+                  className="absolute top-1.5 right-1.5 w-5 h-5 rounded-sm bg-[var(--neon-red-dim)] border border-[var(--neon-red)]/30 flex items-center justify-center hover:bg-[var(--neon-red)]/20 transition disabled:opacity-50"
+                  title="Unequip"
+                >
+                  <X className="w-3 h-3 text-[var(--neon-red)]" />
+                </button>
+
+                {/* Skill info */}
+                <div className="pt-4">
+                  <div className="flex items-center gap-1.5 mb-1">
+                    <span className="text-sm">{slotData.move ? getCategoryIcon(slotData.move.category) : '⚡'}</span>
+                    <span className="text-xs font-bold text-[var(--text-primary)] truncate">
+                      {slotData.move?.name || slotData.skill?.skill_id}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-[9px] font-mono text-[var(--text-muted)]">
+                    <span>⚡ {slotData.move?.energyCost || 20}</span>
+                    {slotData.skill && slotData.skill.cooldown_remaining > 0 && (
+                      <span className="text-[var(--neon-amber)]">
+                        CD: {slotData.skill.cooldown_remaining}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
 
 function StatBar({ label, value, max, color, icon }: {
   label: string
@@ -266,8 +384,8 @@ function DashboardContent() {
         </div>
       </div>
 
-      {/* Middle Row: Bot Stats + Match Finder */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 mb-4">
+      {/* Middle Row: Bot Stats + Loadout + Match Finder */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
         {/* Bot Stats */}
         <div className="panel p-6">
           <div className="flex items-center gap-3 mb-5">
@@ -286,6 +404,9 @@ function DashboardContent() {
             <StatBar label="SPD" value={bot.base_speed} max={30} color="bg-[var(--neon-green)]" icon={<Zap className="w-3.5 h-3.5 text-[var(--neon-green)]" />} />
           </div>
         </div>
+
+        {/* Skill Loadout */}
+        <SkillLoadoutPanel botId={bot.id} skills={bot.skills || []} />
 
         {/* Match Finder — ELO auto-tier */}
         <div className="panel p-6 corner-brackets flex flex-col">
