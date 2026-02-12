@@ -20,6 +20,7 @@ import type {
 import type { BotSuggestion, ChatMessage } from '@/lib/tagteam-types'
 import { SKILL_DATABASE } from '@/lib/tagteam-types'
 import { Shield, Swords, Timer, Trophy, Wifi, WifiOff, Zap, Lock } from 'lucide-react'
+import { OpenClawStatus, type OpenClawConnectionState } from '@/components/OpenClawStatus'
 
 // ============================================================
 // Skill display helpers
@@ -90,14 +91,19 @@ function MatchContent() {
   const [actionLog, setActionLog] = useState<string[]>([])
   const logRef = useRef<HTMLDivElement>(null)
 
-  // Tag Team Mode state
-  const [tagTeamMode, setTagTeamMode] = useState(false)
+  // Tag Team Mode state (now always enabled)
   const [focusPoints, setFocusPoints] = useState(3)
   const [maxFocusPoints] = useState(5)
   const [lastFocusRegen, setLastFocusRegen] = useState(0)
   const [botSuggestion, setBotSuggestion] = useState<BotSuggestion | null>(null)
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [decisionTimer, setDecisionTimer] = useState(20)
+
+  // OpenClaw connection state
+  const [openClawStatus, setOpenClawStatus] = useState<OpenClawConnectionState>('disconnected')
+  const [openClawModel, setOpenClawModel] = useState<string>()
+  const [openClawProvider, setOpenClawProvider] = useState<string>()
+  const [openClawBotName, setOpenClawBotName] = useState<string>()
 
   const addLog = useCallback((msg: string) => {
     setActionLog(prev => [...prev, msg])
@@ -231,8 +237,9 @@ function MatchContent() {
       if ((data.bot1 as any).disabled_skills) setDisabledSkills((data.bot1 as any).disabled_skills)
       setMyEnergy(data.bot1.energy ?? 100)
 
-      // Generate bot suggestion in tag team mode
-      if (tagTeamMode) {
+      // Generate bot suggestion (tag team mode always enabled)
+      // Only generate if OpenClaw is not connected (fallback to local bot)
+      if (openClawStatus !== 'connected') {
         const suggestion = generateBotSuggestion(
           data.round,
           data.bot2.hp,
@@ -244,7 +251,7 @@ function MatchContent() {
       }
 
       // Focus point regen every 3 rounds
-      if (tagTeamMode && data.round % 3 === 0 && data.round !== lastFocusRegen && data.round > 0) {
+      if (data.round % 3 === 0 && data.round !== lastFocusRegen && data.round > 0) {
         setFocusPoints(prev => Math.min(prev + 1, maxFocusPoints))
         setLastFocusRegen(data.round)
         addLog('⭐ +1 Focus Point regenerated!')
@@ -271,6 +278,65 @@ function MatchContent() {
       addLog(`⚠️ Error: ${err.message || err.code}`)
     })
 
+    // OpenClaw WebSocket events
+    socket.on('openclaw_connected', (data: { bot_name: string; model: string; provider: string; session_key: string }) => {
+      setOpenClawStatus('connected')
+      setOpenClawModel(data.model)
+      setOpenClawProvider(data.provider)
+      setOpenClawBotName(data.bot_name)
+      addLog(`🤖 OpenClaw connected: ${data.model}`)
+    })
+
+    socket.on('openclaw_disconnected', () => {
+      setOpenClawStatus('disconnected')
+      addLog('⚠️ OpenClaw disconnected')
+    })
+
+    socket.on('bot_suggestion', (data: {
+      match_id: string
+      round: number
+      suggestion: {
+        skill_id: string
+        skill_name: string
+        reasoning: string[]
+        confidence: number
+        risk_level: 'low' | 'medium' | 'high'
+        expected_damage: number
+        counters: string[]
+      }
+      response_time_ms: number
+      model_used: string
+    }) => {
+      const skillInfo = SKILL_DATABASE[data.suggestion.skill_id]
+      const suggestion: BotSuggestion = {
+        suggestionId: `openclaw_${data.round}_${Date.now()}`,
+        skillId: data.suggestion.skill_id,
+        skillName: data.suggestion.skill_name,
+        emoji: skillInfo?.emoji || SKILL_EMOJI[data.suggestion.skill_id] || '⚔️',
+        confidence: data.suggestion.confidence,
+        reasoning: data.suggestion.reasoning,
+        counters: data.suggestion.counters,
+        expectedDamage: data.suggestion.expected_damage,
+        riskLevel: data.suggestion.risk_level,
+        timestamp: Date.now(),
+      }
+      setBotSuggestion(suggestion)
+      setDecisionTimer(currentRound?.time_limit_seconds || 20)
+      addLog(`🤖 OpenClaw suggests: ${suggestion.skillName} ${suggestion.emoji}`)
+    })
+
+    socket.on('coaching_response', (data: { match_id: string; message: string; timestamp: number }) => {
+      setChatMessages(prev => [
+        ...prev,
+        {
+          id: `bot_${data.timestamp}`,
+          role: 'bot',
+          content: data.message,
+          timestamp: data.timestamp,
+        },
+      ])
+    })
+
     return () => {
       socket.off('connect')
       socket.off('disconnect')
@@ -279,8 +345,12 @@ function MatchContent() {
       socket.off('round_complete')
       socket.off('match_end')
       socket.off('error')
+      socket.off('openclaw_connected')
+      socket.off('openclaw_disconnected')
+      socket.off('bot_suggestion')
+      socket.off('coaching_response')
     }
-  }, [matchData, setPhase, setCurrentRound, setRoundResult, setMatchResult, addLog, processNextRound, isAnimating])
+  }, [matchData, setPhase, setCurrentRound, setRoundResult, setMatchResult, addLog, processNextRound, isAnimating, openClawStatus, currentRound])
 
   // Timer countdown
   useEffect(() => {
@@ -307,8 +377,24 @@ function MatchContent() {
     addLog(`→ You chose: ${label}`)
     
     // Clear bot suggestion after action
-    if (tagTeamMode) {
-      setBotSuggestion(null)
+    setBotSuggestion(null)
+
+    // Emit accept/override events to backend if suggestion was from OpenClaw
+    if (botSuggestion && openClawStatus === 'connected') {
+      const socket = connectSocket()
+      if (skillId === botSuggestion.skillId) {
+        socket.emit('accept_suggestion', {
+          match_id: matchData?.match_id,
+          suggestion_id: botSuggestion.suggestionId,
+        })
+      } else {
+        socket.emit('override_suggestion', {
+          match_id: matchData?.match_id,
+          suggestion_id: botSuggestion.suggestionId,
+          chosen_skill_id: skillId || action,
+          focus_points_remaining: focusPoints,
+        })
+      }
     }
   }
 
@@ -346,21 +432,38 @@ function MatchContent() {
   }
 
   function handleSendChatMessage(msg: string) {
+    const timestamp = Date.now()
     setChatMessages(prev => [
       ...prev,
       {
-        id: `user_${Date.now()}`,
+        id: `user_${timestamp}`,
         role: 'user',
         content: msg,
-        timestamp: Date.now(),
-      },
-      {
-        id: `bot_${Date.now() + 1}`,
-        role: 'bot',
-        content: 'Good question! Focus on maintaining energy while dealing consistent damage. Consider the opponent\'s likely counter moves.',
-        timestamp: Date.now() + 500,
+        timestamp,
       },
     ])
+
+    // Emit to OpenClaw if connected, otherwise use fallback
+    if (openClawStatus === 'connected') {
+      const socket = connectSocket()
+      socket.emit('coaching_chat', {
+        match_id: matchData?.match_id,
+        message: msg,
+      })
+    } else {
+      // Fallback bot response
+      setTimeout(() => {
+        setChatMessages(prev => [
+          ...prev,
+          {
+            id: `bot_${timestamp + 500}`,
+            role: 'bot',
+            content: 'Good question! Focus on maintaining energy while dealing consistent damage. Consider the opponent\'s likely counter moves.',
+            timestamp: timestamp + 500,
+          },
+        ])
+      }, 500)
+    }
   }
 
   // Redirect if no match
@@ -424,12 +527,15 @@ function MatchContent() {
           <div className={`flex items-center gap-1 ml-2 ${connected ? 'text-green-500' : 'text-red-500'}`}>
             {connected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
           </div>
-          <button
-            onClick={() => setTagTeamMode(!tagTeamMode)}
-            className={`ml-3 flex items-center gap-1.5 ${tagTeamMode ? 'bg-purple-600 hover:bg-purple-500' : 'bg-gray-700 hover:bg-gray-600'} text-white text-xs font-bold px-3 py-1.5 rounded transition`}
-            style={{ fontFamily: 'Rajdhani, sans-serif' }}>
-            <Zap className="w-3 h-3" /> TAG TEAM {tagTeamMode ? 'ON' : 'OFF'}
-          </button>
+          <div className="ml-3">
+            <OpenClawStatus
+              status={openClawStatus}
+              model={openClawModel}
+              provider={openClawProvider}
+              botName={openClawBotName}
+              compact
+            />
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-xs font-mono text-gray-500">R{roundNumber}/{maxRounds}</div>
@@ -448,11 +554,11 @@ function MatchContent() {
         </div>
       </div>
 
-      {/* Main Content - Conditional 3-column layout */}
-      <div className={tagTeamMode ? 'grid grid-cols-12 gap-4 px-2 sm:px-4 pt-3' : ''}>
+      {/* Main Content - Always 3-column layout with Tag Team sidebar */}
+      <div className="grid grid-cols-12 gap-4 px-2 sm:px-4 pt-3">
         
         {/* Battle Arena */}
-        <div className={tagTeamMode ? 'col-span-8' : 'px-2 sm:px-4 pt-3'}>
+        <div className="col-span-12 lg:col-span-8">
           <BattleArena
             bot1={{ name: myBot.name, maxHp: myBot.hp, color: '#00f0ff' }}
             bot2={{ name: oppName, maxHp: matchStartData?.bot2.hp ?? 100, color: '#ff4040' }}
@@ -471,30 +577,30 @@ function MatchContent() {
           />
         </div>
 
-        {/* Tag Team Sidebar */}
-        {tagTeamMode && (
-          <div className="col-span-4 space-y-3">
-            <FocusPointTracker
-              current={focusPoints}
-              max={maxFocusPoints}
-              roundsUntilRegen={lastFocusRegen > 0 ? (3 - ((roundHistory.length - lastFocusRegen) % 3)) : 3}
-            />
-            <BotSuggestionPanel
-              suggestion={botSuggestion}
-              timeRemaining={decisionTimer}
-              focusPoints={focusPoints}
-              onAccept={handleAcceptSuggestion}
-              onOverride={handleOverrideSuggestion}
-              onDiscuss={handleDiscuss}
-              disabled={actionSubmitted || phase !== 'fighting'}
-            />
-            <CoachingChat
-              messages={chatMessages}
-              onSendMessage={handleSendChatMessage}
-              disabled={phase === 'result'}
-            />
-          </div>
-        )}
+        {/* Tag Team Sidebar - Always visible */}
+        <div className="col-span-12 lg:col-span-4 space-y-3">
+          <FocusPointTracker
+            current={focusPoints}
+            max={maxFocusPoints}
+            roundsUntilRegen={lastFocusRegen > 0 ? (3 - ((roundHistory.length - lastFocusRegen) % 3)) : 3}
+          />
+          <BotSuggestionPanel
+            suggestion={botSuggestion}
+            timeRemaining={decisionTimer}
+            focusPoints={focusPoints}
+            onAccept={handleAcceptSuggestion}
+            onOverride={handleOverrideSuggestion}
+            onDiscuss={handleDiscuss}
+            disabled={actionSubmitted || phase !== 'fighting'}
+            openClawStatus={openClawStatus}
+          />
+          <CoachingChat
+            messages={chatMessages}
+            onSendMessage={handleSendChatMessage}
+            disabled={phase === 'result'}
+            openClawStatus={openClawStatus}
+          />
+        </div>
       </div>
 
       {/* Action Buttons */}

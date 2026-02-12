@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Send, Bot, User } from 'lucide-react'
+import type { OpenClawConnectionState } from './OpenClawStatus'
 
 interface ChatMessage {
   id: string
@@ -14,9 +15,15 @@ interface CoachingChatProps {
   messages: ChatMessage[]
   onSendMessage: (message: string) => void
   disabled?: boolean
+  openClawStatus?: OpenClawConnectionState
 }
 
-export function CoachingChat({ messages, onSendMessage, disabled = false }: CoachingChatProps) {
+export function CoachingChat({ 
+  messages, 
+  onSendMessage, 
+  disabled = false,
+  openClawStatus = 'disconnected',
+}: CoachingChatProps) {
   const [input, setInput] = useState('')
   const scrollRef = useRef<HTMLDivElement>(null)
 
@@ -28,11 +35,13 @@ export function CoachingChat({ messages, onSendMessage, disabled = false }: Coac
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
-    if (input.trim() && !disabled) {
+    if (input.trim() && !disabled && openClawStatus === 'connected') {
       onSendMessage(input.trim())
       setInput('')
     }
   }
+
+  const isChatDisabled = disabled || openClawStatus !== 'connected'
 
   return (
     <div className="bg-[#0a0a1aee] border border-cyan-800/40 rounded-lg backdrop-blur-sm flex flex-col h-full">
@@ -52,8 +61,16 @@ export function CoachingChat({ messages, onSendMessage, disabled = false }: Coac
         className="flex-1 overflow-y-auto p-3 space-y-2 min-h-[200px] max-h-[300px] scrollbar-thin"
       >
         {messages.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-gray-600 text-xs font-mono">
-            Ask your bot coach for advice...
+          <div className="flex items-center justify-center h-full text-center">
+            {openClawStatus !== 'connected' ? (
+              <div className="text-amber-400 text-xs font-mono">
+                💬 Chat available when OpenClaw is connected
+              </div>
+            ) : (
+              <div className="text-gray-600 text-xs font-mono">
+                Ask your bot coach for advice...
+              </div>
+            )}
           </div>
         ) : (
           messages.map((msg) => (
@@ -95,14 +112,18 @@ export function CoachingChat({ messages, onSendMessage, disabled = false }: Coac
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
-            disabled={disabled}
-            placeholder="Ask about strategy..."
-            className="flex-1 bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-600 disabled:opacity-50"
+            disabled={isChatDisabled}
+            placeholder={
+              openClawStatus !== 'connected' 
+                ? 'Connect OpenClaw to chat...' 
+                : 'Ask about strategy...'
+            }
+            className="flex-1 bg-gray-900/50 border border-gray-700 rounded px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
           />
           <button
             type="submit"
-            disabled={disabled || !input.trim()}
-            className="bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white p-2 rounded transition"
+            disabled={isChatDisabled || !input.trim()}
+            className="bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 disabled:cursor-not-allowed text-white p-2 rounded transition"
           >
             <Send className="w-4 h-4" />
           </button>

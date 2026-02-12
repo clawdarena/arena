@@ -67,6 +67,20 @@ const pendingInvites: Map<string, DirectInvite> = new Map()
 const autoQueueUsers: Set<string> = new Set()
 const spectators: Map<string, Set<string>> = new Map()  // matchId → set of socketIds
 
+// OpenClaw bot connections
+const openclawBots: Map<string, {
+  userId: string
+  socketId: string
+  botName: string
+  model: string
+  provider: string
+  sessionKey: string
+  connectedAt: number
+}> = new Map()
+
+// Match -> OpenClaw bot mapping
+const matchOpenclawBots: Map<string, string> = new Map()  // matchId -> userId
+
 // ============================================================
 // Setup
 // ============================================================
@@ -541,11 +555,197 @@ export function setupMatchmaking(io: Server) {
     })
 
     // ============================================================
+    // OpenClaw Integration
+    // ============================================================
+
+    // OpenClaw bot registers
+    socket.on('openclaw_connect', async (data: {
+      bot_name: string
+      model: string
+      provider: string
+      session_key: string
+    }) => {
+      try {
+        const user = socketToUser.get(socket.id)
+        if (!user) return socket.emit('error', { code: 'AUTH_REQUIRED' })
+
+        // Register OpenClaw bot
+        openclawBots.set(user.userId, {
+          userId: user.userId,
+          socketId: socket.id,
+          botName: data.bot_name,
+          model: data.model,
+          provider: data.provider,
+          sessionKey: data.session_key,
+          connectedAt: Date.now()
+        })
+
+        console.log(`🤖 OpenClaw connected: ${data.bot_name} (${data.model}) for user ${user.username}`)
+        
+        // Notify all user's active matches
+        for (const [matchId, match] of activeMatches) {
+          if (match.bot1.userId === user.userId || match.bot2.userId === user.userId) {
+            matchOpenclawBots.set(matchId, user.userId)
+            const targetSocket = match.bot1.userId === user.userId ? match.bot1.socketId : match.bot2.socketId
+            io.to(targetSocket).emit('openclaw_connected', {
+              match_id: matchId,
+              bot_name: data.bot_name,
+              model: data.model,
+              provider: data.provider
+            })
+          }
+        }
+
+        socket.emit('openclaw_connect_success')
+      } catch (err) {
+        console.error('OpenClaw connect error:', err)
+        socket.emit('error', { code: 'OPENCLAW_CONNECT_FAILED', message: String(err) })
+      }
+    })
+
+    // OpenClaw bot disconnects
+    socket.on('openclaw_disconnect', () => {
+      const user = socketToUser.get(socket.id)
+      if (!user) return
+
+      openclawBots.delete(user.userId)
+      
+      // Notify all matches
+      for (const [matchId, match] of activeMatches) {
+        if (match.bot1.userId === user.userId || match.bot2.userId === user.userId) {
+          matchOpenclawBots.delete(matchId)
+          const targetSocket = match.bot1.userId === user.userId ? match.bot1.socketId : match.bot2.socketId
+          io.to(targetSocket).emit('openclaw_disconnected', { match_id: matchId })
+        }
+      }
+
+      console.log(`🤖 OpenClaw disconnected for user ${user.username}`)
+    })
+
+    // Handle bot suggestions from OpenClaw
+    socket.on('bot_suggestion_response', (data: {
+      match_id: string
+      suggestion: {
+        skill_id: string
+        skill_name: string
+        reasoning: string[]
+        confidence: number
+        risk_level: 'low' | 'medium' | 'high'
+        expected_damage: number
+        counters: string[]
+      }
+      response_time_ms: number
+    }) => {
+      try {
+        const user = socketToUser.get(socket.id)
+        if (!user) return
+
+        const match = activeMatches.get(data.match_id)
+        if (!match) return
+
+        const targetSocketId = match.bot1.userId === user.userId ? match.bot1.socketId : match.bot2.socketId
+
+        // Forward suggestion to player
+        io.to(targetSocketId).emit('bot_suggestion', {
+          match_id: data.match_id,
+          round: match.currentRound,
+          suggestion: data.suggestion,
+          response_time_ms: data.response_time_ms,
+          model_used: openclawBots.get(user.userId)?.model
+        })
+      } catch (err) {
+        console.error('Bot suggestion error:', err)
+      }
+    })
+
+    // Player sends coaching message
+    socket.on('coaching_chat', (data: { match_id: string; message: string }) => {
+      try {
+        const user = socketToUser.get(socket.id)
+        if (!user) return
+
+        const match = activeMatches.get(data.match_id)
+        if (!match) return
+
+        const openclawBot = openclawBots.get(user.userId)
+        if (!openclawBot) return
+
+        // Forward to OpenClaw bot
+        const isBot1 = match.bot1.userId === user.userId
+        const playerBot = isBot1 ? match.bot1.state : match.bot2.state
+
+        io.to(openclawBot.socketId).emit('coaching_message', {
+          match_id: data.match_id,
+          message: data.message,
+          context: {
+            current_hp: playerBot.hp,
+            current_energy: playerBot.energy,
+            round: match.currentRound
+          }
+        })
+      } catch (err) {
+        console.error('Coaching chat error:', err)
+      }
+    })
+
+    // OpenClaw responds to coaching
+    socket.on('coaching_response', (data: { match_id: string; message: string }) => {
+      try {
+        const user = socketToUser.get(socket.id)
+        if (!user) return
+
+        const match = activeMatches.get(data.match_id)
+        if (!match) return
+
+        const targetSocketId = match.bot1.userId === user.userId ? match.bot1.socketId : match.bot2.socketId
+
+        // Forward to player
+        io.to(targetSocketId).emit('coaching_response', {
+          match_id: data.match_id,
+          message: data.message,
+          timestamp: Date.now()
+        })
+      } catch (err) {
+        console.error('Coaching response error:', err)
+      }
+    })
+
+    // Accept/Override tracking (for analytics)
+    socket.on('accept_suggestion', (data: { match_id: string; suggestion_id: string }) => {
+      // Log acceptance for analytics
+      console.log(`✅ Suggestion accepted in match ${data.match_id}`)
+      // Analytics can be added later
+    })
+
+    socket.on('override_suggestion', (data: {
+      match_id: string
+      suggestion_id: string
+      chosen_skill_id: string
+      focus_points_remaining: number
+    }) => {
+      // Log override for analytics
+      console.log(`⚠️ Suggestion overridden in match ${data.match_id}: ${data.chosen_skill_id}`)
+      // Track for post-match report
+    })
+
+    // ============================================================
     // Disconnect
     // ============================================================
 
     socket.on('disconnect', () => {
       console.log(`🔌 Disconnected: ${user.username}`)
+      
+      // Clean up OpenClaw bot
+      openclawBots.delete(user.userId)
+      
+      // Notify matches of OpenClaw disconnect
+      for (const [matchId, match] of activeMatches) {
+        if (matchOpenclawBots.get(matchId) === user.userId) {
+          matchOpenclawBots.delete(matchId)
+          const targetSocket = match.bot1.userId === user.userId ? match.bot1.socketId : match.bot2.socketId
+          io.to(targetSocket).emit('openclaw_disconnected', { match_id: matchId })
+        }
+      }
       
       // Remove from queue
       const idx = queueEntries.findIndex((e) => e.socketId === socket.id)
@@ -883,6 +1083,35 @@ function startRound(io: Server, match: ActiveMatch) {
   io.to(match.bot1.socketId).emit('round_start', payload)
   if (!(match as any).isPve) {
     io.to(match.bot2.socketId).emit('round_start', payload)
+  }
+
+  // OpenClaw: Request suggestion from connected bot
+  const openclawUserId = matchOpenclawBots.get(match.id)
+  if (openclawUserId) {
+    const openclawBot = openclawBots.get(openclawUserId)
+    if (openclawBot) {
+      // Request suggestion from OpenClaw
+      const isBot1 = match.bot1.userId === openclawUserId
+      const playerBot = isBot1 ? match.bot1.state : match.bot2.state
+      const opponentBot = isBot1 ? match.bot2.state : match.bot1.state
+
+      io.to(openclawBot.socketId).emit('request_bot_suggestion', {
+        match_id: match.id,
+        round: match.currentRound,
+        player_bot: {
+          hp: playerBot.hp,
+          energy: playerBot.energy,
+          skills: playerBot.equippedSkills,
+          skill_cooldowns: Object.fromEntries(playerBot.skillCooldowns)
+        },
+        opponent_bot: {
+          hp: opponentBot.hp,
+          energy: opponentBot.energy,
+          last_action: match.rounds.length > 0 ? match.rounds[match.rounds.length - 1]?.bot2_action : null
+        },
+        time_limit_ms: 15000
+      })
+    }
   }
 
   // PvE: auto-submit AI action after short delay

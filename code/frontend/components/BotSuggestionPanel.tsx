@@ -1,7 +1,9 @@
 'use client'
 
 import { useState } from 'react'
-import { Brain, ThumbsUp, MessageSquare, X } from 'lucide-react'
+import { Brain, ThumbsUp, MessageSquare, X, AlertTriangle } from 'lucide-react'
+import { OpenClawSetup } from './OpenClawSetup'
+import type { OpenClawConnectionState } from './OpenClawStatus'
 
 interface SkillSuggestion {
   skillId: string
@@ -22,6 +24,7 @@ interface BotSuggestionPanelProps {
   onOverride: () => void
   onDiscuss: () => void
   disabled?: boolean
+  openClawStatus?: OpenClawConnectionState
 }
 
 export function BotSuggestionPanel({
@@ -32,10 +35,31 @@ export function BotSuggestionPanel({
   onOverride,
   onDiscuss,
   disabled = false,
+  openClawStatus = 'disconnected',
 }: BotSuggestionPanelProps) {
   const [expanded, setExpanded] = useState(true)
 
   console.log('[BotSuggestionPanel] Received suggestion:', suggestion)
+
+  // Show connection required UI when OpenClaw is not connected
+  if (openClawStatus !== 'connected') {
+    return (
+      <div className="bg-[#0a0a1aee] border border-amber-600/40 rounded-lg backdrop-blur-sm">
+        <div className="p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <AlertTriangle className="w-5 h-5 text-amber-400" />
+            <span className="text-sm font-bold text-amber-400" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+              OpenClaw Not Connected
+            </span>
+          </div>
+          <p className="text-xs text-gray-300 mb-4">
+            Connect your OpenClaw bot to receive AI coaching and combat suggestions.
+          </p>
+          <OpenClawSetup />
+        </div>
+      </div>
+    )
+  }
 
   if (!suggestion) {
     return (
@@ -148,8 +172,8 @@ export function BotSuggestionPanel({
             <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={onAccept}
-                disabled={disabled}
-                className="flex flex-col items-center gap-1 bg-green-600/20 hover:bg-green-600/30 disabled:opacity-50 border border-green-600/40 rounded px-3 py-2 transition group"
+                disabled={disabled || openClawStatus !== 'connected'}
+                className="flex flex-col items-center gap-1 bg-green-600/20 hover:bg-green-600/30 disabled:opacity-50 disabled:cursor-not-allowed border border-green-600/40 rounded px-3 py-2 transition group"
               >
                 <ThumbsUp className="w-4 h-4 text-green-400" />
                 <span className="text-[10px] font-bold text-green-400" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
@@ -158,8 +182,8 @@ export function BotSuggestionPanel({
               </button>
               <button
                 onClick={onOverride}
-                disabled={disabled || focusPoints <= 0}
-                className="flex flex-col items-center gap-1 bg-amber-600/20 hover:bg-amber-600/30 disabled:opacity-50 border border-amber-600/40 rounded px-3 py-2 transition group"
+                disabled={disabled || focusPoints <= 0 || openClawStatus !== 'connected'}
+                className="flex flex-col items-center gap-1 bg-amber-600/20 hover:bg-amber-600/30 disabled:opacity-50 disabled:cursor-not-allowed border border-amber-600/40 rounded px-3 py-2 transition group"
               >
                 <X className="w-4 h-4 text-amber-400" />
                 <span className="text-[10px] font-bold text-amber-400" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
@@ -171,8 +195,8 @@ export function BotSuggestionPanel({
               </button>
               <button
                 onClick={onDiscuss}
-                disabled={disabled}
-                className="flex flex-col items-center gap-1 bg-cyan-600/20 hover:bg-cyan-600/30 disabled:opacity-50 border border-cyan-600/40 rounded px-3 py-2 transition group"
+                disabled={disabled || openClawStatus !== 'connected'}
+                className="flex flex-col items-center gap-1 bg-cyan-600/20 hover:bg-cyan-600/30 disabled:opacity-50 disabled:cursor-not-allowed border border-cyan-600/40 rounded px-3 py-2 transition group"
               >
                 <MessageSquare className="w-4 h-4 text-cyan-400" />
                 <span className="text-[10px] font-bold text-cyan-400" style={{ fontFamily: 'Rajdhani, sans-serif' }}>
