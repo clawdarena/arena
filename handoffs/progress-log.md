@@ -1,31 +1,51 @@
 # Progress Log
 
-## Feb 10, 2026 — Combat V2 + Live Match Wiring
+## Feb 10, 2026 — Full Backend Feature Ship
 
-### Backend (deployed)
-- Combat V2 engine: 16 skills fully implemented
-- 4-skill loadout (was 2), auto-granted on bot registration
-- PvE bots now have skill loadouts and use skills strategically
-- WebSocket events enriched: skills in match_start, cooldowns in round_start, skill_id in round_complete
-- Seed: free skills granted to all existing users, starter loadout on all 10 bots
+### Backend (all deployed)
+
+**Combat V2 Engine**
+- 16 skills fully implemented across 4 categories
+- 4-skill loadout per bot (auto-granted on registration)
+- PvE bots have skill loadouts and use them strategically
+
+**Spectator System** ✅ NEW
+- `spectate_match` / `leave_spectate` / `list_matches` WebSocket events
+- Spectators get `round_complete` + `match_end` broadcasts in real-time
+- `spectate_joined` sends full match state (both bots, HP, rounds so far)
+- Auto-cleanup on disconnect
+
+**Skill Level Gates** ✅ NEW
+- `POST /api/skills/purchase` checks bot level vs `unlockLevel`
+- Returns `LEVEL_TOO_LOW` error with `required_level` field
+- `GET /api/skills` now returns `unlock_level`, `category`, `energy_cost`
+
+**Google OAuth** ✅ NEW
+- `POST /api/auth/google` — send Google ID token, get JWT back
+- Auto-creates account or links to existing email
+- New users get welcome bonus + starter skills + loadout
+- Unique username from Google name
+
+**Plugin AI Hook** ✅ NEW
+- `plugin_combat_action` WebSocket event for OpenClaw plugins
+- Plugin sends `{ match_id, action, signature, response_time_ms }`
+- Same combat resolution as web UI — your SOUL.md determines fight quality
+
+**Other Fixes**
+- Register now uses V2 starter skills (firewall, power_strike, sleep_bomb, scan)
+- Register equips starter loadout on default bot
+- Skills list enriched with metadata from combat engine
 
 ### Frontend (deployed)
-- **New `/match` page**: Real WebSocket combat with 2D battle arena
-  - Mech-crab SVG sprites (from match-v2)
-  - Attack/defend + 4 skill buttons with cooldown/energy tracking
-  - Round animation queue synced to server events
-  - Arena themes, screen shake, counter banners, damage floats
-  - Action log with color-coded entries
-  - Victory/defeat/draw result screen with XP/credits/ELO
-- **BattleArena component**: Extracted reusable arena with sprites, effects, HP panels
-- **constants.ts**: Updated to V2 skills (16), restored tier/leaderboard types
-- **match-v2** kept as standalone demo (not connected to backend)
+- New `/match` page with real WebSocket combat + 2D battle arena
+- BattleArena component with mech-crab SVG sprites
+- 4 skill buttons with cooldown/energy tracking
+- match-v2 kept as standalone demo
 
 ### What's Left
-- [ ] Match-v2 demo still exists separately (could redirect or remove)
-- [ ] Bot management page needs 4 skill slots (currently shows 2)
-- [ ] Skill shop page needs updating for 16 V2 skills
-- [ ] PvP two-player test (need 2 accounts in queue simultaneously)
-- [ ] Spectator backend (frontend shell exists, no server handler)
-- [ ] 3D model coloring (still unsolved)
-- [ ] Bot AI decision-making for OpenClaw plugin integration
+- [ ] Bot management page: show 4 skill slots (currently 2)
+- [ ] Skill shop page: updated for 16 V2 skills with level requirements
+- [ ] PvP two-player test
+- [ ] Spectator frontend wiring (backend ready)
+- [ ] 3D model coloring
+- [ ] Google OAuth frontend button
