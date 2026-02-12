@@ -6,6 +6,9 @@ import { useMatchStore, useAuthStore } from '@/lib/store'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Navbar } from '@/components/Navbar'
 import { BattleArena, BATTLE_CSS, type BattleRoundData } from '@/components/combat/BattleArena'
+import { BotSuggestionPanel } from '@/components/BotSuggestionPanel'
+import { FocusPointTracker } from '@/components/FocusPointTracker'
+import { CoachingChat } from '@/components/CoachingChat'
 import { connectSocket } from '@/lib/socket'
 import type {
   RoundCompletePayload,
@@ -14,6 +17,8 @@ import type {
   MatchEndPayload,
   MatchSkillInfo,
 } from '../../../shared/types'
+import type { BotSuggestion, ChatMessage } from '@/lib/tagteam-types'
+import { SKILL_DATABASE } from '@/lib/tagteam-types'
 import { Shield, Swords, Timer, Trophy, Wifi, WifiOff, Zap, Lock } from 'lucide-react'
 
 // ============================================================
@@ -82,10 +87,70 @@ function MatchContent() {
   const [actionLog, setActionLog] = useState<string[]>([])
   const logRef = useRef<HTMLDivElement>(null)
 
+  // Tag Team Mode state
+  const [tagTeamMode, setTagTeamMode] = useState(false)
+  const [focusPoints, setFocusPoints] = useState(3)
+  const [maxFocusPoints] = useState(5)
+  const [lastFocusRegen, setLastFocusRegen] = useState(0)
+  const [botSuggestion, setBotSuggestion] = useState<BotSuggestion | null>(null)
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
+  const [decisionTimer, setDecisionTimer] = useState(20)
+
   const addLog = useCallback((msg: string) => {
     setActionLog(prev => [...prev, msg])
     setTimeout(() => logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' }), 50)
   }, [])
+
+  // Generate bot suggestion based on match state
+  const generateBotSuggestion = useCallback((round: number, opponentHp: number, playerEnergy: number): BotSuggestion => {
+    const availableSkills = Object.values(SKILL_DATABASE).filter(
+      skill => skill.energyCost <= playerEnergy && !skillCooldowns[skill.id] && !disabledSkills.includes(skill.id)
+    )
+
+    let selectedSkill = SKILL_DATABASE['power_strike']
+    let reasoning: string[] = []
+    let confidence = 75
+    let riskLevel: 'low' | 'medium' | 'high' = 'medium'
+
+    if (opponentHp < 30) {
+      selectedSkill = SKILL_DATABASE['reasoning_burst'] || selectedSkill
+      reasoning = ['Opponent HP critical', 'High damage finishing move', 'Energy sufficient']
+      confidence = 90
+      riskLevel = 'low'
+    } else if (playerEnergy < 30) {
+      selectedSkill = SKILL_DATABASE['power_strike']
+      reasoning = ['Energy low - conserve', 'Reliable damage/cost ratio', 'Save energy for later']
+      confidence = 80
+      riskLevel = 'low'
+    } else if (round % 3 === 0) {
+      selectedSkill = SKILL_DATABASE['emp_pulse'] || selectedSkill
+      reasoning = ['Drain opponent energy', 'Limit offensive options', 'Strategic advantage']
+      confidence = 70
+      riskLevel = 'medium'
+    } else {
+      const aggressive = availableSkills.find(s => s.type === 'aggressive' && s.energyCost <= playerEnergy)
+      selectedSkill = aggressive || selectedSkill
+      reasoning = ['Maintain pressure', 'Favorable trade-off', 'Build momentum']
+      confidence = 75
+      riskLevel = 'medium'
+    }
+
+    const counters = selectedSkill.countered_by.map(id => SKILL_DATABASE[id]?.name || id)
+    const avgDamage = Math.floor((selectedSkill.damage_range[0] + selectedSkill.damage_range[1]) / 2)
+
+    return {
+      suggestionId: `sug_${round}_${Date.now()}`,
+      skillId: selectedSkill.id,
+      skillName: selectedSkill.name,
+      emoji: selectedSkill.emoji,
+      confidence,
+      reasoning,
+      counters,
+      expectedDamage: avgDamage,
+      riskLevel,
+      timestamp: Date.now(),
+    }
+  }, [skillCooldowns, disabledSkills])
 
   // Process animation queue
   const processNextRound = useCallback(() => {
@@ -162,6 +227,25 @@ function MatchContent() {
       if ((data.bot1 as any).skill_cooldowns) setSkillCooldowns((data.bot1 as any).skill_cooldowns)
       if ((data.bot1 as any).disabled_skills) setDisabledSkills((data.bot1 as any).disabled_skills)
       setMyEnergy(data.bot1.energy ?? 100)
+
+      // Generate bot suggestion in tag team mode
+      if (tagTeamMode) {
+        const suggestion = generateBotSuggestion(
+          data.round,
+          data.bot2.hp,
+          data.bot1.energy ?? 100
+        )
+        setBotSuggestion(suggestion)
+        setDecisionTimer(data.time_limit_seconds)
+        addLog(`🤖 Bot suggests: ${suggestion.skillName} ${suggestion.emoji}`)
+      }
+
+      // Focus point regen every 3 rounds
+      if (tagTeamMode && data.round % 3 === 0 && data.round !== lastFocusRegen && data.round > 0) {
+        setFocusPoints(prev => Math.min(prev + 1, maxFocusPoints))
+        setLastFocusRegen(data.round)
+        addLog('⭐ +1 Focus Point regenerated!')
+      }
     })
 
     socket.on('round_complete', (data: RoundCompletePayload) => {
@@ -218,6 +302,62 @@ function MatchContent() {
     setActionSubmitted(true)
     const label = skillId ? `${SKILL_EMOJI[skillId] || '⚔️'} ${skillId}` : action
     addLog(`→ You chose: ${label}`)
+    
+    // Clear bot suggestion after action
+    if (tagTeamMode) {
+      setBotSuggestion(null)
+    }
+  }
+
+  // Tag team action handlers
+  function handleAcceptSuggestion() {
+    if (!botSuggestion) return
+    sendAction('skill', botSuggestion.skillId)
+    addLog(`✅ Accepted bot suggestion: ${botSuggestion.skillName}`)
+  }
+
+  function handleOverrideSuggestion() {
+    if (!botSuggestion || focusPoints <= 0) return
+    setFocusPoints(prev => prev - 1)
+    setBotSuggestion(null)
+    addLog(`⚠️ Override! -1 Focus Point (${focusPoints - 1} remaining)`)
+  }
+
+  function handleDiscuss() {
+    if (!botSuggestion) return
+    setChatMessages(prev => [
+      ...prev,
+      {
+        id: `user_${Date.now()}`,
+        role: 'user',
+        content: `Why ${botSuggestion.skillName}?`,
+        timestamp: Date.now(),
+      },
+      {
+        id: `bot_${Date.now() + 1}`,
+        role: 'bot',
+        content: `${botSuggestion.reasoning.join('. ')}. Confidence: ${botSuggestion.confidence}%`,
+        timestamp: Date.now() + 100,
+      },
+    ])
+  }
+
+  function handleSendChatMessage(msg: string) {
+    setChatMessages(prev => [
+      ...prev,
+      {
+        id: `user_${Date.now()}`,
+        role: 'user',
+        content: msg,
+        timestamp: Date.now(),
+      },
+      {
+        id: `bot_${Date.now() + 1}`,
+        role: 'bot',
+        content: 'Good question! Focus on maintaining energy while dealing consistent damage. Consider the opponent\'s likely counter moves.',
+        timestamp: Date.now() + 500,
+      },
+    ])
   }
 
   // Redirect if no match
@@ -281,6 +421,12 @@ function MatchContent() {
           <div className={`flex items-center gap-1 ml-2 ${connected ? 'text-green-500' : 'text-red-500'}`}>
             {connected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
           </div>
+          <button
+            onClick={() => setTagTeamMode(!tagTeamMode)}
+            className={`ml-3 flex items-center gap-1.5 ${tagTeamMode ? 'bg-purple-600 hover:bg-purple-500' : 'bg-gray-700 hover:bg-gray-600'} text-white text-xs font-bold px-3 py-1.5 rounded transition`}
+            style={{ fontFamily: 'Rajdhani, sans-serif' }}>
+            <Zap className="w-3 h-3" /> TAG TEAM {tagTeamMode ? 'ON' : 'OFF'}
+          </button>
         </div>
         <div className="flex items-center gap-3">
           <div className="text-xs font-mono text-gray-500">R{roundNumber}/{maxRounds}</div>
@@ -299,16 +445,45 @@ function MatchContent() {
         </div>
       </div>
 
-      {/* Battle Arena */}
-      <div className="px-2 sm:px-4 pt-3">
-        <BattleArena
-          bot1={{ name: myBot.name, maxHp: myBot.hp, color: '#00f0ff' }}
-          bot2={{ name: oppName, maxHp: matchStartData?.bot2.hp ?? 100, color: '#ff4040' }}
-          round={currentAnimRound}
-          phase={phase === 'fighting' ? 'fighting' : phase === 'result' ? 'result' : 'waiting'}
-          winner={winnerSide}
-          onAnimationComplete={onAnimationComplete}
-        />
+      {/* Main Content - Conditional 3-column layout */}
+      <div className={tagTeamMode ? 'grid grid-cols-12 gap-4 px-2 sm:px-4 pt-3' : ''}>
+        
+        {/* Battle Arena */}
+        <div className={tagTeamMode ? 'col-span-8' : 'px-2 sm:px-4 pt-3'}>
+          <BattleArena
+            bot1={{ name: myBot.name, maxHp: myBot.hp, color: '#00f0ff' }}
+            bot2={{ name: oppName, maxHp: matchStartData?.bot2.hp ?? 100, color: '#ff4040' }}
+            round={currentAnimRound}
+            phase={phase === 'fighting' ? 'fighting' : phase === 'result' ? 'result' : 'waiting'}
+            winner={winnerSide}
+            onAnimationComplete={onAnimationComplete}
+          />
+        </div>
+
+        {/* Tag Team Sidebar */}
+        {tagTeamMode && (
+          <div className="col-span-4 space-y-3">
+            <FocusPointTracker
+              current={focusPoints}
+              max={maxFocusPoints}
+              roundsUntilRegen={lastFocusRegen > 0 ? (3 - ((roundHistory.length - lastFocusRegen) % 3)) : 3}
+            />
+            <BotSuggestionPanel
+              suggestion={botSuggestion}
+              timeRemaining={decisionTimer}
+              focusPoints={focusPoints}
+              onAccept={handleAcceptSuggestion}
+              onOverride={handleOverrideSuggestion}
+              onDiscuss={handleDiscuss}
+              disabled={actionSubmitted || phase !== 'fighting'}
+            />
+            <CoachingChat
+              messages={chatMessages}
+              onSendMessage={handleSendChatMessage}
+              disabled={phase === 'result'}
+            />
+          </div>
+        )}
       </div>
 
       {/* Action Buttons */}

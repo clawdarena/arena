@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import { getSkillEffect } from './SkillEffects'
 
 // ============================================================
 // Types
@@ -340,28 +341,7 @@ function StatusEffect({ target, color, emoji }: { target: 'bot1' | 'bot2'; color
 }
 
 function getEffect(action: string, skillId: string | undefined, target: 'bot1' | 'bot2') {
-  if (action === 'defend') return <ShieldEffect defender={target === 'bot2' ? 'bot1' : 'bot2'} />
-  if (action === 'attack') return <SlashEffect target={target} />
-  if (!skillId) return <SlashEffect target={target} />
-  switch (skillId) {
-    case 'firewall': return <ShieldEffect defender={target === 'bot2' ? 'bot1' : 'bot2'} />
-    case 'iron_fortress': return <ShieldEffect defender={target === 'bot2' ? 'bot1' : 'bot2'} />
-    case 'mirror_coat': return <ShieldEffect defender={target === 'bot2' ? 'bot1' : 'bot2'} />
-    case 'rollback': return <StatusEffect target={target === 'bot2' ? 'bot1' : 'bot2'} color="#40ff40" emoji="💚" />
-    case 'power_strike': return <SlashEffect target={target} />
-    case 'reasoning_burst': return <BeamEffect target={target} />
-    case 'spawn_attack': return <BeamEffect target={target} />
-    case 'berserker_rush': return <BeamEffect target={target} />
-    case 'sleep_bomb': return <StatusEffect target={target} color="#8844cc" emoji="💤" />
-    case 'emp_pulse': return <StatusEffect target={target} color="#ffff00" emoji="🔋" />
-    case 'time_bomb': return <StatusEffect target={target} color="#ffaa00" emoji="💣" />
-    case 'overclock': return <StatusEffect target={target === 'bot2' ? 'bot1' : 'bot2'} color="#ffaa00" emoji="⏫" />
-    case 'scan': return <StatusEffect target={target} color="#00f0ff" emoji="🔍" />
-    case 'prompt_injection': return <StatusEffect target={target} color="#00ff00" emoji="💉" />
-    case 'memory_bomb': return <StatusEffect target={target} color="#c084fc" emoji="🧠" />
-    case 'virus': return <StatusEffect target={target} color="#00ff00" emoji="🦠" />
-    default: return <SlashEffect target={target} />
-  }
+  return getSkillEffect(skillId || '', target, action)
 }
 
 // ============================================================
@@ -655,6 +635,73 @@ export const BATTLE_CSS = `
   @keyframes sleep-z-float-slow { 0% { opacity: 0; transform: translateY(0); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-60px); } }
   .animate-sleep-z-float-slow { animation: sleep-z-float-slow 1.5s ease-out forwards; }
   @keyframes virus-cloud-slow { 0% { opacity: 0.6; transform: translate(-50%,-50%) scale(0.5); } 50% { opacity: 0.8; } 100% { opacity: 0; transform: translate(-50%,-50%) scale(2); } }
+  .animate-virus-cloud-slow { animation: virus-cloud-slow 1.5s ease-out forwards; }
+  @keyframes lightning-branch-slow { 0% { opacity: 0; transform: scale(0.3); } 25% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1.3); } }
+  .animate-lightning-branch-slow { animation: lightning-branch-slow 0.7s ease-out forwards; }
+  @keyframes ghost-rush-slow { 0% { transform: translate(0,0); opacity: 0.8; } 60% { opacity: 0.5; } 100% { transform: translate(var(--rush-dx),var(--rush-dy)); opacity: 0; } }
+  .animate-ghost-rush-slow { animation: ghost-rush-slow 0.8s ease-in forwards; }
+  @keyframes impact-flash { 0% { transform: translate(-50%,-50%) scale(0); opacity: 0.8; } 100% { transform: translate(-50%,-50%) scale(2); opacity: 0; } }
+  .animate-impact-flash { animation: impact-flash 0.5s ease-out forwards; }
+  @keyframes scan-sweep-slow { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(140px); opacity: 0; } }
+  .animate-scan-sweep-slow { animation: scan-sweep-slow 1.4s ease-in-out forwards; }
+  @keyframes scan-frame { 0% { opacity: 0; } 20% { opacity: 1; } 80% { opacity: 1; } 100% { opacity: 0; } }
+  .animate-scan-frame { animation: scan-frame 2s ease-out forwards; }
+  @keyframes stats-reveal-slow { 0% { opacity: 0; transform: translateX(-15px); } 25% { opacity: 1; transform: translateX(0); } 75% { opacity: 1; } 100% { opacity: 0; } }
+  .animate-stats-reveal-slow { animation: stats-reveal-slow 2.2s ease-out forwards; }
+  @keyframes memory-particle-slow { 0% { transform: translate(0,0) scale(1); opacity: 1; } 100% { transform: translate(calc(cos(var(--p-angle)) * var(--p-dist)), calc(sin(var(--p-angle)) * var(--p-dist))) scale(0); opacity: 0; } }
+  .animate-memory-particle-slow { animation: memory-particle-slow 0.9s ease-out forwards; }
+  @keyframes burst-ring-slow { 0% { width: 0; height: 0; opacity: 1; } 100% { width: 100px; height: 100px; opacity: 0; } }
+  .animate-burst-ring-slow { animation: burst-ring-slow 0.7s ease-out forwards; }
+  @keyframes bomb-tick-slow { 0%,40% { transform: translate(-50%,-50%) scale(1); } 20% { transform: translate(-50%,-50%) scale(1.3); } 60% { transform: translate(-50%,-50%) scale(0.9); } 80% { transform: translate(-50%,-50%) scale(1.4); } 100% { transform: translate(-50%,-50%) scale(2.5); opacity: 0; } }
+  .animate-bomb-tick-slow { animation: bomb-tick-slow 1.2s ease-in-out forwards; }
+  @keyframes explosion-ring-slow { 0% { width: 4px; height: 4px; opacity: 1; } 100% { width: 140px; height: 140px; opacity: 0; } }
+  .animate-explosion-ring-slow { animation: explosion-ring-slow 0.6s ease-out forwards; }
+  @keyframes shockwave-particle-slow { 0% { transform: translate(0,0); opacity: 1; } 100% { transform: translate(calc(cos(var(--sw-angle)) * var(--sw-dist)), calc(sin(var(--sw-angle)) * var(--sw-dist))); opacity: 0; } }
+  .animate-shockwave-particle-slow { animation: shockwave-particle-slow 0.6s ease-out forwards; }
+  @keyframes inject-text-slow { 0% { opacity: 0; transform: translateX(-25px) skewX(-5deg); } 15% { opacity: 1; transform: translateX(0); } 55% { opacity: 1; } 100% { opacity: 0; transform: translateX(15px) skewX(3deg); } }
+  .animate-inject-text-slow { animation: inject-text-slow 0.9s ease-out forwards; }
+  @keyframes screen-tear-slow { 0%,100% { opacity: 0; transform: scaleX(0); } 15%,85% { opacity: 1; transform: scaleX(1); } }
+  .animate-screen-tear-slow { animation: screen-tear-slow 0.6s ease-out forwards; }
+  @keyframes rewind-spin-slow { 0% { transform: translate(-50%,-50%) rotate(0deg) scale(0); opacity: 0; } 25% { transform: translate(-50%,-50%) rotate(-180deg) scale(1.1); opacity: 1; } 100% { transform: translate(-50%,-50%) rotate(-900deg) scale(0.4); opacity: 0; } }
+  .animate-rewind-spin-slow { animation: rewind-spin-slow 1.5s ease-out forwards; }
+  @keyframes heal-float-slow { 0% { transform: translateY(0); opacity: 0; } 15% { opacity: 1; } 100% { transform: translateY(-40px); opacity: 0; } }
+  .animate-heal-float-slow { animation: heal-float-slow 1.2s ease-out forwards; }
+  @keyframes virus-spread-slow { 0% { transform: translate(0,0) scale(0); opacity: 1; } 100% { transform: translate(calc(cos(var(--virus-angle)) * var(--virus-dist)), calc(sin(var(--virus-angle)) * var(--virus-dist))) scale(1); opacity: 0.3; } }
+  .animate-virus-spread-slow { animation: virus-spread-slow 1.2s ease-out forwards; }
+  @keyframes mirror-shine-slow { 0% { opacity: 0; transform: translate(-50%,-50%) scale(0.8); } 30% { opacity: 1; transform: translate(-50%,-50%) scale(1); } 100% { opacity: 0; transform: translate(-50%,-50%) scale(1.1); } }
+  .animate-mirror-shine-slow { animation: mirror-shine-slow 1.2s ease-out forwards; }
+  @keyframes shine-streak { 0% { opacity: 0; } 40% { opacity: 0.6; } 100% { opacity: 0; } }
+  .animate-shine-streak { animation: shine-streak 0.8s ease-out forwards; }
+  @keyframes emp-ring-slow { 0% { width: 0; height: 0; opacity: 1; } 100% { width: 120px; height: 120px; opacity: 0; } }
+  .animate-emp-ring-slow { animation: emp-ring-slow 0.8s ease-out forwards; }
+  @keyframes emp-bolt-slow { 0% { opacity: 1; transform: rotate(var(--bolt-angle)) translateX(0); } 100% { opacity: 0; transform: rotate(var(--bolt-angle)) translateX(var(--bolt-dist)); } }
+  .animate-emp-bolt-slow { animation: emp-bolt-slow 0.6s ease-out forwards; }
+  @keyframes sleep-cloud-slow { 0% { opacity: 0; transform: translate(-50%,-50%) scale(0.5); } 50% { opacity: 0.8; transform: translate(-50%,-50%) scale(1.2); } 100% { opacity: 0; transform: translate(-50%,-50%) scale(1.5); } }
+  .animate-sleep-cloud-slow { animation: sleep-cloud-slow 1.5s ease-out forwards; }
+  @keyframes overclock-glow-slow { 0% { opacity: 0; } 30% { opacity: 1; } 100% { opacity: 0; } }
+  .animate-overclock-glow-slow { animation: overclock-glow-slow 1.2s ease-out forwards; }
+  @keyframes speed-line-slow { 0% { opacity: 0; transform-origin: left; transform: scaleX(0); } 40% { opacity: 1; transform: scaleX(1); } 100% { opacity: 0; transform: scaleX(1); } }
+  .animate-speed-line-slow { animation: speed-line-slow 0.6s ease-out forwards; }
+  @keyframes spark-fast-slow { 0% { opacity: 1; transform: translate(0,0); } 100% { opacity: 0; transform: translate(calc(cos(var(--spark-angle)) * 40px), calc(sin(var(--spark-angle)) * 40px)); } }
+  .animate-spark-fast-slow { animation: spark-fast-slow 0.4s ease-out forwards; }
+  @keyframes berserker-charge-slow { 0% { opacity: 0.8; transform: translate(0,0); } 60% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--charge-dx), var(--charge-dy)); } }
+  .animate-berserker-charge-slow { animation: berserker-charge-slow 0.7s ease-in forwards; }
+  @keyframes rage-particle-slow { 0% { opacity: 1; transform: translate(0,0) scale(1); } 100% { opacity: 0; transform: translate(calc(cos(var(--rage-angle)) * 50px), calc(sin(var(--rage-angle)) * 50px)) scale(0); } }
+  .animate-rage-particle-slow { animation: rage-particle-slow 0.6s ease-out forwards; }
+  @keyframes impact-shockwave-slow { 0% { width: 0; height: 0; opacity: 1; } 100% { width: 140px; height: 140px; opacity: 0; } }
+  .animate-impact-shockwave-slow { animation: impact-shockwave-slow 0.6s ease-out forwards; }
+  @keyframes agent-swarm-slow { 0% { opacity: 0; transform: translate(0, 0) scale(0); } 15% { opacity: 1; transform: translate(0, 0) scale(1); } 70% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--swarm-dx), var(--swarm-dy)) scale(0.5); } }
+  .animate-agent-swarm-slow { animation: agent-swarm-slow 1s ease-in forwards; }
+  @keyframes task-bubble-slow { 0% { opacity: 0; transform: translateY(0); } 30% { opacity: 1; transform: translateY(-8px); } 70% { opacity: 1; } 100% { opacity: 0; transform: translateY(-16px); } }
+  .animate-task-bubble-slow { animation: task-bubble-slow 0.8s ease-out forwards; }
+  @keyframes system-overload-slow { 0% { opacity: 0; transform: translate(-50%,-50%) scale(0.5); } 40% { opacity: 1; transform: translate(-50%,-50%) scale(1.2); } 100% { opacity: 0; transform: translate(-50%,-50%) scale(1.5); } }
+  .animate-system-overload-slow { animation: system-overload-slow 1s ease-out forwards; }
+  @keyframes glitch-line-slow { 0%, 100% { opacity: 0; transform: translateX(-20px); } 30%, 70% { opacity: 0.8; transform: translateX(0); } 50% { transform: translateX(10px); } }
+  .animate-glitch-line-slow { animation: glitch-line-slow 0.4s ease-out forwards; }
+  @keyframes warning-flash-slow { 0%, 100% { opacity: 0; } 20%, 40%, 60%, 80% { opacity: 1; } 30%, 50%, 70% { opacity: 0.3; } }
+  .animate-warning-flash-slow { animation: warning-flash-slow 1s ease-out forwards; }
+  @keyframes overload-particle-slow { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(calc(cos(var(--particle-angle)) * var(--particle-dist)), calc(sin(var(--particle-angle)) * var(--particle-dist))) scale(0); } }
+  .animate-overload-particle-slow { animation: overload-particle-slow 0.7s ease-out forwards; }
   .scrollbar-thin::-webkit-scrollbar { width: 4px; }
   .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
   .scrollbar-thin::-webkit-scrollbar-thumb { background: #333; border-radius: 2px; }
