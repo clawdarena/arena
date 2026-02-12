@@ -1292,7 +1292,9 @@ export default function MatchV2Page() {
 
         {/* Tag Team Sidebar */}
         {tagTeamMode && (
-          <div className="col-span-3 space-y-4">
+          <div className="col-span-3 space-y-4 bg-red-500/20 border-2 border-red-500">
+            {/* DEBUG: If you see this red border, tagTeamMode is ON */}
+            <div className="text-white text-xs p-2 bg-green-500">DEBUG: Tag Team Sidebar Rendering!</div>
             <FocusPointTracker
               current={focusPoints}
               max={maxFocusPoints}
