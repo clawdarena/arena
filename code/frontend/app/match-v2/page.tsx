@@ -871,11 +871,15 @@ function HPPanel({ name, level, hp, maxHp, energy, maxEnergy, side, showDmg, dmg
 
 // Mock bot AI for tag team mode
 function generateBotSuggestion(round: number, opponentHp: number, playerEnergy: number): BotSuggestion {
+  console.log('[TAG TEAM] generateBotSuggestion called', { round, opponentHp, playerEnergy })
+  console.log('[TAG TEAM] SKILL_DATABASE has keys:', Object.keys(SKILL_DATABASE))
+  
   const availableSkills = Object.values(SKILL_DATABASE).filter(
     skill => skill.energyCost <= playerEnergy
   )
 
   let selectedSkill = SKILL_DATABASE['power_strike']
+  console.log('[TAG TEAM] selectedSkill:', selectedSkill)
   let reasoning: string[] = []
   let confidence = 75
   let riskLevel: 'low' | 'medium' | 'high' = 'medium'
@@ -1132,10 +1136,13 @@ export default function MatchV2Page() {
     
     // Tag team mode initialization
     if (tagTeamMode) {
+      console.log('[TAG TEAM] Initializing tag team mode')
       setFocusPoints(3)
       setLastFocusRegen(0)
       // Generate initial suggestion for Round 1
+      console.log('[TAG TEAM] Generating initial suggestion...')
       const initialSuggestion = generateBotSuggestion(1, BOT2.maxHp, 100)
+      console.log('[TAG TEAM] Initial suggestion generated:', initialSuggestion)
       setBotSuggestion(initialSuggestion)
       setDecisionTimer(20)
       setChatMessages([{

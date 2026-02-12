@@ -35,6 +35,8 @@ export function BotSuggestionPanel({
 }: BotSuggestionPanelProps) {
   const [expanded, setExpanded] = useState(true)
 
+  console.log('[BotSuggestionPanel] Received suggestion:', suggestion)
+
   if (!suggestion) {
     return (
       <div className="bg-[#0a0a1aee] border border-cyan-800/40 rounded-lg p-4 backdrop-blur-sm">
