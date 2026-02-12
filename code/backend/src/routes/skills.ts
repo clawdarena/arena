@@ -4,6 +4,7 @@ import { prisma } from '../db'
 import { authMiddleware, getAuthUser } from '../middleware/auth'
 import { validate, getParsedBody } from '../middleware/validate'
 import { recordTransaction } from '../utils/credits'
+import { SKILL_DEFS } from '../utils/combat'
 
 export const skillRoutes = new Hono()
 
@@ -13,7 +14,16 @@ export const skillRoutes = new Hono()
 
 skillRoutes.get('/', async (c) => {
   const skills = await prisma.skill.findMany({ orderBy: { price: 'asc' } })
-  return c.json({ skills })
+
+  // Enrich with unlock level from combat engine
+  const enriched = skills.map(s => ({
+    ...s,
+    unlock_level: SKILL_DEFS[s.id]?.unlockLevel ?? 1,
+    category: SKILL_DEFS[s.id]?.category ?? 'unknown',
+    energy_cost: SKILL_DEFS[s.id]?.energyCost ?? 20,
+  }))
+
+  return c.json({ skills: enriched })
 })
 
 // ============================================================
@@ -55,7 +65,25 @@ skillRoutes.post('/purchase', authMiddleware, validate(purchaseSchema), async (c
   }
 
   if (skill.price === 0) {
-    return c.json({ error: 'Starter skills cannot be purchased', code: 'FREE_SKILL' }, 400)
+    return c.json({ error: 'Starter skills cannot be purchased — they are free', code: 'FREE_SKILL' }, 400)
+  }
+
+  // Check level requirement
+  const skillDef = SKILL_DEFS[skill_id]
+  if (skillDef?.unlockLevel) {
+    // Need at least one bot at the required level
+    const maxLevelBot = await prisma.bot.findFirst({
+      where: { user_id: userId },
+      orderBy: { level: 'desc' },
+      select: { level: true },
+    })
+    if (!maxLevelBot || maxLevelBot.level < skillDef.unlockLevel) {
+      return c.json({
+        error: `Requires bot level ${skillDef.unlockLevel}. Your highest is ${maxLevelBot?.level || 1}.`,
+        code: 'LEVEL_TOO_LOW',
+        required_level: skillDef.unlockLevel,
+      }, 403)
+    }
   }
 
   // Check if already owned

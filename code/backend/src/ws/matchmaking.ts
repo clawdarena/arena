@@ -65,6 +65,7 @@ const socketToUser: Map<string, JWTPayload> = new Map()
 const userToSocket: Map<string, string> = new Map()
 const pendingInvites: Map<string, DirectInvite> = new Map()
 const autoQueueUsers: Set<string> = new Set()
+const spectators: Map<string, Set<string>> = new Map()  // matchId → set of socketIds
 
 // ============================================================
 // Setup
@@ -437,6 +438,109 @@ export function setupMatchmaking(io: Server) {
     })
 
     // ============================================================
+    // Plugin Bot Action (OpenClaw plugin sends decisions)
+    // ============================================================
+
+    socket.on('plugin_combat_action', async (data: { match_id: string; action: any; signature: string; response_time_ms?: number }) => {
+      try {
+        // This is the same as combat_action but with explicit match_id
+        // Used by OpenClaw plugins that manage the bot's decision-making
+        const { match_id, action, signature, response_time_ms } = data
+
+        let match: ActiveMatch | undefined = activeMatches.get(match_id)
+        if (!match) return emitError(socket, 'MATCH_NOT_FOUND', 'Match not found')
+
+        let side: 'bot1' | 'bot2' = 'bot1'
+        if (match.bot1.userId === user.userId) side = 'bot1'
+        else if (match.bot2.userId === user.userId) side = 'bot2'
+        else return emitError(socket, 'NOT_IN_MATCH', 'Not in this match')
+
+        if (match.pendingActions[side]) return emitError(socket, 'ALREADY_SUBMITTED', 'Action already submitted')
+
+        const responseMs = response_time_ms || (Date.now() - match.roundStartTime)
+
+        match.pendingActions[side] = {
+          action: {
+            action: action.action,
+            target: action.target || null,
+            skill_id: action.skill_id || null,
+          },
+          responseMs,
+          timedOut: false,
+        }
+
+        // Check if both actions received
+        if (match.pendingActions.bot1 && match.pendingActions.bot2) {
+          if (match.roundTimer) clearTimeout(match.roundTimer)
+          resolveAndAdvance(io, match)
+        }
+      } catch (err) {
+        emitError(socket, 'INTERNAL_ERROR', 'Failed to process plugin action')
+      }
+    })
+
+    // ============================================================
+    // Spectate Match
+    // ============================================================
+
+    socket.on('spectate_match', async (data: { match_id: string }) => {
+      const match = activeMatches.get(data.match_id)
+      if (!match) return emitError(socket, 'MATCH_NOT_FOUND', 'Match not found or already ended')
+
+      // Don't let players in the match spectate their own match
+      if (match.bot1.userId === user.userId || match.bot2.userId === user.userId) {
+        return emitError(socket, 'ALREADY_IN_MATCH', 'You are playing in this match')
+      }
+
+      // Add to spectators
+      if (!spectators.has(data.match_id)) spectators.set(data.match_id, new Set())
+      spectators.get(data.match_id)!.add(socket.id)
+      socket.join(`spectate:${data.match_id}`)
+
+      // Send current match state to spectator
+      const s1 = match.bot1.state
+      const s2 = match.bot2.state
+      socket.emit('spectate_joined', {
+        match_id: data.match_id,
+        match_type: match.matchType,
+        current_round: match.currentRound,
+        bot1: { id: s1.id, name: s1.name, hp: s1.hp, maxHp: s1.maxHp, energy: s1.energy, attack: s1.attack, defense: s1.defense, speed: s1.speed },
+        bot2: { id: s2.id, name: s2.name, hp: s2.hp, maxHp: s2.maxHp, energy: s2.energy, attack: s2.attack, defense: s2.defense, speed: s2.speed },
+        rounds_so_far: match.rounds,
+        spectator_count: spectators.get(data.match_id)?.size || 1,
+      })
+
+      console.log(`👁️ ${user.username} spectating match ${data.match_id}`)
+    })
+
+    socket.on('leave_spectate', (data: { match_id: string }) => {
+      const specs = spectators.get(data.match_id)
+      if (specs) {
+        specs.delete(socket.id)
+        if (specs.size === 0) spectators.delete(data.match_id)
+      }
+      socket.leave(`spectate:${data.match_id}`)
+      socket.emit('spectate_left', { match_id: data.match_id })
+    })
+
+    // List active matches available to spectate
+    socket.on('list_matches', () => {
+      const matches: Array<{ match_id: string; match_type: string; bot1_name: string; bot2_name: string; current_round: number; spectator_count: number }> = []
+      for (const [id, match] of activeMatches) {
+        if ((match as any).isPve) continue  // Don't show PvE matches
+        matches.push({
+          match_id: id,
+          match_type: match.matchType,
+          bot1_name: match.bot1.state.name,
+          bot2_name: match.bot2.state.name,
+          current_round: match.currentRound,
+          spectator_count: spectators.get(id)?.size || 0,
+        })
+      }
+      socket.emit('active_matches', { matches })
+    })
+
+    // ============================================================
     // Disconnect
     // ============================================================
 
@@ -468,6 +572,12 @@ export function setupMatchmaking(io: Server) {
             }
           }, 30000)
         }
+      }
+
+      // Remove from spectator lists
+      for (const [matchId, specs] of spectators) {
+        specs.delete(socket.id)
+        if (specs.size === 0) spectators.delete(matchId)
       }
 
       socketToUser.delete(socket.id)
@@ -854,6 +964,8 @@ function resolveAndAdvance(io: Server, match: ActiveMatch) {
   if (match.bot2.socketId !== '__pve__') {
     io.to(match.bot2.socketId).emit('round_complete', payload)
   }
+  // Broadcast to spectators
+  io.to(`spectate:${match.id}`).emit('round_complete', payload)
 
   // Check forfeit by timeout
   if (match.bot1.state.timedOutConsecutive >= 3) return endMatch(io, match, 'bot2')
@@ -968,6 +1080,9 @@ async function endMatch(io: Server, match: ActiveMatch, winner: 'bot1' | 'bot2' 
       replay: match.rounds,
     })
 
+    // Notify spectators of PvE match end
+    io.to(`spectate:${match.id}`).emit('match_end', { match_id: match.id, result: playerWon ? 'bot1_win' : 'bot2_win', rounds_fought: match.currentRound })
+    spectators.delete(match.id)
     activeMatches.delete(match.id)
     return
   }
@@ -1087,6 +1202,15 @@ async function endMatch(io: Server, match: ActiveMatch, winner: 'bot1' | 'bot2' 
 
   io.to(match.bot1.socketId).emit('match_end', { ...endPayload, result: winner === 'bot1' ? 'win' : (winner === 'draw' ? 'draw' : 'loss') })
   io.to(match.bot2.socketId).emit('match_end', { ...endPayload, result: winner === 'bot2' ? 'win' : (winner === 'draw' ? 'draw' : 'loss') })
+
+  // Broadcast to spectators
+  io.to(`spectate:${match.id}`).emit('match_end', {
+    match_id: match.id,
+    result: winner === 'draw' ? 'draw' : winner,
+    winner_name: winner !== 'draw' ? match[winner].state.name : null,
+    rounds_fought: match.currentRound,
+  })
+  spectators.delete(match.id)
 
   // Cleanup
   activeMatches.delete(match.id)

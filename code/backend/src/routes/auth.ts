@@ -82,8 +82,8 @@ authRoutes.post('/register', validate(registerSchema), async (c) => {
   // Record welcome bonus
   await recordTransaction(user.id, 200, 'welcome_bonus')
 
-  // Assign starter skills
-  const starterSkills = ['power_strike', 'shield_wall', 'overclock', 'scan']
+  // Assign starter skills (V2)
+  const starterSkills = ['firewall', 'power_strike', 'sleep_bomb', 'scan']
   await prisma.userSkill.createMany({
     data: starterSkills.map((skill_id) => ({
       user_id: user.id,
@@ -91,6 +91,14 @@ authRoutes.post('/register', validate(registerSchema), async (c) => {
     })),
     skipDuplicates: true,
   })
+
+  // Equip starter loadout on default bot
+  if (user.bots[0]) {
+    await prisma.botSkill.createMany({
+      data: starterSkills.map((skill_id, i) => ({ bot_id: user.bots[0].id, skill_id, slot: i + 1 })),
+      skipDuplicates: true,
+    })
+  }
 
   // Generate JWT
   const token = signToken({ userId: user.id, username: user.username })
@@ -163,6 +171,159 @@ authRoutes.post('/login-username', validate(loginUsernameSchema), async (c) => {
     },
     token,
   })
+})
+
+// ============================================================
+// POST /api/auth/google — Google OAuth sign-in/sign-up
+// ============================================================
+
+const googleSchema = z.object({
+  google_token: z.string().min(1),
+})
+
+authRoutes.post('/google', validate(googleSchema), async (c) => {
+  const { google_token } = getParsedBody<z.infer<typeof googleSchema>>(c)
+
+  // Verify Google ID token
+  let googlePayload: { sub: string; email: string; name?: string; email_verified?: boolean }
+  try {
+    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${google_token}`)
+    if (!res.ok) throw new Error('Invalid token')
+    googlePayload = await res.json() as any
+    if (!googlePayload.sub || !googlePayload.email) throw new Error('Missing fields')
+  } catch {
+    return c.json({ error: 'Invalid Google token', code: 'INVALID_GOOGLE_TOKEN' }, 401)
+  }
+
+  // Check if this Google account is already linked
+  const existingOAuth = await prisma.oAuthAccount.findUnique({
+    where: { provider_provider_id: { provider: 'google', provider_id: googlePayload.sub } },
+    include: { user: { include: { bots: true } } },
+  })
+
+  if (existingOAuth) {
+    // Existing user — log in
+    const user = existingOAuth.user
+    const token = signToken({ userId: user.id, username: user.username })
+    return c.json({
+      user: {
+        id: user.id,
+        username: user.username,
+        email: user.email || googlePayload.email,
+        credits: user.credits,
+        elo: user.current_elo,
+      },
+      bot: user.bots[0] || null,
+      token,
+      is_new: false,
+    })
+  }
+
+  // Check if email already registered (link Google to existing account)
+  const existingByEmail = await prisma.user.findUnique({
+    where: { email: googlePayload.email },
+    include: { bots: true },
+  })
+
+  if (existingByEmail) {
+    // Link Google to existing account
+    await prisma.oAuthAccount.create({
+      data: {
+        user_id: existingByEmail.id,
+        provider: 'google',
+        provider_id: googlePayload.sub,
+        email: googlePayload.email,
+      },
+    })
+    const token = signToken({ userId: existingByEmail.id, username: existingByEmail.username })
+    return c.json({
+      user: {
+        id: existingByEmail.id,
+        username: existingByEmail.username,
+        email: existingByEmail.email,
+        credits: existingByEmail.credits,
+        elo: existingByEmail.current_elo,
+      },
+      bot: existingByEmail.bots[0] || null,
+      token,
+      is_new: false,
+    })
+  }
+
+  // New user — create account
+  const username = (googlePayload.name || googlePayload.email.split('@')[0])
+    .replace(/[^a-zA-Z0-9_]/g, '_')
+    .slice(0, 20)
+
+  // Ensure unique username
+  let finalUsername = username
+  let suffix = 1
+  while (await prisma.user.findUnique({ where: { username: finalUsername } })) {
+    finalUsername = `${username.slice(0, 17)}_${suffix++}`
+  }
+
+  // Generate a dummy public key (Google users don't sign actions)
+  const dummyKey = '0'.repeat(64)
+
+  const user = await prisma.user.create({
+    data: {
+      username: finalUsername,
+      email: googlePayload.email,
+      public_key: dummyKey,
+      credits: 0,
+      current_elo: 1200,
+      peak_elo: 1200,
+      bots: {
+        create: {
+          name: `${finalUsername}Bot`,
+          base_hp: 100,
+          base_attack: 15,
+          base_defense: 10,
+          base_speed: 10,
+        },
+      },
+      oauth_accounts: {
+        create: {
+          provider: 'google',
+          provider_id: googlePayload.sub,
+          email: googlePayload.email,
+        },
+      },
+    },
+    include: { bots: true },
+  })
+
+  // Welcome bonus
+  await recordTransaction(user.id, 200, 'welcome_bonus')
+
+  // Starter skills
+  const starterSkills = ['firewall', 'power_strike', 'sleep_bomb', 'scan']
+  await prisma.userSkill.createMany({
+    data: starterSkills.map(skill_id => ({ user_id: user.id, skill_id })),
+    skipDuplicates: true,
+  })
+
+  // Equip starter loadout on default bot
+  if (user.bots[0]) {
+    await prisma.botSkill.createMany({
+      data: starterSkills.map((skill_id, i) => ({ bot_id: user.bots[0].id, skill_id, slot: i + 1 })),
+      skipDuplicates: true,
+    })
+  }
+
+  const token = signToken({ userId: user.id, username: user.username })
+  return c.json({
+    user: {
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      credits: 200,
+      elo: user.current_elo,
+    },
+    bot: user.bots[0] || null,
+    token,
+    is_new: true,
+  }, 201)
 })
 
 // ============================================================
