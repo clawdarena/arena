@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
-import { useMatchStore, useAuthStore } from '@/lib/store'
+import { useMatchStore, useAuthStore, useCosmeticsStore } from '@/lib/store'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Navbar } from '@/components/Navbar'
 import { BattleArena, BATTLE_CSS, type BattleRoundData } from '@/components/combat/BattleArena'
@@ -64,6 +64,9 @@ function MatchContent() {
     setMatchResult,
     reset,
   } = useMatchStore()
+  
+  // Cosmetics
+  const { equippedItems } = useCosmeticsStore()
 
   // WebSocket state
   const [connected, setConnected] = useState(false)
@@ -457,6 +460,14 @@ function MatchContent() {
             phase={phase === 'fighting' ? 'fighting' : phase === 'result' ? 'result' : 'waiting'}
             winner={winnerSide}
             onAnimationComplete={onAnimationComplete}
+            use3D={true}
+            bot1Cosmetics={{
+              skin: equippedItems.skin,
+              visor: equippedItems.visor,
+              claw: equippedItems.claw,
+              topper: equippedItems.topper,
+              aura: equippedItems.aura,
+            }}
           />
         </div>
 

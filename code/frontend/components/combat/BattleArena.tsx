@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import { getSkillEffect } from './SkillEffects'
+import { BattleBot3D } from './BattleBot3D'
 
 // ============================================================
 // Types
@@ -32,6 +33,14 @@ export interface BattleBot {
   color: string
 }
 
+export interface BotCosmetics {
+  skin?: string | null
+  visor?: string | null
+  claw?: string | null
+  topper?: string | null
+  aura?: string | null
+}
+
 interface BattleArenaProps {
   bot1: BattleBot
   bot2: BattleBot
@@ -39,6 +48,9 @@ interface BattleArenaProps {
   phase: 'waiting' | 'fighting' | 'result'
   winner?: 'bot1' | 'bot2' | 'draw' | null
   onAnimationComplete?: () => void
+  use3D?: boolean
+  bot1Cosmetics?: BotCosmetics
+  bot2Cosmetics?: BotCosmetics
 }
 
 // Bot positions (%) — effects target these exactly
@@ -348,7 +360,7 @@ function getEffect(action: string, skillId: string | undefined, target: 'bot1' |
 // Battle Arena Component
 // ============================================================
 
-export function BattleArena({ bot1, bot2, round, phase, winner, onAnimationComplete }: BattleArenaProps) {
+export function BattleArena({ bot1, bot2, round, phase, winner, onAnimationComplete, use3D = false, bot1Cosmetics, bot2Cosmetics }: BattleArenaProps) {
   const [bot1Hp, setBot1Hp] = useState(bot1.maxHp)
   const [bot2Hp, setBot2Hp] = useState(bot2.maxHp)
   const [bot1Energy, setBot1Energy] = useState(100)
@@ -549,10 +561,18 @@ export function BattleArena({ bot1, bot2, round, phase, winner, onAnimationCompl
 
         {/* Bots */}
         <div className="absolute z-20" style={{ bottom: `${100-BOT1_POS.y-15}%`, left: `${BOT1_POS.x-7}%` }}>
-          <BotSprite side="player" color={bot1.color} anim={bot1Anim} />
+          {use3D ? (
+            <BattleBot3D side="player" color={bot1.color} anim={bot1Anim} equippedCosmetics={bot1Cosmetics} />
+          ) : (
+            <BotSprite side="player" color={bot1.color} anim={bot1Anim} />
+          )}
         </div>
         <div className="absolute z-20" style={{ top: `${BOT2_POS.y-8}%`, right: `${100-BOT2_POS.x-7}%` }}>
-          <BotSprite side="opponent" color={bot2.color} anim={bot2Anim} />
+          {use3D ? (
+            <BattleBot3D side="opponent" color={bot2.color} anim={bot2Anim} equippedCosmetics={bot2Cosmetics} />
+          ) : (
+            <BotSprite side="opponent" color={bot2.color} anim={bot2Anim} />
+          )}
         </div>
 
         {/* HP Panels */}
