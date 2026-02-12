@@ -5,80 +5,133 @@ import { useRouter } from 'next/navigation'
 import { useMatchStore, useAuthStore } from '@/lib/store'
 import { ProtectedRoute } from '@/components/ProtectedRoute'
 import { Navbar } from '@/components/Navbar'
-import { HPBar } from '@/components/HPBar'
-import { ActionLog } from '@/components/ActionLog'
-import { MatchResult } from '@/components/MatchResult'
-import { ArenaView } from '@/components/ArenaView'
-import { Arena3DView } from '@/components/3d/Arena3DWrapper'
-import { MoveSelector } from '@/components/combat/MoveSelector'
-import { BotSuggestion } from '@/components/combat/BotSuggestion'
-import { OverrideModal } from '@/components/combat/OverrideModal'
-import { BotChatModal } from '@/components/combat/BotChatModal'
+import { BattleArena, BATTLE_CSS, type BattleRoundData } from '@/components/combat/BattleArena'
 import { connectSocket } from '@/lib/socket'
-import type { Move } from '@/lib/moves'
-import type { BotSuggestion as BotSuggestionType } from '@/components/combat/BotSuggestion'
-import { MOVES } from '@/lib/moves'
 import type {
-  RoundResult,
   RoundCompletePayload,
   RoundStartPayload,
   MatchStartPayload,
   MatchEndPayload,
+  MatchSkillInfo,
 } from '../../../shared/types'
-import { Shield, Swords, Zap, Timer, Trophy, Wifi, WifiOff } from 'lucide-react'
+import { Shield, Swords, Timer, Trophy, Wifi, WifiOff, Zap, Lock } from 'lucide-react'
 
 // ============================================================
-// Live Match WebSocket Hook
+// Skill display helpers
 // ============================================================
 
-function useLiveMatch() {
+const SKILL_EMOJI: Record<string, string> = {
+  firewall: '🛡️', iron_fortress: '🏰', mirror_coat: '🪞', rollback: '💚',
+  power_strike: '⚔️', reasoning_burst: '⚡', spawn_attack: '👻', berserker_rush: '😤',
+  sleep_bomb: '💤', emp_pulse: '🔋', time_bomb: '💣', overclock: '⏫',
+  scan: '🔍', prompt_injection: '💉', memory_bomb: '🧠', virus: '🦠',
+}
+
+const CATEGORY_COLORS: Record<string, string> = {
+  defensive: 'border-cyan-600 bg-cyan-950/40 hover:bg-cyan-900/50 text-cyan-300',
+  aggressive: 'border-red-600 bg-red-950/40 hover:bg-red-900/50 text-red-300',
+  tactical: 'border-amber-600 bg-amber-950/40 hover:bg-amber-900/50 text-amber-300',
+  exploit: 'border-purple-600 bg-purple-950/40 hover:bg-purple-900/50 text-purple-300',
+}
+
+const CATEGORY_GLOW: Record<string, string> = {
+  defensive: 'shadow-cyan-500/20',
+  aggressive: 'shadow-red-500/20',
+  tactical: 'shadow-amber-500/20',
+  exploit: 'shadow-purple-500/20',
+}
+
+// ============================================================
+// Match Page
+// ============================================================
+
+function MatchContent() {
+  const router = useRouter()
   const {
     phase,
     matchData,
+    currentRound,
     roundHistory,
+    matchResult,
     setPhase,
     setCurrentRound,
     setRoundResult,
     setMatchResult,
+    reset,
   } = useMatchStore()
 
-  const [currentAnimRound, setCurrentAnimRound] = useState<RoundResult | null>(null)
-  const [previousAnimRound, setPreviousAnimRound] = useState<RoundResult | null>(null)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [timer, setTimer] = useState(30)
-  const [timeLimit, setTimeLimit] = useState(30)
+  // WebSocket state
   const [connected, setConnected] = useState(false)
   const [matchStartData, setMatchStartData] = useState<MatchStartPayload | null>(null)
+  const [timer, setTimer] = useState(30)
+  const [actionSubmitted, setActionSubmitted] = useState(false)
+
+  // Animation queue
+  const [currentAnimRound, setCurrentAnimRound] = useState<BattleRoundData | null>(null)
+  const [isAnimating, setIsAnimating] = useState(false)
   const roundQueueRef = useRef<RoundCompletePayload[]>([])
-  const processingRef = useRef(false)
 
-  // Process queued rounds one at a time (with animation delay)
+  // Skills
+  const [mySkills, setMySkills] = useState<MatchSkillInfo[]>([])
+  const [oppSkills, setOppSkills] = useState<MatchSkillInfo[]>([])
+  const [skillCooldowns, setSkillCooldowns] = useState<Record<string, number>>({})
+  const [disabledSkills, setDisabledSkills] = useState<string[]>([])
+  const [myEnergy, setMyEnergy] = useState(100)
+
+  // Action log
+  const [actionLog, setActionLog] = useState<string[]>([])
+  const logRef = useRef<HTMLDivElement>(null)
+
+  const addLog = useCallback((msg: string) => {
+    setActionLog(prev => [...prev, msg])
+    setTimeout(() => logRef.current?.scrollTo({ top: logRef.current.scrollHeight, behavior: 'smooth' }), 50)
+  }, [])
+
+  // Process animation queue
   const processNextRound = useCallback(() => {
-    if (processingRef.current || roundQueueRef.current.length === 0) return
-    processingRef.current = true
+    if (roundQueueRef.current.length === 0) return
+    const r = roundQueueRef.current.shift()!
 
-    const round = roundQueueRef.current.shift()!
-    const prevRounds = useMatchStore.getState().roundHistory
-    const prev = prevRounds.length > 0 ? prevRounds[prevRounds.length - 1] : null
+    const battleRound: BattleRoundData = {
+      round: r.round,
+      bot1Action: r.bot1_action,
+      bot1SkillId: (r as any).bot1_skill_id,
+      bot2Action: r.bot2_action,
+      bot2SkillId: (r as any).bot2_skill_id,
+      bot1Dmg: r.bot1_damage_dealt,
+      bot2Dmg: r.bot2_damage_dealt,
+      bot1HpAfter: r.bot1_hp,
+      bot2HpAfter: r.bot2_hp,
+      bot1Counter: (r as any).bot1_counter || 'none',
+      bot2Counter: (r as any).bot2_counter || 'none',
+      bot1Energy: (r as any).bot1_energy ?? 100,
+      bot2Energy: (r as any).bot2_energy ?? 100,
+      effectsApplied: r.effects_applied?.map(e => ({ bot: e.bot, effect: e.effect, duration: e.duration })) || [],
+    }
 
-    setPreviousAnimRound(prev)
-    setCurrentAnimRound(round)
+    setCurrentAnimRound(battleRound)
     setIsAnimating(true)
-    setRoundResult(round)
-  }, [setRoundResult])
+
+    // Log the round
+    const sk1 = (r as any).bot1_skill_id
+    const sk2 = (r as any).bot2_skill_id
+    const act1 = sk1 ? `${SKILL_EMOJI[sk1] || '⚔️'} ${sk1}` : r.bot1_action
+    const act2 = sk2 ? `${SKILL_EMOJI[sk2] || '⚔️'} ${sk2}` : r.bot2_action
+    addLog(`══ Round ${r.round} ══`)
+    addLog(`  YOU: ${act1} → ${r.bot1_damage_dealt} dmg`)
+    addLog(`  OPP: ${act2} → ${r.bot2_damage_dealt} dmg`)
+    if ((r as any).bot1_counter !== 'none') addLog(`  ⚡ Your COUNTER!`)
+    if ((r as any).bot2_counter !== 'none') addLog(`  ⚡ Opponent COUNTER!`)
+  }, [addLog])
 
   const onAnimationComplete = useCallback(() => {
     setIsAnimating(false)
-    processingRef.current = false
-    // Process next queued round if any
     setTimeout(() => {
-      if (roundQueueRef.current.length > 0) {
-        processNextRound()
-      }
+      if (roundQueueRef.current.length > 0) processNextRound()
     }, 300)
   }, [processNextRound])
 
-  // Connect to WebSocket and listen for combat events
+  // Connect to WebSocket
   useEffect(() => {
     if (!matchData) return
 
@@ -88,42 +141,47 @@ function useLiveMatch() {
     socket.on('connect', () => setConnected(true))
     socket.on('disconnect', () => setConnected(false))
 
-    // Match officially starts (both players ready)
     socket.on('match_start', (data: MatchStartPayload) => {
       setMatchStartData(data)
-      setTimeLimit(data.time_limit_seconds)
       setTimer(data.time_limit_seconds)
       setPhase('fighting')
+      addLog('⚔️ MATCH START')
+      addLog(`${data.bot1.name} vs ${data.bot2.name}`)
+
+      // Extract skills
+      if ((data.bot1 as any).skills) setMySkills((data.bot1 as any).skills)
+      if ((data.bot2 as any).skills) setOppSkills((data.bot2 as any).skills)
     })
 
-    // New round begins
     socket.on('round_start', (data: RoundStartPayload) => {
       setCurrentRound(data)
       setTimer(data.time_limit_seconds)
+      setActionSubmitted(false)
+
+      // Update cooldowns + energy from round_start
+      if ((data.bot1 as any).skill_cooldowns) setSkillCooldowns((data.bot1 as any).skill_cooldowns)
+      if ((data.bot1 as any).disabled_skills) setDisabledSkills((data.bot1 as any).disabled_skills)
+      setMyEnergy(data.bot1.energy ?? 100)
     })
 
-    // Round resolved by server
     socket.on('round_complete', (data: RoundCompletePayload) => {
+      setRoundResult(data)
       roundQueueRef.current.push(data)
-      processNextRound()
+      if (!isAnimating) processNextRound()
     })
 
-    // Match ended
     socket.on('match_end', (data: MatchEndPayload) => {
-      // Small delay so last round animation can finish
       setTimeout(() => {
         setMatchResult(data)
-      }, isAnimating ? 2000 : 500)
+        if (data.result === 'win') addLog('🏆 VICTORY!')
+        else if (data.result === 'loss') addLog('💀 DEFEAT')
+        else addLog('🤝 DRAW')
+      }, isAnimating ? 3000 : 500)
     })
 
-    // Opponent disconnected
-    socket.on('player_disconnected', (data: any) => {
-      console.log('Opponent disconnected, grace period:', data.grace_period_seconds)
-    })
-
-    // Error
     socket.on('error', (err: any) => {
       console.error('Match error:', err)
+      addLog(`⚠️ Error: ${err.message || err.code}`)
     })
 
     return () => {
@@ -133,620 +191,260 @@ function useLiveMatch() {
       socket.off('round_start')
       socket.off('round_complete')
       socket.off('match_end')
-      socket.off('player_disconnected')
       socket.off('error')
     }
-  }, [matchData, setPhase, setCurrentRound, setRoundResult, setMatchResult, processNextRound, isAnimating])
+  }, [matchData, setPhase, setCurrentRound, setRoundResult, setMatchResult, addLog, processNextRound, isAnimating])
 
   // Timer countdown
   useEffect(() => {
-    if (phase !== 'fighting') return
-    const interval = setInterval(() => {
-      setTimer((t) => Math.max(0, t - 1))
-    }, 1000)
+    if (phase !== 'fighting' || actionSubmitted) return
+    const interval = setInterval(() => setTimer(t => Math.max(0, t - 1)), 1000)
     return () => clearInterval(interval)
-  }, [phase, roundHistory.length])
+  }, [phase, actionSubmitted, roundHistory.length])
 
-  // Reset timer when new round starts
+  // Reset timer on new round
   useEffect(() => {
-    if (roundHistory.length > 0) {
-      setTimer(timeLimit)
-    }
-  }, [roundHistory.length, timeLimit])
+    if (matchStartData) setTimer(matchStartData.time_limit_seconds)
+  }, [roundHistory.length, matchStartData])
 
-  return {
-    currentAnimRound,
-    previousAnimRound,
-    isAnimating,
-    onAnimationComplete,
-    timer,
-    connected,
-    matchStartData,
-  }
-}
-
-// ============================================================
-// Match Page Content
-// ============================================================
-
-function MatchContent() {
-  const router = useRouter()
-  const { user, bots } = useAuthStore()
-  const {
-    phase,
-    matchData,
-    roundHistory,
-    matchResult,
-    reset,
-  } = useMatchStore()
-
-  const {
-    currentAnimRound,
-    previousAnimRound,
-    isAnimating,
-    onAnimationComplete,
-    timer,
-    connected,
-    matchStartData,
-  } = useLiveMatch()
-
-  const [actionSubmitted, setActionSubmitted] = useState(false)
-  const [lastAction, setLastAction] = useState<string | null>(null)
-  const [selectedMoveKey, setSelectedMoveKey] = useState<string | undefined>(undefined)
-
-  // Tag Team State
-  const [focusPoints, setFocusPoints] = useState(5)
-  const [botSuggestion, setBotSuggestion] = useState<BotSuggestionType | null>(null)
-  const [botAnalyzing, setBotAnalyzing] = useState(false)
-  const [showOverrideModal, setShowOverrideModal] = useState(false)
-  const [showChatModal, setShowChatModal] = useState(false)
-  const [overrideHistory, setOverrideHistory] = useState<Array<{
-    round: number
-    botSuggested: string
-    humanPicked: string
-    success: boolean
-  }>>([])
-
-  // Reset action submitted when new round starts
-  useEffect(() => {
-    setActionSubmitted(false)
-    setLastAction(null)
-    setSelectedMoveKey(undefined)
-    setBotAnalyzing(false)
-  }, [roundHistory.length])
-
-  function sendAction(action: string, skillId?: string) {
+  // Send action
+  function sendAction(action: 'attack' | 'defend' | 'skill', skillId?: string) {
     if (actionSubmitted || phase !== 'fighting') return
-
     const socket = connectSocket()
-    const actionPayload = {
-      action,
-      target: action === 'attack' ? 'opponent' : null,
-      skill_id: skillId || null,
-    }
-
     socket.emit('combat_action', {
-      action: actionPayload,
-      signature: 'web_client', // Web UI doesn't have private key for signing
+      action: { action, target: action === 'defend' ? null : 'opponent', skill_id: skillId || null },
+      signature: 'web_client',
     })
-
     setActionSubmitted(true)
-    setLastAction(action)
+    const label = skillId ? `${SKILL_EMOJI[skillId] || '⚔️'} ${skillId}` : action
+    addLog(`→ You chose: ${label}`)
   }
 
-  function handleMoveSelect(move: Move) {
-    if (actionSubmitted || phase !== 'fighting') return
-    setSelectedMoveKey(move.animationKey)
-    setLastAction(move.name)
-    sendAction(move.actionType, move.skillId)
-  }
-
-  // Generate bot suggestion based on current state (mock heuristic for now)
-  const generateBotSuggestion = useCallback((
-    myHp: number,
-    oppHp: number,
-    myEnergy: number,
-    oppEnergy: number
-  ): BotSuggestionType => {
-    const affordableMoves = MOVES.filter(m => m.energyCost <= myEnergy)
-    
-    // Simple heuristic logic
-    let move: Move
-    let reasoning: string
-    let confidence: number
-    let alternatives: Array<{ move: Move; reason: string }> = []
-
-    // Low HP? Suggest defensive
-    if (myHp < 40 && myEnergy >= 20) {
-      move = MOVES.find(m => m.name === 'Rollback') || affordableMoves[0]
-      reasoning = `HP critical at ${myHp}. Heal now to survive.`
-      confidence = 0.9
-      alternatives.push({
-        move: MOVES.find(m => m.name === 'Firewall') || affordableMoves[1],
-        reason: 'Shield instead if you expect heavy attack'
-      })
-    }
-    // Opponent low HP? Go aggressive
-    else if (oppHp < 30 && myEnergy >= 30) {
-      move = MOVES.find(m => m.name === 'Reasoning Burst') || affordableMoves[0]
-      reasoning = `Opponent at ${oppHp} HP. Finish them with high-damage beam!`
-      confidence = 0.85
-      alternatives.push({
-        move: MOVES.find(m => m.name === 'Agent Overflow') || affordableMoves[1],
-        reason: 'Multi-hit to break through shields'
-      })
-    }
-    // High energy? Use expensive skills
-    else if (myEnergy >= 60) {
-      move = MOVES.find(m => m.name === 'Agent Overflow') || affordableMoves[0]
-      reasoning = `High energy (${myEnergy}). Overwhelm opponent with sub-agents.`
-      confidence = 0.75
-      alternatives.push({
-        move: MOVES.find(m => m.name === 'Time Bomb') || affordableMoves[1],
-        reason: 'Plant bomb for delayed damage'
-      })
-    }
-    // Low energy? Defend to recover
-    else if (myEnergy < 25) {
-      move = MOVES.find(m => m.name === 'Defend') || { id: 'basic_defend', name: 'Defend', category: 'defensive', energyCost: 0, description: 'Recover energy', animationKey: 'basic_defend', actionType: 'defend' } as Move
-      reasoning = `Low energy (${myEnergy}). Defend to recover +15 energy.`
-      confidence = 0.8
-    }
-    // Default: balanced attack
-    else {
-      move = MOVES.find(m => m.name === 'Power Strike') || affordableMoves[0]
-      reasoning = `Balanced state. Reliable damage with Power Strike.`
-      confidence = 0.65
-      alternatives.push({
-        move: MOVES.find(m => m.name === 'EMP Pulse') || affordableMoves[1],
-        reason: 'Drain opponent energy instead'
-      })
-    }
-
-    return { move, reasoning, confidence, alternatives }
-  }, [])
-
-  // Generate bot suggestion each round
-  // Reset bot suggestion each round
+  // Redirect if no match
   useEffect(() => {
-    setBotSuggestion(null)
-  }, [roundHistory.length])
-
-  // Regenerate focus points every 3 rounds
-  useEffect(() => {
-    const round = roundHistory.length
-    if (round > 0 && round % 3 === 0 && focusPoints < 5) {
-      setFocusPoints(prev => Math.min(5, prev + 1))
-    }
-  }, [roundHistory.length, focusPoints])
-
-  // Tag Team Handlers
-  const handleAcceptSuggestion = () => {
-    if (!botSuggestion) return
-    handleMoveSelect(botSuggestion.move)
-  }
-
-  const handleOverride = () => {
-    if (focusPoints === 0 || !botSuggestion) return
-    setShowOverrideModal(true)
-  }
-
-  const handleConfirmOverride = (move: Move) => {
-    if (!botSuggestion) return
-    setFocusPoints(prev => Math.max(0, prev - 1))
-    setOverrideHistory(prev => [...prev, {
-      round: roundHistory.length + 1,
-      botSuggested: botSuggestion.move.name,
-      humanPicked: move.name,
-      success: false, // Will be determined post-round
-    }])
-    handleMoveSelect(move)
-    setShowOverrideModal(false)
-  }
-
-  const handleDiscuss = () => {
-    if (focusPoints < 0.5) return
-    setShowChatModal(true)
-  }
-
-  const handleSendChatMessage = async (message: string): Promise<string> => {
-    // Deduct 0.5 focus
-    setFocusPoints(prev => Math.max(0, prev - 0.5))
-    
-    // Mock bot response (will be replaced with real backend call)
-    await new Promise(resolve => setTimeout(resolve, 1000))
-    
-    // Simple pattern analysis
-    if (message.toLowerCase().includes('pattern')) {
-      return `Analyzing opponent's history... They've used ${roundHistory.length > 0 ? 'defensive moves after taking damage' : 'aggressive openers'}. Expect ${oppEnergy > 50 ? 'a high-energy skill' : 'basic attacks to conserve energy'}.`
-    }
-    if (message.toLowerCase().includes('energy')) {
-      return `Your energy: ${myEnergy}/100. Opponent: ${oppEnergy}/100. ${myEnergy > oppEnergy ? 'You have the advantage - use expensive skills!' : 'Conserve energy with basic moves.'}`
-    }
-    if (message.toLowerCase().includes('strike') || message.toLowerCase().includes('win')) {
-      return `Win condition: ${oppHp < myHp ? 'You\'re ahead. Play defensive and chip damage.' : 'Need to close HP gap. Go aggressive next 2 rounds.'}`
-    }
-    
-    return `Good question! Based on current state (HP: ${myHp} vs ${oppHp}, Energy: ${myEnergy} vs ${oppEnergy}), I'd recommend ${botSuggestion?.move.name || 'analyzing further'}.`
-  }
-
-  // If no match data, redirect to dashboard
-  useEffect(() => {
-    if (!matchData && phase === 'idle') {
-      router.push('/dashboard')
-    }
+    if (!matchData && phase === 'idle') router.push('/dashboard')
   }, [matchData, phase, router])
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => { reset() }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  // Cleanup
+  useEffect(() => { return () => { reset() } }, [])
 
   if (!matchData) {
     return (
-      <div className="max-w-5xl mx-auto px-4 sm:px-8 py-16 text-center">
-        <div className="panel p-8 corner-brackets max-w-sm mx-auto">
+      <div className="max-w-5xl mx-auto px-4 py-16 text-center">
+        <div className="bg-[#0a0a1a] border border-gray-800 rounded-lg p-8 max-w-sm mx-auto">
           <div className="text-3xl mb-4">⚔️</div>
-          <h2 className="arena-title text-lg mb-2">NO ACTIVE MATCH</h2>
-          <p className="text-[var(--text-muted)] text-sm mb-4">Join a queue or start PvE to fight.</p>
-          <a href="/dashboard" className="btn-primary inline-block py-2 px-6 text-sm">GO TO HQ</a>
+          <h2 className="text-lg font-bold text-white mb-2" style={{ fontFamily: 'Orbitron, sans-serif' }}>NO ACTIVE MATCH</h2>
+          <p className="text-gray-500 text-sm mb-4">Join a queue or start PvE to fight.</p>
+          <a href="/dashboard" className="inline-block bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold px-6 py-2 rounded transition">GO TO HQ</a>
         </div>
       </div>
     )
   }
 
   const myBot = matchData.my_bot
-  const myBotId = myBot.id
-  const latestRound = roundHistory.length > 0 ? roundHistory[roundHistory.length - 1] : null
-  const roundNumber = latestRound?.round ?? 0
+  const oppName = matchData.opponent.name
   const maxRounds = matchStartData?.max_rounds ?? 10
+  const roundNumber = roundHistory.length
 
-  // Get current HP from latest round
-  const myHp = latestRound ? latestRound.bot1_hp : myBot.hp
-  const oppHp = latestRound ? latestRound.bot2_hp : (matchStartData?.bot2.hp ?? 100)
-  const oppMaxHp = matchStartData?.bot2.hp ?? 100
-
-  // Energy from latest round
-  const myEnergy = latestRound ? (latestRound as any).bot1_energy ?? 100 : 100
-  const oppEnergy = latestRound ? (latestRound as any).bot2_energy ?? 100 : 100
-
-  // Counter & momentum from latest round
-  const myCounter = latestRound ? (latestRound as any).bot1_counter ?? 'none' : 'none'
-  const oppCounter = latestRound ? (latestRound as any).bot2_counter ?? 'none' : 'none'
-  const myMomentum = latestRound ? (latestRound as any).bot1_momentum ?? 0 : 0
-  const oppMomentum = latestRound ? (latestRound as any).bot2_momentum ?? 0 : 0
-
-  // Status effects from latest round
-  const myEffects: string[] = latestRound
-    ? latestRound.effects_applied.filter(e => e.bot === 'bot1').map(e => e.effect)
-    : []
-  const oppEffects: string[] = latestRound
-    ? latestRound.effects_applied.filter(e => e.bot === 'bot2').map(e => e.effect)
-    : []
-
-  // Generate bot suggestion when round starts (moved here after variable declarations)
-  useEffect(() => {
-    if (phase === 'fighting' && !actionSubmitted && !botSuggestion) {
-      setBotAnalyzing(true)
-      // Simulate bot thinking time
-      setTimeout(() => {
-        const suggestion = generateBotSuggestion(myHp, oppHp, myEnergy, oppEnergy)
-        setBotSuggestion(suggestion)
-        setBotAnalyzing(false)
-      }, 800)
-    }
-  }, [phase, actionSubmitted, botSuggestion, myHp, oppHp, myEnergy, oppEnergy, generateBotSuggestion])
-
-  function counterLabel(counter: string): string {
-    switch (counter) {
-      case 'attack_vs_skill': return '⚔️ COUNTER! Attack vs Skill'
-      case 'defend_vs_attack': return '🛡️ COUNTER! Defend vs Attack'
-      case 'skill_vs_defend': return '✨ COUNTER! Skill vs Defend'
-      default: return ''
-    }
+  // Determine winner side for arena
+  let winnerSide: 'bot1' | 'bot2' | 'draw' | null = null
+  if (matchResult) {
+    winnerSide = matchResult.result === 'win' ? 'bot1' : matchResult.result === 'loss' ? 'bot2' : 'draw'
   }
 
-  function effectEmoji(effect: string): string {
-    switch (effect) {
-      case 'burning': return '🔥'
-      case 'stunned': return '⚡'
-      case 'armor_broken': return '💔'
-      case 'overclock': return '⚡'
-      case 'iron_fortress': return '🏰'
-      case 'regenerating': return '💚'
-      case 'berserker': return '😤'
-      case 'mirror_coat': return '🪞'
-      default: return '✨'
-    }
+  // Can use skill?
+  function canUseSkill(skill: MatchSkillInfo): boolean {
+    if (actionSubmitted) return false
+    if (myEnergy < skill.energyCost) return false
+    if ((skillCooldowns[skill.id] || 0) > 0) return false
+    if (disabledSkills.includes(skill.id)) return false
+    return true
   }
 
-  function effectColor(effect: string): string {
-    switch (effect) {
-      case 'burning': return 'bg-orange-900/30 border-orange-700/50 text-orange-300'
-      case 'stunned': return 'bg-yellow-900/30 border-yellow-700/50 text-yellow-300'
-      case 'armor_broken': return 'bg-red-900/30 border-red-700/50 text-red-300'
-      case 'overclock': return 'bg-cyan-900/30 border-cyan-700/50 text-cyan-300'
-      case 'iron_fortress': return 'bg-blue-900/30 border-blue-700/50 text-blue-300'
-      case 'regenerating': return 'bg-green-900/30 border-green-700/50 text-green-300'
-      case 'berserker': return 'bg-red-900/30 border-red-700/50 text-red-300'
-      case 'mirror_coat': return 'bg-[var(--neon-cyan-dim)] border-[var(--neon-cyan)] text-[var(--neon-cyan)]'
-      default: return 'bg-[var(--bg-raised)] border-[var(--border-mid)] text-[var(--text-primary)]'
-    }
+  function skillTooltip(skill: MatchSkillInfo): string {
+    const cd = skillCooldowns[skill.id] || 0
+    if (disabledSkills.includes(skill.id)) return `${skill.name} — DISABLED by Memory Bomb`
+    if (cd > 0) return `${skill.name} — Cooldown: ${cd} rounds`
+    if (myEnergy < skill.energyCost) return `${skill.name} — Need ${skill.energyCost} energy (have ${myEnergy})`
+    return `${skill.name} — ${skill.energyCost} energy, ${skill.cooldown}r cooldown`
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-8 py-6">
-      {/* Match Header */}
-      <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-        <div className="flex items-center gap-2 text-xs sm:text-sm text-[var(--text-muted)] uppercase tracking-wide">
-          <Trophy className="w-4 h-4" />
-          {matchData.match_type.replace('ranked_', '').replace(/^\w/, (c) => c.toUpperCase())} Ranked
-        </div>
-        <div className="flex items-center gap-3">
-          {/* Connection indicator */}
-          <div className={`flex items-center gap-1 text-xs ${connected ? 'text-green-500' : 'text-red-500'}`}>
+    <div className="min-h-screen bg-[#050510]">
+      <Navbar />
+
+      {/* Header bar */}
+      <div className="sticky top-12 z-50 bg-[#0a0a1aee] border-b border-gray-800 px-3 sm:px-4 py-2 flex items-center justify-between backdrop-blur-sm">
+        <div className="flex items-center gap-2 text-xs text-gray-400 uppercase tracking-wide">
+          <Trophy className="w-3.5 h-3.5" />
+          {(matchData.match_type as string) === 'pve' ? 'PvE' : (matchData.match_type as string).replace('ranked_', '').replace(/^\w/, c => c.toUpperCase())}
+          <div className={`flex items-center gap-1 ml-2 ${connected ? 'text-green-500' : 'text-red-500'}`}>
             {connected ? <Wifi className="w-3 h-3" /> : <WifiOff className="w-3 h-3" />}
           </div>
-          <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--border-dim)] px-3 py-1.5 flex items-center gap-2">
-            <span className="text-xs text-[var(--text-muted)]">Round</span>
-            <span className="text-lg font-bold text-[var(--neon-cyan)] font-mono">{roundNumber}/{maxRounds}</span>
-          </div>
-          {phase === 'fighting' && (
-            <div className={`bg-[var(--bg-panel)] rounded-sm border px-3 py-1.5 flex items-center gap-2 ${
-              timer <= 5 ? 'border-red-600/50 bg-red-900/10' : 'border-[var(--border-dim)]'
-            }`}>
-              <Timer className={`w-3.5 h-3.5 ${timer <= 5 ? 'text-red-400' : 'text-[var(--text-muted)]'}`} />
-              <span className={`text-lg font-bold font-mono ${
-                timer <= 5 ? 'text-red-400 animate-pulse' : 'text-white'
-              }`}>
-                {timer}s
-              </span>
+        </div>
+        <div className="flex items-center gap-3">
+          <div className="text-xs font-mono text-gray-500">R{roundNumber}/{maxRounds}</div>
+          {phase === 'fighting' && !actionSubmitted && (
+            <div className={`flex items-center gap-1.5 px-3 py-1 rounded border ${timer <= 5 ? 'border-red-600/50 bg-red-900/20' : 'border-gray-700'}`}>
+              <Timer className={`w-3.5 h-3.5 ${timer <= 5 ? 'text-red-400' : 'text-gray-400'}`} />
+              <span className={`text-lg font-bold font-mono ${timer <= 5 ? 'text-red-400 animate-pulse' : 'text-white'}`}>{timer}s</span>
             </div>
           )}
+          {actionSubmitted && phase === 'fighting' && (
+            <div className="text-xs text-green-400 font-mono bg-green-900/20 border border-green-800/40 px-3 py-1.5 rounded">✓ ACTION SENT</div>
+          )}
         </div>
-        <div className="text-sm text-[var(--text-muted)]">
-          Entry: <span className="text-yellow-400 font-medium">{matchData.entry_fee} AC</span>
+        <div className="text-xs text-gray-500">
+          {matchData.entry_fee > 0 && <span>Entry: <span className="text-yellow-400">{matchData.entry_fee} CR</span></span>}
         </div>
       </div>
 
-      {/* 3D Arena Visualization */}
-      <div className="mb-4">
-        <Arena3DView
-          bot1Name={myBot.name}
-          bot2Name={matchData.opponent.name}
-          bot1MaxHp={myBot.hp}
-          bot2MaxHp={oppMaxHp}
-          currentRound={currentAnimRound}
-          previousRound={previousAnimRound}
-          isAnimating={isAnimating}
+      {/* Battle Arena */}
+      <div className="px-2 sm:px-4 pt-3">
+        <BattleArena
+          bot1={{ name: myBot.name, maxHp: myBot.hp, color: '#00f0ff' }}
+          bot2={{ name: oppName, maxHp: matchStartData?.bot2.hp ?? 100, color: '#ff4040' }}
+          round={currentAnimRound}
+          phase={phase === 'fighting' ? 'fighting' : phase === 'result' ? 'result' : 'waiting'}
+          winner={winnerSide}
           onAnimationComplete={onAnimationComplete}
-          bot1MoveKey={selectedMoveKey}
         />
       </div>
 
-      {/* Bot Panels */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
-        {/* My Bot Panel */}
-        <div className="bg-[var(--bg-panel)] rounded-sm border border-[var(--neon-cyan)] p-3 sm:p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-[var(--bg-raised)] border border-[var(--border-mid)] rounded-sm flex items-center justify-center text-lg ">
-              🤖
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-[var(--neon-cyan)] text-sm truncate">{myBot.name}</div>
-              <div className="text-xs text-[var(--text-muted)]">Your Bot</div>
-            </div>
+      {/* Action Buttons */}
+      {phase === 'fighting' && (
+        <div className="px-2 sm:px-4 py-3">
+          {/* Basic actions */}
+          <div className="flex gap-2 mb-3">
+            <button
+              onClick={() => sendAction('attack')}
+              disabled={actionSubmitted}
+              className="flex-1 flex items-center justify-center gap-2 bg-red-900/40 border border-red-700 hover:bg-red-800/50 disabled:opacity-30 disabled:cursor-not-allowed text-red-300 font-bold text-sm py-3 rounded-lg transition shadow-lg shadow-red-500/10"
+            >
+              <Swords className="w-4 h-4" /> ATTACK
+            </button>
+            <button
+              onClick={() => sendAction('defend')}
+              disabled={actionSubmitted}
+              className="flex-1 flex items-center justify-center gap-2 bg-cyan-900/40 border border-cyan-700 hover:bg-cyan-800/50 disabled:opacity-30 disabled:cursor-not-allowed text-cyan-300 font-bold text-sm py-3 rounded-lg transition shadow-lg shadow-cyan-500/10"
+            >
+              <Shield className="w-4 h-4" /> DEFEND
+            </button>
           </div>
-          <HPBar current={myHp} max={myBot.hp} label="HP" />
-          {/* Energy Bar */}
-          <div className="mt-2">
-            <div className="flex items-center justify-between text-[10px] mb-0.5">
-              <span className="text-cyan-400">⚡ Energy</span>
-              <span className="text-cyan-300 font-mono">{myEnergy}/100</span>
-            </div>
-            <div className="h-1.5 bg-[var(--bg-raised)] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full transition-all duration-500"
-                style={{ width: `${myEnergy}%` }}
-              />
-            </div>
-          </div>
-          {/* Momentum */}
-          {myMomentum > 0 && (
-            <div className="mt-2 flex items-center gap-1.5">
-              <span className="text-[10px] text-yellow-400">🔥 Momentum</span>
-              <div className="flex gap-0.5">
-                {Array.from({ length: Math.min(myMomentum, 4) }).map((_, i) => (
-                  <div key={i} className="w-3 h-3 rounded-full bg-yellow-500 shadow-sm shadow-yellow-500/50" />
-                ))}
-              </div>
-              <span className="text-[10px] text-yellow-300 font-mono">
-                {myMomentum >= 4 ? '1.5x' : myMomentum === 3 ? '1.25x' : myMomentum === 2 ? '1.1x' : ''}
-              </span>
-            </div>
-          )}
-          {/* Counter indicator */}
-          {myCounter !== 'none' && (
-            <div className="mt-2 bg-yellow-900/30 border border-yellow-700/50 rounded px-2 py-1 text-xs text-yellow-300 text-center animate-pulse">
-              {counterLabel(myCounter)}
-            </div>
-          )}
-          <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-            <div className="bg-[var(--bg-raised)] rounded py-1.5">
-              <div className="text-xs font-medium text-orange-400">{myBot.attack}</div>
-              <div className="text-[10px] text-[var(--text-muted)]">ATK</div>
-            </div>
-            <div className="bg-[var(--bg-raised)] rounded py-1.5">
-              <div className="text-xs font-medium text-blue-400">{myBot.defense}</div>
-              <div className="text-[10px] text-[var(--text-muted)]">DEF</div>
-            </div>
-            <div className="bg-[var(--bg-raised)] rounded py-1.5">
-              <div className="text-xs font-medium text-green-400">{myBot.speed}</div>
-              <div className="text-[10px] text-[var(--text-muted)]">SPD</div>
-            </div>
-          </div>
-          {myEffects.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {myEffects.map((effect, i) => (
-                <span
-                  key={i}
-                  className={`px-2 py-0.5 border rounded text-xs ${effectColor(effect)}`}
-                >
-                  {effectEmoji(effect)} {effect}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
 
-        {/* Opponent Bot Panel */}
-        <div className="bg-[var(--bg-panel)] rounded-sm border border-red-800/30 p-3 sm:p-4">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-red-800 rounded-sm flex items-center justify-center text-lg shadow-lg shadow-red-500/10">
-              👾
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="font-semibold text-red-300 text-sm truncate">{matchData.opponent.name}</div>
-              <div className="text-xs text-[var(--text-muted)]">{matchData.opponent.elo} ELO</div>
-            </div>
-          </div>
-          <HPBar current={oppHp} max={oppMaxHp} label="HP" />
-          {/* Energy Bar */}
-          <div className="mt-2">
-            <div className="flex items-center justify-between text-[10px] mb-0.5">
-              <span className="text-cyan-400">⚡ Energy</span>
-              <span className="text-cyan-300 font-mono">{oppEnergy}/100</span>
-            </div>
-            <div className="h-1.5 bg-[var(--bg-raised)] rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full transition-all duration-500"
-                style={{ width: `${oppEnergy}%` }}
-              />
-            </div>
-          </div>
-          {/* Momentum */}
-          {oppMomentum > 0 && (
-            <div className="mt-2 flex items-center gap-1.5">
-              <span className="text-[10px] text-yellow-400">🔥 Momentum</span>
-              <div className="flex gap-0.5">
-                {Array.from({ length: Math.min(oppMomentum, 4) }).map((_, i) => (
-                  <div key={i} className="w-3 h-3 rounded-full bg-yellow-500 shadow-sm shadow-yellow-500/50" />
-                ))}
-              </div>
-              <span className="text-[10px] text-yellow-300 font-mono">
-                {oppMomentum >= 4 ? '1.5x' : oppMomentum === 3 ? '1.25x' : oppMomentum === 2 ? '1.1x' : ''}
-              </span>
-            </div>
-          )}
-          {/* Counter indicator */}
-          {oppCounter !== 'none' && (
-            <div className="mt-2 bg-red-900/30 border border-red-700/50 rounded px-2 py-1 text-xs text-red-300 text-center animate-pulse">
-              {counterLabel(oppCounter)}
-            </div>
-          )}
-          {matchStartData && (
-            <div className="grid grid-cols-3 gap-2 mt-3 text-center">
-              <div className="bg-[var(--bg-raised)] rounded py-1.5">
-                <div className="text-xs font-medium text-orange-400">{matchStartData.bot2.attack}</div>
-                <div className="text-[10px] text-[var(--text-muted)]">ATK</div>
-              </div>
-              <div className="bg-[var(--bg-raised)] rounded py-1.5">
-                <div className="text-xs font-medium text-blue-400">{matchStartData.bot2.defense}</div>
-                <div className="text-[10px] text-[var(--text-muted)]">DEF</div>
-              </div>
-              <div className="bg-[var(--bg-raised)] rounded py-1.5">
-                <div className="text-xs font-medium text-green-400">{matchStartData.bot2.speed}</div>
-                <div className="text-[10px] text-[var(--text-muted)]">SPD</div>
-              </div>
-            </div>
-          )}
-          {oppEffects.length > 0 && (
-            <div className="mt-2 flex flex-wrap gap-1">
-              {oppEffects.map((effect, i) => (
-                <span
-                  key={i}
-                  className={`px-2 py-0.5 border rounded text-xs ${effectColor(effect)}`}
-                >
-                  {effectEmoji(effect)} {effect}
-                </span>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
+          {/* Skill buttons */}
+          {mySkills.length > 0 && (
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {mySkills.map(skill => {
+                const usable = canUseSkill(skill)
+                const cd = skillCooldowns[skill.id] || 0
+                const disabled = disabledSkills.includes(skill.id)
+                const catColor = CATEGORY_COLORS[skill.category] || CATEGORY_COLORS.aggressive
+                const catGlow = CATEGORY_GLOW[skill.category] || ''
 
-      {/* Status indicators */}
-      {phase === 'found' && (
-        <div className="text-center mb-4">
-          <div className="inline-flex items-center gap-2 bg-[var(--neon-cyan-dim)] border border-[var(--neon-cyan)] rounded-sm px-5 py-3 animate-pulse">
-            <Swords className="w-5 h-5 text-[var(--neon-cyan)]" />
-            <span className="text-[var(--neon-cyan)] font-medium">Waiting for opponent to accept...</span>
+                return (
+                  <button
+                    key={skill.id}
+                    onClick={() => usable && sendAction('skill', skill.id)}
+                    disabled={!usable}
+                    title={skillTooltip(skill)}
+                    className={`relative flex flex-col items-center gap-1 border rounded-lg py-2.5 px-2 transition shadow-lg ${
+                      usable ? `${catColor} ${catGlow} cursor-pointer` : 'border-gray-700 bg-gray-900/40 text-gray-600 cursor-not-allowed opacity-50'
+                    }`}
+                  >
+                    {/* Cooldown/disabled overlay */}
+                    {(cd > 0 || disabled) && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-black/50 rounded-lg">
+                        {disabled ? (
+                          <Lock className="w-4 h-4 text-red-400" />
+                        ) : (
+                          <span className="text-lg font-bold font-mono text-gray-400">{cd}</span>
+                        )}
+                      </div>
+                    )}
+                    <span className="text-lg">{SKILL_EMOJI[skill.id] || '⚔️'}</span>
+                    <span className="text-[11px] font-bold leading-tight text-center">{skill.name}</span>
+                    <div className="flex items-center gap-1 text-[9px] opacity-70">
+                      <Zap className="w-2.5 h-2.5" />
+                      <span>{skill.energyCost}</span>
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          )}
+
+          {/* Energy bar */}
+          <div className="mt-3 flex items-center gap-2">
+            <span className="text-[10px] text-cyan-400 font-mono">⚡ ENERGY</span>
+            <div className="flex-1 h-2 bg-gray-800 rounded-full overflow-hidden">
+              <div className="h-full bg-gradient-to-r from-cyan-600 to-cyan-400 rounded-full transition-all duration-500" style={{ width: `${myEnergy}%` }} />
+            </div>
+            <span className="text-[10px] text-cyan-300 font-mono">{myEnergy}/100</span>
           </div>
         </div>
       )}
 
-      {/* Tag Team Combat — Bot Suggestion + Move Selection */}
-      {phase === 'fighting' && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
-          {/* Bot Suggestion Panel */}
-          <BotSuggestion
-            suggestion={botSuggestion}
-            focusPoints={focusPoints}
-            maxFocus={5}
-            analyzing={botAnalyzing}
-            onAccept={handleAcceptSuggestion}
-            onOverride={handleOverride}
-            onDiscuss={handleDiscuss}
-            disabled={actionSubmitted}
-          />
+      {/* Waiting state */}
+      {phase === 'found' && (
+        <div className="px-4 py-8 text-center">
+          <div className="inline-flex items-center gap-2 bg-cyan-900/20 border border-cyan-700/50 rounded-lg px-6 py-3 animate-pulse">
+            <Swords className="w-5 h-5 text-cyan-400" />
+            <span className="text-cyan-300 font-medium">Waiting for opponent...</span>
+          </div>
+        </div>
+      )}
 
-          {/* Move Selector (for manual override) */}
-          <MoveSelector
-            energy={myEnergy}
-            maxEnergy={100}
-            timeRemaining={timer}
-            onSelectMove={handleMoveSelect}
-            submitted={actionSubmitted}
-            submittedMoveName={lastAction ?? undefined}
-            disabled={phase !== 'fighting'}
-            round={(roundHistory.length || 0) + 1}
-          />
+      {/* Match result */}
+      {phase === 'result' && matchResult && (
+        <div className="px-4 py-6">
+          <div className="bg-[#0a0a1a] border border-gray-800 rounded-lg p-6 max-w-md mx-auto text-center">
+            <div className={`text-4xl font-black mb-3 ${matchResult.result === 'win' ? 'text-cyan-400' : matchResult.result === 'loss' ? 'text-red-400' : 'text-amber-400'}`} style={{ fontFamily: 'Orbitron, sans-serif' }}>
+              {matchResult.result === 'win' ? '🏆 VICTORY' : matchResult.result === 'loss' ? '💀 DEFEAT' : '🤝 DRAW'}
+            </div>
+            <div className="text-sm text-gray-400 mb-4">{matchResult.rounds_fought} rounds • {matchResult.duration_seconds}s</div>
+            <div className="flex justify-center gap-6 text-sm font-mono">
+              {matchResult.credits_earned !== undefined && matchResult.credits_earned > 0 && (
+                <div className="text-amber-400">+{matchResult.credits_earned} CR</div>
+              )}
+              {matchResult.xp && (
+                <div className="text-green-400">+{matchResult.xp.totalXp} XP</div>
+              )}
+              {matchResult.winner?.elo_change !== undefined && (
+                <div className={matchResult.winner.elo_change >= 0 ? 'text-green-400' : 'text-red-400'}>
+                  {matchResult.winner.elo_change >= 0 ? '+' : ''}{matchResult.winner.elo_change} ELO
+                </div>
+              )}
+            </div>
+            <div className="mt-5 flex gap-3 justify-center">
+              <a href="/dashboard" className="bg-gray-800 hover:bg-gray-700 text-white text-sm px-5 py-2 rounded transition">HQ</a>
+              <a href="/pve" className="bg-cyan-600 hover:bg-cyan-500 text-white text-sm font-bold px-5 py-2 rounded transition">PLAY AGAIN</a>
+            </div>
+          </div>
         </div>
       )}
 
       {/* Action Log */}
-      <ActionLog rounds={roundHistory} myBotId={myBotId} />
+      <div className="bg-[#0a0a1a] border-t border-gray-800 px-4 py-2">
+        <div ref={logRef} className="max-h-28 overflow-y-auto scrollbar-thin">
+          {actionLog.length === 0 ? (
+            <div className="text-gray-600 text-xs font-mono text-center py-3">{'// waiting for match to start'}</div>
+          ) : actionLog.map((log, i) => (
+            <div key={i} className="text-[11px] font-mono text-gray-400 py-0.5 leading-relaxed">
+              {log.includes('COUNTER') ? <span className="text-amber-400 font-bold">{log}</span> :
+               log.includes('VICTORY') || log.includes('wins') ? <span className="text-cyan-400 font-bold">{log}</span> :
+               log.includes('DEFEAT') ? <span className="text-red-400 font-bold">{log}</span> :
+               log.includes('dmg') ? <span className="text-red-300">{log}</span> :
+               log.startsWith('══') ? <span className="text-gray-500 font-bold">{log}</span> :
+               log.includes('MATCH START') ? <span className="text-cyan-300 font-bold">{log}</span> :
+               log.startsWith('→') ? <span className="text-green-400">{log}</span> :
+               log}
+            </div>
+          ))}
+        </div>
+      </div>
 
-      {/* Match Result Overlay */}
-      {phase === 'result' && matchResult && (
-        <MatchResult result={matchResult} myBotId={myBotId} />
-      )}
-
-      {/* Override Modal */}
-      {showOverrideModal && botSuggestion && (
-        <OverrideModal
-          energy={myEnergy}
-          botSuggestion={botSuggestion.move}
-          botConfidence={botSuggestion.confidence}
-          onConfirm={handleConfirmOverride}
-          onCancel={() => setShowOverrideModal(false)}
-        />
-      )}
-
-      {/* Bot Chat Modal */}
-      {showChatModal && (
-        <BotChatModal
-          onSendMessage={handleSendChatMessage}
-          onClose={() => setShowChatModal(false)}
-          context={{
-            round: roundHistory.length + 1,
-            yourHp: myHp,
-            opponentHp: oppHp,
-            yourEnergy: myEnergy,
-          }}
-        />
-      )}
+      <style jsx global>{BATTLE_CSS}</style>
     </div>
   )
 }
@@ -754,10 +452,7 @@ function MatchContent() {
 export default function MatchPage() {
   return (
     <ProtectedRoute>
-      <div className="min-h-screen bg-[var(--bg-void)] arena-grid-bg">
-        <Navbar />
-        <MatchContent />
-      </div>
+      <MatchContent />
     </ProtectedRoute>
   )
 }

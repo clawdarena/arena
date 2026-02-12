@@ -1,146 +1,61 @@
 /**
- * Shared constants and types extracted from mock-api.ts.
- * Pages should import from here instead of mock-api.
+ * Shared constants and types for Combat V2.
+ * 16 skills across 4 categories.
  */
 
-import type { Skill, SkillId } from '../../shared/types'
+import type { Skill, SkillId, MatchType, RoundResult } from '../../shared/types'
 
 // ============================================================
-// Skills Database (all 10 from COMBAT_SYSTEM.md)
+// V2 Skills Database (16 skills)
 // ============================================================
 
 export const ALL_SKILLS: Record<SkillId, Skill> = {
-  power_strike: {
-    id: 'power_strike',
-    name: 'Power Strike',
-    description: 'Deal 1.5x attack damage, ignoring 50% of defense.',
-    rarity: 'common',
-    price: 0,
-    cooldown: 3,
-    target: 'opponent',
-  },
-  shield_wall: {
-    id: 'shield_wall',
-    name: 'Shield Wall',
-    description: 'Block 100% of incoming damage this round and heal 5 HP.',
-    rarity: 'common',
-    price: 0,
-    cooldown: 4,
-    target: 'self',
-  },
-  overclock: {
-    id: 'overclock',
-    name: 'Overclock',
-    description: '+5 attack and +5 speed for 2 rounds.',
-    rarity: 'common',
-    price: 0,
-    cooldown: 4,
-    target: 'self',
-  },
-  scan: {
-    id: 'scan',
-    name: 'Scan',
-    description: "Reveal opponent's exact stats for the rest of the match.",
-    rarity: 'common',
-    price: 0,
-    cooldown: 5,
-    target: 'opponent',
-  },
-  fireball: {
-    id: 'fireball',
-    name: 'Fireball',
-    description: 'Deal 20 flat damage (ignores defense). Apply burning (3 dmg/round for 2 rounds).',
-    rarity: 'rare',
-    price: 300,
-    cooldown: 4,
-    target: 'opponent',
-  },
-  iron_fortress: {
-    id: 'iron_fortress',
-    name: 'Iron Fortress',
-    description: '+10 defense for 3 rounds. Cannot attack while active.',
-    rarity: 'rare',
-    price: 300,
-    cooldown: 5,
-    target: 'self',
-  },
-  emp_blast: {
-    id: 'emp_blast',
-    name: 'EMP Blast',
-    description: "Stun opponent for 1 round. Reset opponent's skill cooldowns to max.",
-    rarity: 'epic',
-    price: 600,
-    cooldown: 6,
-    target: 'opponent',
-  },
-  regenerate: {
-    id: 'regenerate',
-    name: 'Regenerate',
-    description: 'Heal 8 HP per round for 3 rounds.',
-    rarity: 'epic',
-    price: 600,
-    cooldown: 5,
-    target: 'self',
-  },
-  berserker: {
-    id: 'berserker',
-    name: 'Berserker Rage',
-    description: '+15 attack for 3 rounds, but -5 defense for same duration.',
-    rarity: 'legendary',
-    price: 1000,
-    cooldown: 7,
-    target: 'self',
-  },
-  mirror_coat: {
-    id: 'mirror_coat',
-    name: 'Mirror Coat',
-    description: 'Reflect 50% of incoming damage back to attacker for 2 rounds.',
-    rarity: 'legendary',
-    price: 1000,
-    cooldown: 6,
-    target: 'self',
-  },
+  // Defensive
+  firewall: { id: 'firewall', name: 'Firewall', description: 'Block 100% of next incoming attack.', rarity: 'common', price: 0, cooldown: 3, target: 'self' },
+  iron_fortress: { id: 'iron_fortress', name: 'Iron Fortress', description: '+80% DEF for 2 rounds. Cannot attack while active.', rarity: 'epic', price: 600, cooldown: 5, target: 'self' },
+  mirror_coat: { id: 'mirror_coat', name: 'Mirror Coat', description: 'Reflect 50% incoming damage for 1 round.', rarity: 'epic', price: 600, cooldown: 5, target: 'self' },
+  rollback: { id: 'rollback', name: 'Rollback', description: 'Heal 15-20 HP. Max 2 uses per match.', rarity: 'rare', price: 300, cooldown: 4, target: 'self' },
+  // Aggressive
+  power_strike: { id: 'power_strike', name: 'Power Strike', description: 'Reliable damage (12-18).', rarity: 'common', price: 0, cooldown: 2, target: 'opponent' },
+  reasoning_burst: { id: 'reasoning_burst', name: 'Reasoning Burst', description: 'High damage energy beam (20-28).', rarity: 'rare', price: 300, cooldown: 4, target: 'opponent' },
+  spawn_attack: { id: 'spawn_attack', name: 'Spawn Attack', description: 'Multi-hit 3x (5-8 each). Breaks shields.', rarity: 'rare', price: 300, cooldown: 3, target: 'opponent' },
+  berserker_rush: { id: 'berserker_rush', name: 'Berserker Rush', description: '25 damage + 8 self-damage.', rarity: 'epic', price: 600, cooldown: 3, target: 'opponent' },
+  // Tactical
+  sleep_bomb: { id: 'sleep_bomb', name: 'Sleep Bomb', description: '60% chance opponent skips next turn.', rarity: 'common', price: 0, cooldown: 4, target: 'opponent' },
+  emp_pulse: { id: 'emp_pulse', name: 'EMP Pulse', description: 'Drain 30 energy from opponent.', rarity: 'rare', price: 300, cooldown: 3, target: 'opponent' },
+  time_bomb: { id: 'time_bomb', name: 'Time Bomb', description: 'Plant bomb. Explodes in 2 rounds for 25 damage.', rarity: 'epic', price: 600, cooldown: 5, target: 'opponent' },
+  overclock: { id: 'overclock', name: 'Overclock', description: 'Skip turn. Next attack does +50% damage.', rarity: 'epic', price: 600, cooldown: 4, target: 'self' },
+  // Exploit
+  scan: { id: 'scan', name: 'Scan', description: "Reveal opponent's next move for 1 round.", rarity: 'common', price: 0, cooldown: 5, target: 'opponent' },
+  prompt_injection: { id: 'prompt_injection', name: 'Prompt Injection', description: "40% chance opponent's move targets themselves.", rarity: 'legendary', price: 1000, cooldown: 5, target: 'opponent' },
+  memory_bomb: { id: 'memory_bomb', name: 'Memory Bomb', description: "Disable opponent's last-used move for 2 rounds.", rarity: 'legendary', price: 1000, cooldown: 5, target: 'opponent' },
+  virus: { id: 'virus', name: 'Virus', description: '5 damage/round for 3 rounds (DOT).', rarity: 'epic', price: 600, cooldown: 4, target: 'opponent' },
 }
 
-export const SKILL_LIST = Object.values(ALL_SKILLS)
-
-// ============================================================
-// Leaderboard types
-// ============================================================
-
-export interface LeaderboardEntry {
-  rank: number
-  user: {
-    id: string
-    username: string
-  }
-  elo: number
-  wins: number
-  losses: number
-  win_rate: number
+// Legacy skill IDs → V2 mapping
+export const LEGACY_SKILL_MAP: Record<string, SkillId> = {
+  shield_wall: 'firewall',
+  fireball: 'reasoning_burst',
+  emp_blast: 'emp_pulse',
+  regenerate: 'rollback',
+  berserker: 'berserker_rush',
 }
 
-// ============================================================
-// Match History types
-// ============================================================
+// Free starter skills (auto-owned by all users)
+export const STARTER_SKILLS: SkillId[] = ['firewall', 'power_strike', 'sleep_bomb', 'scan']
 
-import type { MatchType, RoundResult } from '../../shared/types'
+// Skill categories
+export const SKILL_CATEGORIES = ['defensive', 'aggressive', 'tactical', 'exploit'] as const
+
+// ============================================================
+// Match History
+// ============================================================
 
 export interface MatchHistoryEntry {
   id: string
   created_at: string
-  my_bot: {
-    id: string
-    name: string
-    elo_before: number
-    elo_after: number
-  }
-  opponent: {
-    id: string
-    name: string
-    elo_before: number
-    elo_after: number
-  }
+  my_bot: { id: string; name: string; elo_before: number; elo_after: number }
+  opponent: { id: string; name: string; elo_before: number; elo_after: number }
   winner_id: string | null
   rounds_fought: number
   duration_seconds: number
@@ -150,7 +65,7 @@ export interface MatchHistoryEntry {
 }
 
 // ============================================================
-// Tier helpers
+// ELO Tiers
 // ============================================================
 
 export type EloTier = 'bronze' | 'silver' | 'gold' | 'platinum' | 'legend'
@@ -184,5 +99,27 @@ export const RARITY_COLORS: Record<string, { text: string; bg: string; border: s
   uncommon: { text: 'text-green-400', bg: 'bg-green-900/20', border: 'border-green-600/50', glow: '' },
   rare: { text: 'text-blue-400', bg: 'bg-blue-900/20', border: 'border-blue-600/50', glow: 'shadow-[0_0_8px_rgba(52,152,219,0.15)]' },
   super_rare: { text: 'text-purple-400', bg: 'bg-purple-900/20', border: 'border-purple-600/50', glow: 'shadow-[0_0_10px_rgba(155,89,182,0.2)]' },
+  epic: { text: 'text-purple-400', bg: 'bg-purple-900/20', border: 'border-purple-600/50', glow: 'shadow-[0_0_10px_rgba(155,89,182,0.2)]' },
   legendary: { text: 'text-yellow-400', bg: 'bg-yellow-900/20', border: 'border-yellow-600/50', glow: 'shadow-[0_0_15px_rgba(243,156,18,0.3)]' },
+}
+
+// ============================================================
+// Leaderboard
+// ============================================================
+
+export interface LeaderboardEntry {
+  rank: number
+  user: { id: string; username: string }
+  elo: number
+  wins: number
+  losses: number
+  win_rate: number
+}
+
+// Skill energy costs
+export const SKILL_ENERGY: Record<string, number> = {
+  firewall: 15, iron_fortress: 20, mirror_coat: 25, rollback: 20,
+  power_strike: 10, reasoning_burst: 30, spawn_attack: 20, berserker_rush: 15,
+  sleep_bomb: 20, emp_pulse: 15, time_bomb: 20, overclock: 10,
+  scan: 15, prompt_injection: 25, memory_bomb: 20, virus: 15,
 }
