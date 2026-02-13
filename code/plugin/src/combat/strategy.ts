@@ -1,136 +1,257 @@
-import type { ParsedAction } from './parser.js'
-
 /**
- * Simple built-in combat strategy for testing.
+ * Combat V2 Built-in Strategy
  *
- * Analyses HP, opponent patterns, and decides an action.
- * This replaces the placeholder in executor.ts until
- * real OpenClaw bot integration is available.
+ * Deterministic fallback strategy when agent is unavailable.
+ * Analyzes HP, energy, opponent patterns, and skill cooldowns
+ * to make optimal skill choices.
  *
- * Strategy logic:
- * - If HP is critically low (<20%), prefer defending
- * - If opponent keeps attacking same target, anticipate and defend
- * - If opponent HP is low, attack aggressively
- * - Use processor target for stun chance when opponent HP > 50%
- * - Attack armor to break defense when opponent defends often
+ * This is the backup brain - users customize via SKILL.md training.
  */
+
+import type { MatchSkillInfo, SkillId } from '../types.js'
 
 interface StrategyInput {
   round: number
   my_hp: number
   opponent_hp: number
-  my_attack: number
-  my_defense: number
-  my_speed: number
-  opponent_last_action: string | null
-  opponent_action_history: string[]
+  my_energy: number
+  available_skills: MatchSkillInfo[]
+  opponent_last_skill: SkillId | null
+  status_effects: string[]
+}
+
+interface StrategyDecision {
+  skill_id: SkillId
+  reasoning: string // Stays LOCAL
 }
 
 /**
- * Decide the next combat action based on game state.
- * Returns a parsed action with reasoning (reasoning stays local).
+ * Decide the next skill based on game state.
+ * Uses a priority-based approach:
+ * 1. Critical HP → defensive skills
+ * 2. High energy + offensive opportunity → big damage skills
+ * 3. Opponent patterns → counter skills
+ * 4. Default → basic attack or available skill
  */
-export function decideAction(input: StrategyInput): ParsedAction {
+export function decideAction(input: StrategyInput): StrategyDecision {
   const {
     round,
     my_hp,
     opponent_hp,
-    opponent_last_action,
-    opponent_action_history,
+    my_energy,
+    available_skills,
+    opponent_last_skill,
+    status_effects,
   } = input
 
-  const myHpPercent = my_hp  // Assuming max HP ~100
-  const oppHpPercent = opponent_hp
+  // Get usable skills (not on cooldown, not disabled, affordable)
+  const usableSkills = available_skills.filter(
+    (s) => s.cooldownLeft === 0 && !s.disabled && s.energyCost <= my_energy
+  )
 
-  // Count opponent's recent action patterns
-  const recentActions = opponent_action_history.slice(-5)
-  const attackCount = recentActions.filter((a) => a === 'attack').length
-  const defendCount = recentActions.filter((a) => a === 'defend').length
+  // Helper to find a usable skill by ID
+  const findSkill = (id: SkillId) => usableSkills.find((s) => s.id === id)
 
-  // === Critical HP: prioritize survival ===
-  if (myHpPercent <= 20) {
-    // Defend if we're low, unless opponent is also very low
-    if (oppHpPercent <= 15) {
+  // Helper to find any usable skill in a category
+  const findByCategory = (category: string) =>
+    usableSkills.find((s) => s.category === category)
+
+  // Always have basic_attack as fallback
+  const basicAttack = findSkill('basic_attack')
+
+  // === CRITICAL HP: Survival mode ===
+  if (my_hp <= 20) {
+    // Try defensive skills first
+    const defensive = findByCategory('defensive')
+    if (defensive) {
       return {
-        action: 'attack',
-        target: 'core',
-        reasoning: 'Both bots critical — going all-in on core attack to finish.',
+        skill_id: defensive.id,
+        reasoning: `HP critical (${my_hp}). Using ${defensive.name} for survival.`,
       }
     }
-    return {
-      action: 'defend',
-      target: null,
-      reasoning: `HP critical (${myHpPercent}). Defending to survive.`,
+
+    // If opponent is also critical, go all-in
+    if (opponent_hp <= 15) {
+      const aggressive = findByCategory('aggressive')
+      if (aggressive) {
+        return {
+          skill_id: aggressive.id,
+          reasoning: `Both critical - going all-in with ${aggressive.name}!`,
+        }
+      }
+    }
+
+    // Fallback to basic attack (conserves energy for healing/defense later)
+    if (basicAttack) {
+      return {
+        skill_id: 'basic_attack',
+        reasoning: 'HP critical, conserving energy with basic attack.',
+      }
     }
   }
 
-  // === First round: open with attack ===
+  // === FIRST ROUND: Standard opener ===
   if (round === 1) {
-    return {
-      action: 'attack',
-      target: 'core',
-      reasoning: 'Opening round — standard core attack to assess opponent.',
+    // Scan is great first move if available
+    const scan = findSkill('scan')
+    if (scan) {
+      return {
+        skill_id: 'scan',
+        reasoning: 'Opening round - scanning opponent for intel.',
+      }
+    }
+
+    // Or a moderate aggressive skill
+    const powerStrike = findSkill('power_strike')
+    if (powerStrike) {
+      return {
+        skill_id: 'power_strike',
+        reasoning: 'Opening round - establishing pressure.',
+      }
+    }
+
+    if (basicAttack) {
+      return {
+        skill_id: 'basic_attack',
+        reasoning: 'Opening round - basic attack to assess.',
+      }
     }
   }
 
-  // === Opponent defends a lot: target armor to break defense ===
-  if (defendCount >= 3) {
-    return {
-      action: 'attack',
-      target: 'armor',
-      reasoning: `Opponent defended ${defendCount}/5 recent rounds. Targeting armor to break defense.`,
+  // === ENERGY ADVANTAGE: Use expensive skills ===
+  if (my_energy >= 80) {
+    // Time for a big move
+    const berserker = findSkill('berserker_rush')
+    if (berserker && opponent_hp > 30) {
+      return {
+        skill_id: 'berserker_rush',
+        reasoning: `High energy (${my_energy}) - unleashing berserker rush!`,
+      }
+    }
+
+    const reasoningBurst = findSkill('reasoning_burst')
+    if (reasoningBurst) {
+      return {
+        skill_id: 'reasoning_burst',
+        reasoning: `High energy (${my_energy}) - firing reasoning burst.`,
+      }
     }
   }
 
-  // === Opponent is aggressive: defend or counter ===
-  if (attackCount >= 4 && myHpPercent < 50) {
-    return {
-      action: 'defend',
-      target: null,
-      reasoning: `Opponent very aggressive (${attackCount}/5 attacks) and our HP is ${myHpPercent}. Defending.`,
+  // === OPPONENT LOW HP: Finish them ===
+  if (opponent_hp <= 30) {
+    const aggressive = findByCategory('aggressive')
+    if (aggressive) {
+      return {
+        skill_id: aggressive.id,
+        reasoning: `Opponent HP low (${opponent_hp}). Going for the kill with ${aggressive.name}.`,
+      }
+    }
+
+    if (basicAttack) {
+      return {
+        skill_id: 'basic_attack',
+        reasoning: `Opponent HP low (${opponent_hp}). Basic attack to finish.`,
+      }
     }
   }
 
-  // === Opponent HP is low: finish them ===
-  if (oppHpPercent <= 30) {
-    return {
-      action: 'attack',
-      target: 'core',
-      reasoning: `Opponent HP low (${oppHpPercent}). Going for the kill.`,
+  // === COUNTER OPPONENT PATTERNS ===
+  if (opponent_last_skill) {
+    // If they used a big skill, they might be low on energy - pressure them
+    const aggressiveSkills = ['power_strike', 'reasoning_burst', 'berserker_rush']
+    if (aggressiveSkills.includes(opponent_last_skill)) {
+      const aggressive = findByCategory('aggressive')
+      if (aggressive) {
+        return {
+          skill_id: aggressive.id,
+          reasoning: `Opponent used ${opponent_last_skill} - they may be low on energy. Pressing advantage.`,
+        }
+      }
+    }
+
+    // If they defended, use a skill that counters defense
+    if (opponent_last_skill === 'firewall' || opponent_last_skill === 'iron_fortress') {
+      const empPulse = findSkill('emp_pulse')
+      if (empPulse) {
+        return {
+          skill_id: 'emp_pulse',
+          reasoning: `Opponent is defensive - using EMP to disable their skills.`,
+        }
+      }
+
+      const virus = findSkill('virus')
+      if (virus) {
+        return {
+          skill_id: 'virus',
+          reasoning: `Opponent is defensive - infecting to bypass shields.`,
+        }
+      }
     }
   }
 
-  // === Mid-game strategy: mix attacks ===
-  // Try processor target for stun chance when opponent is healthy
-  if (oppHpPercent > 60 && round % 3 === 0) {
-    return {
-      action: 'attack',
-      target: 'processor',
-      reasoning: `Round ${round}, opponent healthy. Targeting processor for stun chance.`,
+  // === STATUS EFFECTS: React appropriately ===
+  if (status_effects.includes('scanned')) {
+    // We've been scanned - use a defensive skill to not be predictable
+    const defensive = findByCategory('defensive')
+    if (defensive && Math.random() > 0.5) {
+      return {
+        skill_id: defensive.id,
+        reasoning: 'Been scanned - mixing up with defense.',
+      }
     }
   }
 
-  // === Opponent just defended: attack core (they might not defend again) ===
-  if (opponent_last_action === 'defend') {
-    return {
-      action: 'attack',
-      target: 'core',
-      reasoning: 'Opponent just defended — unlikely to defend twice. Attacking core.',
+  // === MID-GAME TACTICS ===
+  // Every 3rd round, try a tactical skill
+  if (round % 3 === 0) {
+    const tactical = findByCategory('tactical')
+    if (tactical) {
+      return {
+        skill_id: tactical.id,
+        reasoning: `Round ${round} - using tactical skill ${tactical.name}.`,
+      }
     }
   }
 
-  // === Default: alternate between attack and defend ===
-  if (round % 4 === 0 && myHpPercent < 60) {
-    return {
-      action: 'defend',
-      target: null,
-      reasoning: `Periodic defend round (round ${round}, HP ${myHpPercent}).`,
+  // === LOW ENERGY: Conserve ===
+  if (my_energy <= 30) {
+    if (basicAttack) {
+      return {
+        skill_id: 'basic_attack',
+        reasoning: `Energy low (${my_energy}). Conserving with basic attack.`,
+      }
     }
   }
 
+  // === DEFAULT: Use any available aggressive skill or basic attack ===
+  const aggressive = findByCategory('aggressive')
+  if (aggressive) {
+    return {
+      skill_id: aggressive.id,
+      reasoning: 'Standard turn - using available aggressive skill.',
+    }
+  }
+
+  // Ultimate fallback
+  if (basicAttack) {
+    return {
+      skill_id: 'basic_attack',
+      reasoning: 'No better options - basic attack.',
+    }
+  }
+
+  // If somehow nothing is available, try any usable skill
+  if (usableSkills.length > 0) {
+    return {
+      skill_id: usableSkills[0].id,
+      reasoning: 'Using first available skill.',
+    }
+  }
+
+  // Absolute last resort (should never happen)
   return {
-    action: 'attack',
-    target: 'core',
-    reasoning: 'Standard core attack — no special conditions detected.',
+    skill_id: 'basic_attack',
+    reasoning: 'Fallback - basic attack (no skills available?).',
   }
 }

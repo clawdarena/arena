@@ -65,15 +65,18 @@ export async function signEvent(event: Record<string, unknown>): Promise<string>
 }
 
 /**
- * Get all stored config values (for status display).
+ * Get all stored config values (for status display and service use).
  */
 export function getConfig(): Record<string, unknown> {
   return {
     bot_id: config.get('bot_id'),
     bot_name: config.get('bot_name'),
     public_key: config.get('public_key'),
+    private_key: config.get('private_key'),
     user_id: config.get('user_id'),
     username: config.get('username'),
+    token: config.get('token'),
+    api_url: config.get('api_url'),
   }
 }
 

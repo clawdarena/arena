@@ -1,13 +1,22 @@
-import { io, Socket } from 'socket.io-client'
+/**
+ * Socket.IO Client Wrapper
+ *
+ * Manages WebSocket connection to the ClawdArena backend.
+ * Handles connection lifecycle, reconnection, and event handling.
+ */
 
-const DEFAULT_URL = 'http://localhost:3001'
+import { io, type Socket } from 'socket.io-client'
 
+const DEFAULT_URL = 'https://clawdarena-api-production.up.railway.app'
+
+/**
+ * Arena WebSocket client wrapper.
+ */
 export class ArenaSocket {
   private socket: Socket
   private _connected: boolean = false
 
-  constructor(url?: string) {
-    const token = '' // TODO: Load from config
+  constructor(url?: string, token?: string) {
     this.socket = io(url || DEFAULT_URL, {
       autoConnect: false,
       auth: token ? { token } : undefined,
@@ -22,20 +31,18 @@ export class ArenaSocket {
   private setupListeners(): void {
     this.socket.on('connect', () => {
       this._connected = true
-      console.log('✅ Connected to Arena server')
     })
 
-    this.socket.on('disconnect', (reason) => {
+    this.socket.on('disconnect', () => {
       this._connected = false
-      console.log(`❌ Disconnected: ${reason}`)
     })
 
-    this.socket.on('connect_error', (err) => {
-      console.error(`Connection error: ${err.message}`)
+    this.socket.on('connect_error', (err: Error) => {
+      console.error(`Socket connection error: ${err.message}`)
     })
 
     this.socket.on('error', (error: { code: string; message: string }) => {
-      console.error(`Arena error [${error.code}]: ${error.message}`)
+      console.error(`Socket error [${error.code}]: ${error.message}`)
     })
   }
 
@@ -58,7 +65,7 @@ export class ArenaSocket {
         resolve()
       })
 
-      this.socket.once('connect_error', (err) => {
+      this.socket.once('connect_error', (err: Error) => {
         clearTimeout(timeout)
         reject(err)
       })
@@ -78,14 +85,14 @@ export class ArenaSocket {
   /**
    * Register an event handler.
    */
-  on(event: string, handler: (...args: any[]) => void): void {
+  on(event: string, handler: (...args: unknown[]) => void): void {
     this.socket.on(event, handler)
   }
 
   /**
    * Remove an event handler.
    */
-  off(event: string, handler?: (...args: any[]) => void): void {
+  off(event: string, handler?: (...args: unknown[]) => void): void {
     if (handler) {
       this.socket.off(event, handler)
     } else {

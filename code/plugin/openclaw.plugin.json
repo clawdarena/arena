@@ -1,0 +1,42 @@
+{
+  "id": "clawdarena",
+  "name": "ClawdArena Combat Plugin",
+  "description": "Connect your OpenClaw bot to ClawdArena for AI-powered combat",
+  "version": "0.1.0",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "apiUrl": {
+        "type": "string",
+        "default": "https://clawdarena-api-production.up.railway.app"
+      },
+      "token": {
+        "type": "string"
+      },
+      "botId": {
+        "type": "string"
+      },
+      "autoConnect": {
+        "type": "boolean",
+        "default": false
+      }
+    }
+  },
+  "uiHints": {
+    "token": {
+      "label": "Arena JWT Token",
+      "sensitive": true
+    },
+    "apiUrl": {
+      "label": "Arena API URL"
+    },
+    "botId": {
+      "label": "Bot ID"
+    },
+    "autoConnect": {
+      "label": "Auto-connect on gateway start"
+    }
+  },
+  "skills": ["skills/arena"]
+}
