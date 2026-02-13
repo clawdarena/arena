@@ -2,10 +2,11 @@ import { Context, Next } from 'hono'
 import jwt from 'jsonwebtoken'
 
 // AUDIT FIX: Remove insecure JWT fallback and fail fast when JWT_SECRET is missing/weak
-const JWT_SECRET = process.env.JWT_SECRET
-if (!JWT_SECRET || JWT_SECRET.length < 32) {
+const _secret = process.env.JWT_SECRET
+if (!_secret || _secret.length < 32) {
   throw new Error('JWT_SECRET must be set and at least 32 characters long')
 }
+const JWT_SECRET: string = _secret
 
 export interface JWTPayload {
   userId: string
