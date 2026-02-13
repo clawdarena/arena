@@ -13,13 +13,14 @@ import { Swords, Shield, Zap, Heart, TrendingUp, TrendingDown, Minus, ChevronRig
 import { PageTransition } from '@/components/PageTransition'
 import { Skeleton, SkeletonStats } from '@/components/Skeleton'
 import { MOVES_BY_ID, getCategoryIcon } from '@/lib/moves'
-import type { EquippedSkill } from '@/shared/types'
+// AUDIT FIX: Use single shared contract source (code/shared/types.ts)
+import type { EquippedSkill } from '../../../shared/types'
 
 // ============================================================
 // Skill Loadout Panel (4 Slots)
 // ============================================================
 
-function SkillLoadoutPanel({ botId, skills }: { botId: string; skills: EquippedSkill[] }) {
+function SkillLoadoutPanel({ botId, skills, onSkillsChanged }: { botId: string; skills: EquippedSkill[]; onSkillsChanged: () => Promise<void> }) {
   const [loadingSkillId, setLoadingSkillId] = useState<string | null>(null)
   const router = useRouter()
 
@@ -44,8 +45,8 @@ function SkillLoadoutPanel({ botId, skills }: { botId: string; skills: EquippedS
         method: 'POST',
         body: JSON.stringify({ bot_id: botId, slot }),
       })
-      // Refresh page to update
-      window.location.reload()
+      // AUDIT FIX: Avoid hard refresh; update state from API instead
+      await onSkillsChanged()
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to unequip'
       alert(msg)
@@ -200,6 +201,11 @@ function MatchHistoryRow({ match }: { match: MatchHistoryEntry }) {
 function DashboardContent() {
   const router = useRouter()
   const { user, bots, setUser, setBots, setToken } = useAuthStore()
+
+  async function refreshBotState() {
+    const me = await api<any>('/api/auth/me')
+    if (me.bots?.length) setBots(me.bots)
+  }
   const { isQueuing, startQueuing, stopQueuing } = useQueueStore()
   const [recentMatches, setRecentMatches] = useState<MatchHistoryEntry[]>([])
   const [loading, setLoading] = useState(true)
@@ -406,7 +412,7 @@ function DashboardContent() {
         </div>
 
         {/* Skill Loadout */}
-        <SkillLoadoutPanel botId={bot.id} skills={bot.skills || []} />
+        <SkillLoadoutPanel botId={bot.id} skills={bot.skills || []} onSkillsChanged={refreshBotState} />
 
         {/* Match Finder — ELO auto-tier */}
         <div className="panel p-6 corner-brackets flex flex-col">

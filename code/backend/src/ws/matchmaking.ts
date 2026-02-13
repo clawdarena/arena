@@ -58,7 +58,6 @@ const ACCEPT_TIMEOUT_MS = 60_000  // 60 seconds to accept
 // State
 // ============================================================
 
-const queue: Map<string, QueueEntry> = new Map()  // matchType → entries
 const queueEntries: QueueEntry[] = []
 const activeMatches: Map<string, ActiveMatch> = new Map()
 const socketToUser: Map<string, JWTPayload> = new Map()
@@ -66,6 +65,25 @@ const userToSocket: Map<string, string> = new Map()
 const pendingInvites: Map<string, DirectInvite> = new Map()
 const autoQueueUsers: Set<string> = new Set()
 const spectators: Map<string, Set<string>> = new Map()  // matchId → set of socketIds
+
+// AUDIT FIX: Add per-socket WS event quotas to reduce event spam/resource abuse
+const wsRateLimits: Map<string, Map<string, { count: number; resetAt: number }>> = new Map()
+
+function checkWsRateLimit(socketId: string, event: string, limit: number, windowMs: number = 10_000): boolean {
+  const now = Date.now()
+  const byEvent = wsRateLimits.get(socketId) || new Map<string, { count: number; resetAt: number }>()
+  const bucket = byEvent.get(event)
+
+  if (!bucket || now > bucket.resetAt) {
+    byEvent.set(event, { count: 1, resetAt: now + windowMs })
+    wsRateLimits.set(socketId, byEvent)
+    return true
+  }
+
+  if (bucket.count >= limit) return false
+  bucket.count += 1
+  return true
+}
 
 // OpenClaw bot connections
 const openclawBots: Map<string, {
@@ -111,6 +129,10 @@ export function setupMatchmaking(io: Server) {
     
     socket.on('join_queue', async (data: { bot_id: string; match_type: string; auto_queue?: boolean }) => {
       try {
+        if (!checkWsRateLimit(socket.id, 'join_queue', 8, 60_000)) {
+          return emitError(socket, 'RATE_LIMITED', 'Too many queue requests')
+        }
+
         const { bot_id, match_type, auto_queue } = data
 
         // Verify bot ownership
@@ -224,6 +246,10 @@ export function setupMatchmaking(io: Server) {
 
     socket.on('combat_action', async (data: { action: any; signature: string }) => {
       try {
+        if (!checkWsRateLimit(socket.id, 'combat_action', 40, 60_000)) {
+          return emitError(socket, 'RATE_LIMITED', 'Too many combat actions')
+        }
+
         const { action, signature } = data
         
         // Find the match this user is in
@@ -251,7 +277,8 @@ export function setupMatchmaking(io: Server) {
             const valid = await verifySignature(JSON.stringify(action), signature, publicKey)
             if (!valid) return emitError(socket, 'INVALID_SIGNATURE', 'Signature verification failed')
           } catch {
-            // If verification throws (e.g. malformed key), skip for now
+            // AUDIT FIX: Reject malformed signatures/keys instead of failing open
+            return emitError(socket, 'INVALID_SIGNATURE', 'Malformed signature or public key')
           }
         }
 
@@ -458,6 +485,10 @@ export function setupMatchmaking(io: Server) {
 
     const handlePluginAction = async (data: { match_id: string; action: any; signature: string; response_time_ms?: number }) => {
       try {
+        if (!checkWsRateLimit(socket.id, 'plugin_combat_action', 40, 60_000)) {
+          return emitError(socket, 'RATE_LIMITED', 'Too many plugin actions')
+        }
+
         // This is the same as combat_action but with explicit match_id
         // Used by OpenClaw plugins that manage the bot's decision-making
         const { match_id, action, signature, response_time_ms } = data
@@ -471,6 +502,23 @@ export function setupMatchmaking(io: Server) {
         else return emitError(socket, 'NOT_IN_MATCH', 'Not in this match')
 
         if (match.pendingActions[side]) return emitError(socket, 'ALREADY_SUBMITTED', 'Action already submitted')
+
+        // AUDIT FIX: Enforce signature verification for plugin action path (no bypass)
+        const botState = match[side]
+        const bot = await prisma.bot.findUnique({ where: { id: botState.botId } })
+        const userRecord = await prisma.user.findUnique({ where: { id: user.userId } })
+        const publicKey = bot?.public_key || userRecord?.public_key
+
+        if (!publicKey || !signature) {
+          return emitError(socket, 'INVALID_SIGNATURE', 'Missing signature or public key')
+        }
+
+        try {
+          const valid = await verifySignature(JSON.stringify(action), signature, publicKey)
+          if (!valid) return emitError(socket, 'INVALID_SIGNATURE', 'Signature verification failed')
+        } catch {
+          return emitError(socket, 'INVALID_SIGNATURE', 'Malformed signature or public key')
+        }
 
         const responseMs = response_time_ms || (Date.now() - match.roundStartTime)
 
@@ -787,6 +835,7 @@ export function setupMatchmaking(io: Server) {
       socketToUser.delete(socket.id)
       userToSocket.delete(user.userId)
       autoQueueUsers.delete(user.userId)
+      wsRateLimits.delete(socket.id)
     })
   })
 }
@@ -852,24 +901,47 @@ async function createMatch(io: Server, entry1: QueueEntry, entry2: QueueEntry, m
   const stats1 = calcStats(bot1Data)
   const stats2 = calcStats(bot2Data)
 
-  // Create DB match
-  const dbMatch = await prisma.match.create({
-    data: {
-      match_type: matchType,
-      bot1_id: entry1.botId,
-      bot2_id: entry2.botId,
-      bot1_elo_before: entry1.elo,
-      bot2_elo_before: entry2.elo,
-      entry_fee: tier.entryFee,
-      status: 'pending',
-    },
-  })
+  // AUDIT FIX: Create match + debit both entry fees atomically in one DB transaction
+  let dbMatch: { id: string }
+  try {
+    dbMatch = await prisma.$transaction(async (tx) => {
+      const [user1, user2] = await Promise.all([
+        tx.user.findUnique({ where: { id: entry1.userId }, select: { credits: true } }),
+        tx.user.findUnique({ where: { id: entry2.userId }, select: { credits: true } }),
+      ])
 
-  // Deduct entry fees
-  await Promise.all([
-    recordTransaction(entry1.userId, -tier.entryFee, 'match_entry', dbMatch.id),
-    recordTransaction(entry2.userId, -tier.entryFee, 'match_entry', dbMatch.id),
-  ])
+      if (!user1 || user1.credits < tier.entryFee) throw new Error('INSUFFICIENT_CREDITS_BOT1')
+      if (!user2 || user2.credits < tier.entryFee) throw new Error('INSUFFICIENT_CREDITS_BOT2')
+
+      const created = await tx.match.create({
+        data: {
+          match_type: matchType,
+          bot1_id: entry1.botId,
+          bot2_id: entry2.botId,
+          bot1_elo_before: entry1.elo,
+          bot2_elo_before: entry2.elo,
+          entry_fee: tier.entryFee,
+          status: 'pending',
+        },
+      })
+
+      const [after1, after2] = await Promise.all([
+        tx.user.update({ where: { id: entry1.userId }, data: { credits: { decrement: tier.entryFee } }, select: { credits: true } }),
+        tx.user.update({ where: { id: entry2.userId }, data: { credits: { decrement: tier.entryFee } }, select: { credits: true } }),
+      ])
+
+      await Promise.all([
+        tx.creditTransaction.create({ data: { user_id: entry1.userId, amount: -tier.entryFee, balance: after1.credits, reason: 'match_entry', reference_id: created.id } }),
+        tx.creditTransaction.create({ data: { user_id: entry2.userId, amount: -tier.entryFee, balance: after2.credits, reason: 'match_entry', reference_id: created.id } }),
+      ])
+
+      return created
+    })
+  } catch (err) {
+    io.to(entry1.socketId).emit('error', { code: 'MATCH_CREATE_FAILED', message: 'Unable to create match. Please queue again.' })
+    io.to(entry2.socketId).emit('error', { code: 'MATCH_CREATE_FAILED', message: 'Unable to create match. Please queue again.' })
+    return
+  }
 
   const match: ActiveMatch = {
     id: dbMatch.id,

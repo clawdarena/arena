@@ -1,4 +1,5 @@
 import { Hono } from 'hono'
+import { z } from 'zod'
 import { prisma } from '../db'
 import { authMiddleware, getAuthUser } from '../middleware/auth'
 
@@ -8,18 +9,42 @@ export const matchRoutes = new Hono()
 // GET /api/matches/history
 // ============================================================
 
+const historyQuerySchema = z.object({
+  // AUDIT FIX: Validate and clamp pagination params to safe ranges
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+  offset: z.coerce.number().int().min(0).default(0),
+  bot_id: z.string().uuid().optional(),
+})
+
 matchRoutes.get('/history', authMiddleware, async (c) => {
   const { userId } = getAuthUser(c)
-  const limit = Math.min(parseInt(c.req.query('limit') || '20'), 100)
-  const offset = parseInt(c.req.query('offset') || '0')
-  const botId = c.req.query('bot_id')
+
+  const parsed = historyQuerySchema.safeParse({
+    limit: c.req.query('limit') ?? undefined,
+    offset: c.req.query('offset') ?? undefined,
+    bot_id: c.req.query('bot_id') ?? undefined,
+  })
+
+  if (!parsed.success) {
+    return c.json({ error: 'Invalid query parameters', code: 'INVALID_QUERY', details: parsed.error.flatten() }, 400)
+  }
+
+  const { limit, offset, bot_id: botId } = parsed.data
 
   // Get user's bot IDs
   const userBots = await prisma.bot.findMany({
     where: { user_id: userId },
     select: { id: true },
   })
-  const botIds = botId ? [botId] : userBots.map((b) => b.id)
+
+  const ownedBotIds = userBots.map((b) => b.id)
+
+  // AUDIT FIX: Block bot_id IDOR by enforcing ownership check
+  if (botId && !ownedBotIds.includes(botId)) {
+    return c.json({ error: 'Bot not found', code: 'NOT_FOUND' }, 404)
+  }
+
+  const botIds = botId ? [botId] : ownedBotIds
 
   const where = {
     status: 'completed',
@@ -83,7 +108,8 @@ matchRoutes.get('/history', authMiddleware, async (c) => {
 matchRoutes.get('/active', async (c) => {
   const matches = await prisma.match.findMany({
     where: {
-      status: 'in_progress',
+      // AUDIT FIX: Align with matchmaking status value
+      status: 'active',
     },
     include: {
       bot1: { select: { id: true, name: true, base_hp: true } },

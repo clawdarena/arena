@@ -127,20 +127,12 @@ gauntletRoutes.get('/', authMiddleware, async (c) => {
 const completeSchema = z.object({
   bot_id: z.string().uuid(),
   tier: z.number().int().min(1).max(5),
-  match_data: z.object({
-    won: z.boolean(),
-    rounds_fought: z.number(),
-    hp_remaining: z.number(),
-    max_hp: z.number(),
-    damage_taken: z.number(),
-    skills_used: z.number(),
-    replay: z.array(z.any()).optional(),
-  }),
+  match_id: z.string().uuid(),
 })
 
 gauntletRoutes.post('/complete', authMiddleware, validate(completeSchema), async (c) => {
   const { userId } = getAuthUser(c)
-  const { bot_id, tier, match_data } = getParsedBody<z.infer<typeof completeSchema>>(c)
+  const { bot_id, tier, match_id } = getParsedBody<z.infer<typeof completeSchema>>(c)
 
   // Verify bot ownership
   const bot = await prisma.bot.findFirst({ where: { id: bot_id, user_id: userId } })
@@ -164,33 +156,74 @@ gauntletRoutes.post('/complete', authMiddleware, validate(completeSchema), async
   const gauntletTier = GAUNTLET_TIERS.find((t) => t.tier === tier)
   if (!gauntletTier) return c.json({ error: 'Invalid tier', code: 'INVALID_TIER' }, 400)
 
+  // AUDIT FIX: Validate gauntlet completion against server-side authoritative match replay/state
+  const match = await prisma.match.findUnique({
+    where: { id: match_id },
+    select: {
+      id: true,
+      status: true,
+      bot1_id: true,
+      bot2_id: true,
+      winner_id: true,
+      rounds_fought: true,
+      replay: true,
+      match_type: true,
+    },
+  })
+
+  if (!match || match.status !== 'completed') {
+    return c.json({ error: 'Match not found or incomplete', code: 'INVALID_MATCH' }, 400)
+  }
+
+  if (match.bot1_id !== bot_id) {
+    return c.json({ error: 'Match does not belong to this bot', code: 'INVALID_MATCH_BOT' }, 403)
+  }
+
+  if (match.bot2_id !== gauntletTier.opponent) {
+    return c.json({ error: 'Match opponent does not match gauntlet tier', code: 'INVALID_MATCH_OPPONENT' }, 400)
+  }
+
+  const replay = Array.isArray(match.replay) ? (match.replay as any[]) : []
+  if (replay.length === 0) {
+    return c.json({ error: 'Match replay unavailable', code: 'INVALID_MATCH_REPLAY' }, 400)
+  }
+
+  const roundsFought = match.rounds_fought || replay.length
+  const finalRound = replay[replay.length - 1] || {}
+  const hpRemaining = Number(finalRound.bot1_hp || 0)
+  const maxHp = Math.max(...replay.map((r) => Number(r?.bot1_hp || 0)), 0)
+  const damageTaken = Math.max(0, maxHp - hpRemaining)
+  const skillsUsed = replay.filter((r) => r?.bot1_action === 'skill').length
+  const won = match.winner_id === bot_id
+
   const criteria = gauntletTier.criteria
   const failures: string[] = []
 
-  if (criteria.mustWin && !match_data.won) {
+  if (criteria.mustWin && !won) {
     failures.push('Must win the match')
   }
-  if (criteria.maxRounds && match_data.rounds_fought > criteria.maxRounds) {
-    failures.push(`Must win in ${criteria.maxRounds} rounds or fewer (took ${match_data.rounds_fought})`)
+  if (criteria.maxRounds && roundsFought > criteria.maxRounds) {
+    failures.push(`Must win in ${criteria.maxRounds} rounds or fewer (took ${roundsFought})`)
   }
-  if (criteria.noSkills && match_data.skills_used > 0) {
+  if (criteria.noSkills && skillsUsed > 0) {
     failures.push('Must not use any skills')
   }
-  if (criteria.maxDamageTaken !== undefined && match_data.damage_taken > criteria.maxDamageTaken) {
-    failures.push(`Must take ${criteria.maxDamageTaken} or less damage (took ${match_data.damage_taken})`)
+  if (criteria.maxDamageTaken !== undefined && damageTaken > criteria.maxDamageTaken) {
+    failures.push(`Must take ${criteria.maxDamageTaken} or less damage (took ${damageTaken})`)
   }
 
   if (failures.length > 0) {
+    // AUDIT FIX: Return explicit 4xx status for unmet gauntlet criteria
     return c.json({
       success: false,
       message: 'Gauntlet criteria not met',
       failures,
-    })
+    }, 400)
   }
 
   // Record completion
   await prisma.gauntletProgress.create({
-    data: { bot_id, tier },
+    data: { bot_id, tier, match_id },
   })
 
   // Apply stat reward

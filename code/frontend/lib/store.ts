@@ -2,6 +2,22 @@ import { create } from 'zustand'
 import type { User, Bot, MatchFoundPayload, RoundStartPayload, RoundCompletePayload, MatchEndPayload } from '../../shared/types'
 import type { CosmeticCategory } from './cosmetics'
 
+// AUDIT FIX: Keep auth token in sessionStorage (short-lived) instead of localStorage
+const TOKEN_KEY = 'token'
+
+function readStorage(storage: 'session' | 'local', key: string): string | null {
+  if (typeof window === 'undefined') return null
+  if (storage === 'session') return sessionStorage.getItem(key)
+  return localStorage.getItem(key)
+}
+
+function writeStorage(storage: 'session' | 'local', key: string, value: string | null): void {
+  if (typeof window === 'undefined') return
+  const target = storage === 'session' ? sessionStorage : localStorage
+  if (value === null) target.removeItem(key)
+  else target.setItem(key, value)
+}
+
 // ============================================================
 // Auth Store
 // ============================================================
@@ -21,16 +37,12 @@ interface AuthState {
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   bots: [],
-  token: null,
+  token: readStorage('session', TOKEN_KEY),
 
   setUser: (user) => set({ user }),
   setBots: (bots) => set({ bots }),
   setToken: (token) => {
-    if (token) {
-      localStorage.setItem('token', token)
-    } else {
-      localStorage.removeItem('token')
-    }
+    writeStorage('session', TOKEN_KEY, token)
     set({ token })
   },
 
@@ -40,8 +52,10 @@ export const useAuthStore = create<AuthState>((set) => ({
     })),
 
   logout: () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('private_key')
+    writeStorage('session', TOKEN_KEY, null)
+    // AUDIT FIX: Remove browser-stored private key on logout to reduce key persistence risk
+    writeStorage('session', 'private_key', null)
+    writeStorage('local', 'private_key', null)
     set({ user: null, bots: [], token: null })
   },
 }))

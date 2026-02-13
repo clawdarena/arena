@@ -4,6 +4,12 @@ interface ApiOptions extends RequestInit {
   token?: string
 }
 
+function getStoredToken(): string | null {
+  if (typeof window === 'undefined') return null
+  // AUDIT FIX: Prefer sessionStorage for token persistence (lower XSS persistence window)
+  return sessionStorage.getItem('token') || localStorage.getItem('token')
+}
+
 export async function api<T>(endpoint: string, options: ApiOptions = {}): Promise<T> {
   const { token, ...fetchOptions } = options
 
@@ -13,7 +19,7 @@ export async function api<T>(endpoint: string, options: ApiOptions = {}): Promis
   }
 
   // Add auth token if available
-  const authToken = token || (typeof window !== 'undefined' ? localStorage.getItem('token') : null)
+  const authToken = token || getStoredToken()
   if (authToken) {
     headers['Authorization'] = `Bearer ${authToken}`
   }

@@ -23,12 +23,45 @@ const app = new Hono()
 // ============================================================
 
 app.use('*', logger())
+
+// AUDIT FIX: Move CORS origins to env-driven allowlist (remove hardcoded public IP/origins)
+const defaultOrigins = ['http://localhost:3000', 'http://localhost:3001']
+const corsOrigins = (process.env.CORS_ORIGINS || defaultOrigins.join(','))
+  .split(',')
+  .map((o) => o.trim())
+  .filter(Boolean)
+
 app.use('*', cors({
-  origin: ['http://localhost:3000', 'http://localhost:3001', 'http://5.252.22.126:3000', 'https://clawdarena-api-production.up.railway.app', 'https://clawdarena-web-production.up.railway.app'],
+  origin: corsOrigins,
   credentials: true,
   allowHeaders: ['Content-Type', 'Authorization'],
   allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 }))
+
+// AUDIT FIX: Add baseline API rate limiting to reduce brute-force and abuse risk
+const ipRateBuckets = new Map<string, { count: number; resetAt: number }>()
+app.use('*', async (c, next) => {
+  const ip = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
+    || c.req.header('x-real-ip')
+    || 'unknown'
+
+  const now = Date.now()
+  const bucket = ipRateBuckets.get(ip)
+  const limit = c.req.path.startsWith('/api/auth') ? 120 : 600
+  const windowMs = 60_000
+
+  if (!bucket || now > bucket.resetAt) {
+    ipRateBuckets.set(ip, { count: 1, resetAt: now + windowMs })
+    return next()
+  }
+
+  if (bucket.count >= limit) {
+    return c.json({ error: 'Too many requests', code: 'RATE_LIMITED' }, 429)
+  }
+
+  bucket.count += 1
+  return next()
+})
 
 // ============================================================
 // Routes
@@ -79,13 +112,7 @@ async function start() {
   // WebSocket server (same port)
   const io = new SocketServer(server, {
     cors: {
-      origin: [
-        'http://localhost:3000',
-        'http://localhost:3001',
-        'http://5.252.22.126:3000',
-        'https://clawdarena-api-production.up.railway.app',
-        'https://clawdarena-web-production.up.railway.app',
-      ],
+      origin: corsOrigins,
       credentials: true,
     },
   })

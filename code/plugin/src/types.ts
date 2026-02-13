@@ -1,8 +1,7 @@
 /**
  * Combat V2 Types
  *
- * Defines all types for the 16-skill Combat V2 system with energy,
- * cooldowns, and 4-skill loadouts.
+ * Defines plugin contracts aligned with backend REST/WS schema.
  */
 
 // ============================================================================
@@ -34,7 +33,6 @@ export const SKILL_IDS = [
   'emp_pulse',
   'time_bomb',
   'overclock',
-  'agent_overflow',
 
   // Exploit (debuffs/special effects)
   'scan',
@@ -46,20 +44,6 @@ export const SKILL_IDS = [
 export type SkillId = (typeof SKILL_IDS)[number]
 
 export type SkillCategory = 'aggressive' | 'defensive' | 'tactical' | 'exploit'
-
-/**
- * Skill definition with all combat properties.
- */
-export interface SkillDefinition {
-  id: SkillId
-  name: string
-  category: SkillCategory
-  energyCost: number
-  cooldown: number // rounds
-  description: string
-  damage?: number
-  effect?: string
-}
 
 /**
  * Runtime skill info during a match (with cooldown state).
@@ -77,45 +61,27 @@ export interface MatchSkillInfo {
 // COMBAT STATE
 // ============================================================================
 
-/**
- * Full match state from server (before sanitization).
- */
-export interface RawMatchState {
-  match_id: string
-  bot1: {
-    id: string
-    name?: string // UNTRUSTED - never pass to agent
-    hp: number
-    energy: number
-  }
-  bot2: {
-    id: string
-    name?: string // UNTRUSTED - never pass to agent
-    hp: number
-    energy: number
-  }
-  skills: Array<{
-    id: string
-    name?: string
-    energyCost?: number
-    cooldownLeft?: number
-    category?: string
-  }>
-}
-
-/**
- * Round start event from server (before sanitization).
- */
+/**** Round start event from backend WS (before sanitization). */
 export interface RawRoundStart {
   match_id: string
   round: number
-  bot1_hp: number
-  bot2_hp: number
-  energy: number
-  skill_cooldowns: Record<string, number>
-  disabled_skills: string[]
   time_limit_seconds?: number
-  status_effects?: string[]
+  bot1: {
+    id: string
+    hp: number
+    energy: number
+    status_effects?: string[]
+    skill_cooldowns?: Record<string, number>
+    disabled_skills?: string[]
+  }
+  bot2: {
+    id: string
+    hp: number
+    energy: number
+    status_effects?: string[]
+    skill_cooldowns?: Record<string, number>
+    disabled_skills?: string[]
+  }
   previous_round?: {
     bot1_skill_id?: string
     bot2_skill_id?: string
@@ -126,8 +92,6 @@ export interface RawRoundStart {
 
 /**
  * Sanitized combat state - safe for agent consumption.
- * Contains ONLY structured data: numbers, known enums.
- * NEVER contains raw strings from server.
  */
 export interface SanitizedCombatState {
   round: number
@@ -136,7 +100,7 @@ export interface SanitizedCombatState {
   my_energy: number
   available_skills: MatchSkillInfo[]
   opponent_last_skill: SkillId | null
-  status_effects: string[] // Only from known enum
+  status_effects: string[]
   round_history: RoundHistoryEntry[]
 }
 
@@ -153,94 +117,82 @@ export interface RoundHistoryEntry {
 // ============================================================================
 
 /**
- * Combat action submitted to server.
- */
-export interface CombatAction {
-  match_id: string
-  action: 'skill'
-  skill_id: SkillId
-}
-
-/**
- * Signed combat action envelope.
+ * Signed combat action payload sent through plugin_combat_action event.
  */
 export interface SignedCombatAction {
-  match_id: string
-  round: number
-  bot_id: string
-  action: 'skill'
-  skill_id: SkillId
-  timestamp: number
-  nonce: string
-}
-
-/**
- * Parsed action from agent response.
- */
-export interface ParsedSkillAction {
-  skill_id: SkillId
-  reasoning: string | null // Stays LOCAL
+  action: 'attack' | 'defend' | 'skill'
+  target: 'opponent' | null
+  skill_id?: SkillId | null
 }
 
 // ============================================================================
 // EVENTS
 // ============================================================================
 
-/**
- * Match start event from server.
- */
+/**** Match start event from backend WS. */
 export interface MatchStartEvent {
   match_id: string
-  bot1: { id: string; name?: string }
-  bot2: { id: string; name?: string }
-  skills: MatchSkillInfo[]
+  bot1: {
+    id: string
+    name?: string
+    skills?: Array<{
+      id: string
+      category?: string
+      energyCost?: number
+      cooldown?: number
+      name?: string
+    }>
+  }
+  bot2: {
+    id: string
+    name?: string
+    skills?: Array<{
+      id: string
+      category?: string
+      energyCost?: number
+      cooldown?: number
+      name?: string
+    }>
+  }
   max_rounds: number
   time_limit_seconds: number
 }
 
-/**
- * Round complete event from server.
- */
+/**** Round complete event from backend WS. */
 export interface RoundCompleteEvent {
   round: number
-  bot1_hp_after: number
-  bot2_hp_after: number
-  bot1_skill_id: string
-  bot2_skill_id: string
+  bot1_hp: number
+  bot2_hp: number
+  bot1_skill_id?: string
+  bot2_skill_id?: string
   bot1_damage_dealt: number
   bot2_damage_dealt: number
 }
 
-/**
- * Match end event from server.
- */
+/**** Match end event from backend WS. */
 export interface MatchEndEvent {
   winner: {
     bot_id: string
-    elo_before: number
-    elo_after: number
-    elo_change: number
-    credits_won: number
-    xp_earned: number
-  }
+    elo_before?: number
+    elo_after?: number
+    elo_change?: number
+    credits_won?: number
+  } | null
   loser: {
     bot_id: string
-    elo_before: number
-    elo_after: number
-    elo_change: number
-    credits_lost: number
-    xp_earned: number
-  }
+    elo_before?: number
+    elo_after?: number
+    elo_change?: number
+    credits_lost?: number
+  } | null
   rounds_fought: number
+  result?: 'win' | 'loss' | 'draw'
 }
 
 // ============================================================================
 // PLUGIN CONFIG
 // ============================================================================
 
-/**
- * Plugin configuration from openclaw.json.
- */
 export interface ArenaPluginConfig {
   apiUrl: string
   token?: string

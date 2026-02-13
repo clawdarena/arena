@@ -92,10 +92,8 @@ export interface MatchResult {
 // Constants
 // ============================================================
 
-const ENERGY_START = 100
 const ENERGY_REGEN_PER_ROUND = 15
 const ENERGY_DEFEND_BONUS = 10
-const BASE_DAMAGE = 8
 const DAMAGE_FLOOR_BASIC = 3
 const DAMAGE_FLOOR_SKILL = 4
 const DEFENSE_REDUCTION_MULTIPLIER = 0.6
@@ -152,6 +150,10 @@ function getSkillDef(skillId: string): SkillDef | undefined {
 function getEnergyCost(skillId: string): number {
   const def = getSkillDef(skillId)
   return def?.energyCost ?? 20
+}
+
+function isSkillEquipped(bot: BotCombatState, skillId: string): boolean {
+  return bot.equippedSkills.some((s) => s.id === skillId || V1_SKILL_MAP[s.id] === skillId || V1_SKILL_MAP[skillId] === s.id)
 }
 
 // ============================================================
@@ -699,6 +701,14 @@ export function resolveRound(
   if (isSleeping2 || isStunned2 || timed2) action2 = { action: 'defend', target: null }
   if (isFortress1 && action1.action === 'attack') action1 = { action: 'defend', target: null }
   if (isFortress2 && action2.action === 'attack') action2 = { action: 'defend', target: null }
+
+  // AUDIT FIX: Enforce that chosen skill is actually equipped/owned by that bot
+  if (action1.action === 'skill' && action1.skill_id && !isSkillEquipped(bot1, action1.skill_id)) {
+    action1 = { action: 'defend', target: null }
+  }
+  if (action2.action === 'skill' && action2.skill_id && !isSkillEquipped(bot2, action2.skill_id)) {
+    action2 = { action: 'defend', target: null }
+  }
 
   // Check skill cooldowns
   if (action1.action === 'skill' && action1.skill_id) {

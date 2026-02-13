@@ -124,28 +124,35 @@ export default function register(api: OpenClawPluginAPI): void {
 
           try {
             // Step 1: Register/login user
+            // AUDIT FIX: Align plugin auth contract with backend email+password endpoints
             let token: string
             let userId: string
+
+            const safeUsername = options.username.replace(/[^a-zA-Z0-9_]/g, '_').toLowerCase()
+            const email = `${safeUsername}@plugin.clawdarena.local`
+            const storedPassword = (config.auth_password as string | undefined)
+            const password = storedPassword || `Plugin_${Math.random().toString(36).slice(2)}_${Date.now()}`
 
             const authRes = await fetch(`${apiUrl}/api/auth/register`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
                 username: options.username,
+                email,
+                password,
                 public_key: keys.publicKey,
               }),
             })
 
             if (authRes.status === 409) {
-              // Username taken, try login
               const loginRes = await fetch(`${apiUrl}/api/auth/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ username: options.username }),
+                body: JSON.stringify({ email, password }),
               })
 
               if (!loginRes.ok) {
-                throw new Error(`Login failed: ${loginRes.statusText}`)
+                throw new Error(`Login failed for existing plugin account (${email}). Configure token manually with: openclaw arena config --token <jwt>`)
               }
 
               const loginData = (await loginRes.json()) as { token: string; user: { id: string } }
@@ -179,8 +186,9 @@ export default function register(api: OpenClawPluginAPI): void {
             }
 
             if (botRes.ok) {
-              const botData = (await botRes.json()) as { bot_id: string }
-              setConfig('bot_id', botData.bot_id)
+              // AUDIT FIX: Backend returns { bot }, not { bot_id }
+              const botData = (await botRes.json()) as { bot: { id: string } }
+              setConfig('bot_id', botData.bot.id)
               console.log(`  Bot registered: ${name}`)
             } else {
               console.log(`  Bot "${name}" already registered`)
@@ -190,6 +198,8 @@ export default function register(api: OpenClawPluginAPI): void {
             setConfig('bot_name', name)
             setConfig('username', options.username)
             setConfig('user_id', userId)
+            setConfig('auth_email', email)
+            setConfig('auth_password', password)
             setConfig('token', token)
 
             console.log('\nRegistration complete!')

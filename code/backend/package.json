@@ -10,7 +10,8 @@
     "db:generate": "bunx prisma generate",
     "db:studio": "bunx prisma studio",
     "db:seed": "bun run seeds/seed.ts",
-    "build": "bun build src/index.ts --outdir dist"
+    "build": "bun build src/index.ts --outdir dist",
+    "test": "bun test"
   },
   "dependencies": {
     "hono": "^4.7.0",

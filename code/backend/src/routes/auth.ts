@@ -9,6 +9,38 @@ import { recordTransaction } from '../utils/credits'
 
 export const authRoutes = new Hono()
 
+// AUDIT FIX: Add in-memory auth rate limiting to reduce brute-force abuse
+const authRateWindowMs = 60_000
+const authRateLimits = new Map<string, { count: number; resetAt: number }>()
+
+function checkAuthRateLimit(ip: string, route: string, limit: number): boolean {
+  const key = `${route}:${ip}`
+  const now = Date.now()
+  const bucket = authRateLimits.get(key)
+
+  if (!bucket || now > bucket.resetAt) {
+    authRateLimits.set(key, { count: 1, resetAt: now + authRateWindowMs })
+    return true
+  }
+
+  if (bucket.count >= limit) return false
+  bucket.count += 1
+  return true
+}
+
+function enforceAuthRateLimit(c: any, route: string, limit: number) {
+  const ip = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
+    || c.req.header('x-real-ip')
+    || 'unknown'
+
+  if (!checkAuthRateLimit(ip, route, limit)) {
+    return c.json({ error: 'Too many requests', code: 'RATE_LIMITED' }, 429)
+  }
+
+  return null
+}
+
+
 // ============================================================
 // Schemas
 // ============================================================
@@ -34,6 +66,9 @@ const loginUsernameSchema = z.object({
 // ============================================================
 
 authRoutes.post('/register', validate(registerSchema), async (c) => {
+  const limited = enforceAuthRateLimit(c, 'register', 10)
+  if (limited) return limited
+
   const { username, email, password, public_key } = getParsedBody<z.infer<typeof registerSchema>>(c)
 
   // Validate public key format
@@ -122,6 +157,9 @@ authRoutes.post('/register', validate(registerSchema), async (c) => {
 // ============================================================
 
 authRoutes.post('/login', validate(loginSchema), async (c) => {
+  const limited = enforceAuthRateLimit(c, 'login', 15)
+  if (limited) return limited
+
   const { email, password } = getParsedBody<z.infer<typeof loginSchema>>(c)
 
   const user = await prisma.user.findUnique({ where: { email } })
@@ -153,24 +191,11 @@ authRoutes.post('/login', validate(loginSchema), async (c) => {
 // ============================================================
 
 authRoutes.post('/login-username', validate(loginUsernameSchema), async (c) => {
-  const { username } = getParsedBody<z.infer<typeof loginUsernameSchema>>(c)
-
-  const user = await prisma.user.findUnique({ where: { username } })
-  if (!user) {
-    return c.json({ error: 'User not found', code: 'USER_NOT_FOUND' }, 404)
-  }
-
-  const token = signToken({ userId: user.id, username: user.username })
-
+  // AUDIT FIX: Disable insecure username-only login endpoint to prevent account takeover
   return c.json({
-    user: {
-      id: user.id,
-      username: user.username,
-      credits: user.credits,
-      elo: user.current_elo,
-    },
-    token,
-  })
+    error: 'This legacy endpoint is disabled. Use /api/auth/login (email/password) or /api/auth/google.',
+    code: 'ENDPOINT_DISABLED',
+  }, 410)
 })
 
 // ============================================================
@@ -178,19 +203,46 @@ authRoutes.post('/login-username', validate(loginUsernameSchema), async (c) => {
 // ============================================================
 
 const googleSchema = z.object({
-  google_token: z.string().min(1),
+  google_token: z.string().min(1).optional(),
+  id_token: z.string().min(1).optional(),
 })
 
 authRoutes.post('/google', validate(googleSchema), async (c) => {
-  const { google_token } = getParsedBody<z.infer<typeof googleSchema>>(c)
+  const limited = enforceAuthRateLimit(c, 'google', 10)
+  if (limited) return limited
+
+  const { google_token, id_token } = getParsedBody<z.infer<typeof googleSchema>>(c)
+  const tokenToVerify = google_token || id_token
 
   // Verify Google ID token
-  let googlePayload: { sub: string; email: string; name?: string; email_verified?: boolean }
+  // AUDIT FIX: Enforce strict token validation (aud/iss/exp/email_verified)
+  let googlePayload: {
+    sub: string
+    email: string
+    name?: string
+    email_verified?: boolean | string
+    aud?: string
+    iss?: string
+    exp?: string
+  }
   try {
-    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${google_token}`)
+    if (!tokenToVerify) throw new Error('Missing token')
+    const res = await fetch(`https://oauth2.googleapis.com/tokeninfo?id_token=${tokenToVerify}`)
     if (!res.ok) throw new Error('Invalid token')
     googlePayload = await res.json() as any
+
+    const configuredAud = process.env.GOOGLE_CLIENT_ID
+    const tokenAud = googlePayload.aud
+    const tokenIss = googlePayload.iss
+    const tokenExp = Number(googlePayload.exp || '0')
+    const verified = googlePayload.email_verified === true || googlePayload.email_verified === 'true'
+    const issuerOk = tokenIss === 'accounts.google.com' || tokenIss === 'https://accounts.google.com'
+
     if (!googlePayload.sub || !googlePayload.email) throw new Error('Missing fields')
+    if (!issuerOk) throw new Error('Invalid issuer')
+    if (tokenExp * 1000 <= Date.now()) throw new Error('Expired token')
+    if (!verified) throw new Error('Email not verified')
+    if (configuredAud && tokenAud !== configuredAud) throw new Error('Invalid audience')
   } catch {
     return c.json({ error: 'Invalid Google token', code: 'INVALID_GOOGLE_TOKEN' }, 401)
   }

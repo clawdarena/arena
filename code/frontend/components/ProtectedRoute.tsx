@@ -11,8 +11,6 @@ interface ProtectedRouteProps {
 
 /**
  * Auth guard component.
- * Checks localStorage for a token, verifies it with /api/auth/me,
- * and redirects to /login if the token is missing or invalid.
  */
 export function ProtectedRoute({ children }: ProtectedRouteProps) {
   const router = useRouter()
@@ -26,7 +24,8 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
     }
 
     async function verifyAuth() {
-      const token = localStorage.getItem('token')
+      // AUDIT FIX: Prefer sessionStorage token over localStorage
+      const token = sessionStorage.getItem('token') || localStorage.getItem('token')
 
       if (!token) {
         router.push('/login')
@@ -38,6 +37,7 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
         setUser(data)
         if (data.bots) setBots(data.bots)
       } catch {
+        sessionStorage.removeItem('token')
         localStorage.removeItem('token')
         router.push('/login')
         return

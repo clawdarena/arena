@@ -3,7 +3,6 @@ import { z } from 'zod'
 import { prisma } from '../db'
 import { authMiddleware, getAuthUser } from '../middleware/auth'
 import { validate, getParsedBody } from '../middleware/validate'
-import { recordTransaction } from '../utils/credits'
 
 export const shopRoutes = new Hono()
 
@@ -89,30 +88,47 @@ shopRoutes.post('/purchase', authMiddleware, validate(purchaseCosmeticSchema), a
       return c.json({ error: 'This item is free by default', code: 'FREE_ITEM' }, 400)
     }
 
-    // Check if already owned
-    const existing = await prisma.userCosmetic.findUnique({
-      where: { user_id_item_id: { user_id: userId, item_id } },
-    })
-    if (existing) {
-      return c.json({ error: 'Already owned', code: 'ALREADY_OWNED' }, 409)
+    try {
+      // AUDIT FIX: Make cosmetic purchase atomic (ownership/balance/charge/grant in one transaction)
+      const result = await prisma.$transaction(async (tx) => {
+        const existing = await tx.userCosmetic.findUnique({
+          where: { user_id_item_id: { user_id: userId, item_id } },
+        })
+        if (existing) throw new Error('ALREADY_OWNED')
+
+        const user = await tx.user.findUnique({ where: { id: userId }, select: { credits: true } })
+        if (!user || user.credits < cosmetic.price) throw new Error('INSUFFICIENT_CREDITS')
+
+        const updatedUser = await tx.user.update({
+          where: { id: userId },
+          data: { credits: { decrement: cosmetic.price } },
+          select: { credits: true },
+        })
+
+        await tx.creditTransaction.create({
+          data: {
+            user_id: userId,
+            amount: -cosmetic.price,
+            balance: updatedUser.credits,
+            reason: 'shop_purchase',
+            reference_id: item_id,
+          },
+        })
+
+        await tx.userCosmetic.create({
+          data: { user_id: userId, item_id },
+        })
+
+        return { newBalance: updatedUser.credits }
+      })
+
+      return c.json({ success: true, item: cosmetic, new_balance: result.newBalance })
+    } catch (err) {
+      const code = err instanceof Error ? err.message : 'PURCHASE_FAILED'
+      if (code === 'ALREADY_OWNED') return c.json({ error: 'Already owned', code }, 409)
+      if (code === 'INSUFFICIENT_CREDITS') return c.json({ error: 'Insufficient credits', code }, 400)
+      return c.json({ error: 'Purchase failed', code: 'PURCHASE_FAILED' }, 500)
     }
-
-    // Check credits
-    const user = await prisma.user.findUnique({ where: { id: userId } })
-    if (!user || user.credits < cosmetic.price) {
-      return c.json({ error: 'Insufficient credits', code: 'INSUFFICIENT_CREDITS' }, 400)
-    }
-
-    // Deduct credits
-    await recordTransaction(userId, -cosmetic.price, 'shop_purchase', item_id)
-
-    // Add to owned
-    await prisma.userCosmetic.create({
-      data: { user_id: userId, item_id },
-    })
-
-    const newBalance = user.credits - cosmetic.price
-    return c.json({ success: true, item: cosmetic, new_balance: newBalance })
   }
 
   // Fallback: try legacy ShopItem (UUID format)
@@ -121,35 +137,61 @@ shopRoutes.post('/purchase', authMiddleware, validate(purchaseCosmeticSchema), a
     return c.json({ error: 'Item not found', code: 'NOT_FOUND' }, 404)
   }
 
-  // Legacy purchase flow
-  const existing = await prisma.userInventory.findUnique({
-    where: { user_id_item_id: { user_id: userId, item_id } },
-  })
-  if (existing) {
-    return c.json({ error: 'Already owned', code: 'ALREADY_OWNED' }, 409)
-  }
+  try {
+    // AUDIT FIX: Make legacy purchase atomic (stock/balance/charge/grant/decrement in one transaction)
+    const result = await prisma.$transaction(async (tx) => {
+      const existing = await tx.userInventory.findUnique({
+        where: { user_id_item_id: { user_id: userId, item_id } },
+      })
+      if (existing) throw new Error('ALREADY_OWNED')
 
-  if (legacyItem.limited_edition && legacyItem.stock_remaining !== null && legacyItem.stock_remaining <= 0) {
-    return c.json({ error: 'Out of stock', code: 'OUT_OF_STOCK' }, 410)
-  }
+      const item = await tx.shopItem.findUnique({ where: { id: item_id } })
+      if (!item) throw new Error('NOT_FOUND')
 
-  const user = await prisma.user.findUnique({ where: { id: userId } })
-  if (!user || user.credits < legacyItem.price) {
-    return c.json({ error: 'Insufficient credits', code: 'INSUFFICIENT_CREDITS' }, 400)
-  }
+      if (item.limited_edition && item.stock_remaining !== null && item.stock_remaining <= 0) {
+        throw new Error('OUT_OF_STOCK')
+      }
 
-  await recordTransaction(userId, -legacyItem.price, 'shop_purchase', item_id)
-  await prisma.userInventory.create({ data: { user_id: userId, item_id } })
+      const user = await tx.user.findUnique({ where: { id: userId }, select: { credits: true } })
+      if (!user || user.credits < item.price) throw new Error('INSUFFICIENT_CREDITS')
 
-  if (legacyItem.limited_edition && legacyItem.stock_remaining !== null) {
-    await prisma.shopItem.update({
-      where: { id: item_id },
-      data: { stock_remaining: { decrement: 1 } },
+      const updatedUser = await tx.user.update({
+        where: { id: userId },
+        data: { credits: { decrement: item.price } },
+        select: { credits: true },
+      })
+
+      await tx.creditTransaction.create({
+        data: {
+          user_id: userId,
+          amount: -item.price,
+          balance: updatedUser.credits,
+          reason: 'shop_purchase',
+          reference_id: item_id,
+        },
+      })
+
+      await tx.userInventory.create({ data: { user_id: userId, item_id } })
+
+      if (item.limited_edition && item.stock_remaining !== null) {
+        await tx.shopItem.update({
+          where: { id: item_id },
+          data: { stock_remaining: { decrement: 1 } },
+        })
+      }
+
+      return { item, newBalance: updatedUser.credits }
     })
-  }
 
-  const newBalance = user.credits - legacyItem.price
-  return c.json({ success: true, item: legacyItem, new_balance: newBalance })
+    return c.json({ success: true, item: result.item, new_balance: result.newBalance })
+  } catch (err) {
+    const code = err instanceof Error ? err.message : 'PURCHASE_FAILED'
+    if (code === 'ALREADY_OWNED') return c.json({ error: 'Already owned', code }, 409)
+    if (code === 'OUT_OF_STOCK') return c.json({ error: 'Out of stock', code }, 410)
+    if (code === 'INSUFFICIENT_CREDITS') return c.json({ error: 'Insufficient credits', code }, 400)
+    if (code === 'NOT_FOUND') return c.json({ error: 'Item not found', code }, 404)
+    return c.json({ error: 'Purchase failed', code: 'PURCHASE_FAILED' }, 500)
+  }
 })
 
 // ============================================================

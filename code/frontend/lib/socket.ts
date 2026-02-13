@@ -4,9 +4,15 @@ const WS_URL = process.env.NEXT_PUBLIC_WS_URL || 'https://clawdarena-api-product
 
 let socket: Socket | null = null
 
+function getStoredToken(): string | null {
+  if (typeof window === 'undefined') return null
+  // AUDIT FIX: Prefer session token; fallback for backward compatibility
+  return sessionStorage.getItem('token') || localStorage.getItem('token')
+}
+
 export function getSocket(): Socket {
   if (!socket) {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null
+    const token = getStoredToken()
 
     socket = io(WS_URL, {
       autoConnect: false,

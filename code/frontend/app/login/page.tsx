@@ -71,7 +71,10 @@ export default function LoginPage() {
       const data = await apiPost<{
         user: any
         token: string
-      }>('/api/auth/google', { id_token: response.credential })
+      }>('/api/auth/google', {
+        // AUDIT FIX: Align payload key with backend contract
+        google_token: response.credential,
+      })
 
       setToken(data.token)
       setUser(data.user)

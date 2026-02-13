@@ -262,9 +262,16 @@ export function createArenaService(api: OpenClawAPI) {
       // Determine which bot we are
       const isBot1 = data.bot1.id === botId
 
-      // Sanitize skill info
-      const equippedSkills = data.skills
-        .map(sanitizeSkillInfo)
+      // AUDIT FIX: Match backend schema where skills are nested under bot1/bot2
+      const mySkillsRaw = isBot1 ? (data.bot1.skills || []) : (data.bot2.skills || [])
+      const equippedSkills = mySkillsRaw
+        .map((skill) => sanitizeSkillInfo({
+          id: skill.id,
+          category: skill.category,
+          energyCost: skill.energyCost,
+          cooldownLeft: 0,
+          disabled: false,
+        }))
         .filter((s): s is MatchSkillInfo => s !== null)
 
       currentMatch = {
@@ -284,27 +291,9 @@ export function createArenaService(api: OpenClawAPI) {
 
       api.log('info', `Arena: Round ${rawData.round}`)
 
-      // Swap HP values if we're bot2
-      const sanitizedData: RawRoundStart = currentMatch.isBot1
-        ? rawData
-        : {
-            ...rawData,
-            bot1_hp: rawData.bot2_hp,
-            bot2_hp: rawData.bot1_hp,
-            previous_round: rawData.previous_round
-              ? {
-                  ...rawData.previous_round,
-                  bot1_skill_id: rawData.previous_round.bot2_skill_id,
-                  bot2_skill_id: rawData.previous_round.bot1_skill_id,
-                  bot1_damage_dealt: rawData.previous_round.bot2_damage_dealt,
-                  bot2_damage_dealt: rawData.previous_round.bot1_damage_dealt,
-                }
-              : undefined,
-          }
-
       // Sanitize the round data (TRUST BOUNDARY)
       const state = sanitizeRoundStart(
-        sanitizedData,
+        rawData,
         currentMatch.myBotId,
         currentMatch.equippedSkills,
         currentMatch.roundHistory
@@ -312,29 +301,21 @@ export function createArenaService(api: OpenClawAPI) {
 
       // Get agent decision
       const skillId = await getAgentDecision(state)
-
       api.log('info', `Arena: Decided - ${skillId}`)
 
-      // Build and sign the action
+      // AUDIT FIX: Send backend-compatible action envelope and sign exactly that payload
       const action: SignedCombatAction = {
-        match_id: currentMatch.matchId,
-        round: state.round,
-        bot_id: currentMatch.myBotId,
         action: 'skill',
+        target: 'opponent',
         skill_id: skillId,
-        timestamp: Date.now(),
-        nonce: generateNonce(),
       }
 
       const signature = await signEvent(action as unknown as Record<string, unknown>)
 
-      // Send to server (ONLY skill_id, no reasoning)
-      // Use plugin_combat_action event (backend handler for plugin connections)
       socket?.emit('plugin_combat_action', {
         match_id: currentMatch.matchId,
         action,
         signature,
-        response_time_ms: Date.now() - (rawData as any)._receivedAt || undefined,
       })
     })
 
@@ -363,19 +344,21 @@ export function createArenaService(api: OpenClawAPI) {
       }
 
       // Log result
-      const myHp = currentMatch.isBot1 ? result.bot1_hp_after : result.bot2_hp_after
-      const oppHp = currentMatch.isBot1 ? result.bot2_hp_after : result.bot1_hp_after
+      const myHp = currentMatch.isBot1 ? result.bot1_hp : result.bot2_hp
+      const oppHp = currentMatch.isBot1 ? result.bot2_hp : result.bot1_hp
       api.log('info', `Arena: Round ${result.round} complete - HP: ${myHp} vs ${oppHp}`)
     })
 
     socket.on('match_end', (result: MatchEndEvent) => {
       const botId = currentMatch?.myBotId
-      const isWinner = result.winner.bot_id === botId
+      const isWinner = !!result.winner && result.winner.bot_id === botId
 
       if (isWinner) {
-        api.log('info', `Arena: VICTORY! +${result.winner.credits_won} credits, ELO ${result.winner.elo_change > 0 ? '+' : ''}${result.winner.elo_change}`)
+        api.log('info', `Arena: VICTORY! +${result.winner?.credits_won ?? 0} credits, ELO ${(result.winner?.elo_change ?? 0) > 0 ? '+' : ''}${result.winner?.elo_change ?? 0}`)
+      } else if (result.result === 'draw') {
+        api.log('info', 'Arena: Draw.')
       } else {
-        api.log('info', `Arena: Defeat. -${result.loser.credits_lost} credits, ELO ${result.loser.elo_change}`)
+        api.log('info', `Arena: Defeat. -${result.loser?.credits_lost ?? 0} credits, ELO ${result.loser?.elo_change ?? 0}`)
       }
 
       currentMatch = null
@@ -390,38 +373,49 @@ export function createArenaService(api: OpenClawAPI) {
     socket.on('request_bot_suggestion', async (data: {
       match_id: string
       round: number
-      my_hp: number
-      opponent_hp: number
-      my_energy: number
-      skills: any[]
-      opponent_last_skill?: string
+      player_bot: { hp: number; energy: number; skills: any[]; skill_cooldowns?: Record<string, number> }
+      opponent_bot: { hp: number; energy: number; last_action?: string | null }
+      time_limit_ms?: number
     }) => {
       if (!currentMatch) return
 
       try {
-        // Sanitize and get a decision
-        const availableSkills = (data.skills || [])
-          .map(sanitizeSkillInfo)
+        const availableSkills = ((data.player_bot?.skills || []) as any[])
+          .map((skill) => sanitizeSkillInfo({
+            id: skill.id,
+            category: skill.category,
+            energyCost: skill.energyCost,
+            cooldownLeft: (data.player_bot?.skill_cooldowns || {})[skill.id] || 0,
+            disabled: false,
+          }))
           .filter((s): s is MatchSkillInfo => s !== null)
 
         const state = {
           round: data.round,
-          my_hp: data.my_hp,
-          opponent_hp: data.opponent_hp,
-          my_energy: data.my_energy,
+          my_hp: data.player_bot?.hp ?? 0,
+          opponent_hp: data.opponent_bot?.hp ?? 0,
+          my_energy: data.player_bot?.energy ?? 0,
           available_skills: availableSkills,
-          opponent_last_skill: isValidSkillId(data.opponent_last_skill) ? data.opponent_last_skill : null,
+          opponent_last_skill: null,
           status_effects: [] as string[],
           round_history: currentMatch.roundHistory,
         }
 
         const skillId = await getAgentDecision(state)
 
-        socket?.emit('bot_suggestion', {
+        // AUDIT FIX: Emit backend-compatible event name/payload for suggestions
+        socket?.emit('bot_suggestion_response', {
           match_id: data.match_id,
-          round: data.round,
-          skill_id: skillId,
-          confidence: 75,
+          suggestion: {
+            skill_id: skillId,
+            skill_name: skillId,
+            reasoning: ['Computed from current combat state'],
+            confidence: 75,
+            risk_level: 'medium',
+            expected_damage: 0,
+            counters: [],
+          },
+          response_time_ms: 200,
         })
       } catch (err) {
         api.log('warn', `Arena: Coaching suggestion failed: ${err instanceof Error ? err.message : 'unknown'}`)
