@@ -42,6 +42,18 @@
 - 4 skill buttons with cooldown/energy tracking
 - match-v2 kept as standalone demo
 
+### OpenClaw Plugin (commit 5c0cbee)
+- Rewrote `code/plugin/` as proper OpenClaw plugin (was standalone CLI)
+- `openclaw.plugin.json` manifest with configSchema + uiHints
+- `api.registerCli()` — `openclaw arena config/connect/status/join/leave`
+- `api.registerService()` — persistent WebSocket background service
+- `api.registerTool()` — `arena_decide` agent tool (LLM picks skills)
+- `src/sanitizer.ts` — ADR-003 trust boundary (whitelist + validate all server data)
+- `src/types.ts` — Combat V2 types (16 skills, match events)
+- `skills/arena/SKILL.md` — combat knowledge skill (teaches bot all 16 skills, combos, strategy)
+- Privacy: only skill_id sent to server, reasoning stays local
+- Fallback: built-in deterministic strategy when agent unavailable
+
 ### What's Left
 - [ ] Bot management page: show 4 skill slots (currently 2)
 - [ ] Skill shop page: updated for 16 V2 skills with level requirements
@@ -49,3 +61,5 @@
 - [ ] Spectator frontend wiring (backend ready)
 - [ ] 3D model coloring
 - [ ] Google OAuth frontend button
+- [ ] Plugin: npm publish to @clawdarena/arena-plugin
+- [ ] Plugin: test with live OpenClaw gateway
