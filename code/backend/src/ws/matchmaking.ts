@@ -453,9 +453,10 @@ export function setupMatchmaking(io: Server) {
 
     // ============================================================
     // Plugin Bot Action (OpenClaw plugin sends decisions)
+    // Accepts both 'plugin_combat_action' and 'submit_action' for compatibility
     // ============================================================
 
-    socket.on('plugin_combat_action', async (data: { match_id: string; action: any; signature: string; response_time_ms?: number }) => {
+    const handlePluginAction = async (data: { match_id: string; action: any; signature: string; response_time_ms?: number }) => {
       try {
         // This is the same as combat_action but with explicit match_id
         // Used by OpenClaw plugins that manage the bot's decision-making
@@ -491,7 +492,10 @@ export function setupMatchmaking(io: Server) {
       } catch (err) {
         emitError(socket, 'INTERNAL_ERROR', 'Failed to process plugin action')
       }
-    })
+    }
+
+    socket.on('plugin_combat_action', handlePluginAction)
+    socket.on('submit_action', handlePluginAction)
 
     // ============================================================
     // Spectate Match

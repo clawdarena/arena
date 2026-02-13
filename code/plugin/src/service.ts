@@ -222,6 +222,14 @@ export function createArenaService(api: OpenClawAPI) {
     socket.on('connect', () => {
       connected = true
       api.log('info', 'Arena: Connected to server')
+
+      // Announce ourselves as an OpenClaw plugin bot
+      socket?.emit('openclaw_connect', {
+        bot_name: `OpenClaw Bot (${botId})`,
+        model: 'plugin',
+        provider: 'openclaw',
+        session_key: `plugin_${botId}_${Date.now()}`,
+      })
     })
 
     socket.on('disconnect', (reason: string) => {
@@ -321,9 +329,12 @@ export function createArenaService(api: OpenClawAPI) {
       const signature = await signEvent(action as unknown as Record<string, unknown>)
 
       // Send to server (ONLY skill_id, no reasoning)
-      socket?.emit('submit_action', {
+      // Use plugin_combat_action event (backend handler for plugin connections)
+      socket?.emit('plugin_combat_action', {
+        match_id: currentMatch.matchId,
         action,
         signature,
+        response_time_ms: Date.now() - (rawData as any)._receivedAt || undefined,
       })
     })
 
@@ -368,6 +379,53 @@ export function createArenaService(api: OpenClawAPI) {
       }
 
       currentMatch = null
+    })
+
+    // OpenClaw-specific events
+    socket.on('openclaw_connect_success', () => {
+      api.log('info', 'Arena: Registered as OpenClaw plugin bot')
+    })
+
+    // Tag team coaching — backend asks plugin for a suggestion during a match
+    socket.on('request_bot_suggestion', async (data: {
+      match_id: string
+      round: number
+      my_hp: number
+      opponent_hp: number
+      my_energy: number
+      skills: any[]
+      opponent_last_skill?: string
+    }) => {
+      if (!currentMatch) return
+
+      try {
+        // Sanitize and get a decision
+        const availableSkills = (data.skills || [])
+          .map(sanitizeSkillInfo)
+          .filter((s): s is MatchSkillInfo => s !== null)
+
+        const state = {
+          round: data.round,
+          my_hp: data.my_hp,
+          opponent_hp: data.opponent_hp,
+          my_energy: data.my_energy,
+          available_skills: availableSkills,
+          opponent_last_skill: isValidSkillId(data.opponent_last_skill) ? data.opponent_last_skill : null,
+          status_effects: [] as string[],
+          round_history: currentMatch.roundHistory,
+        }
+
+        const skillId = await getAgentDecision(state)
+
+        socket?.emit('bot_suggestion', {
+          match_id: data.match_id,
+          round: data.round,
+          skill_id: skillId,
+          confidence: 75,
+        })
+      } catch (err) {
+        api.log('warn', `Arena: Coaching suggestion failed: ${err instanceof Error ? err.message : 'unknown'}`)
+      }
     })
 
     socket.on('player_disconnected', (data: { grace_period_seconds: number }) => {
