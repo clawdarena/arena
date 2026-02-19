@@ -3,6 +3,8 @@ import { z } from 'zod'
 import { prisma } from '../db'
 import { authMiddleware, getAuthUser } from '../middleware/auth'
 import { validate, getParsedBody } from '../middleware/validate'
+import { purchaseLimiter } from '../middleware/rate-limit'
+import { recordTransaction } from '../utils/credits'
 
 export const shopRoutes = new Hono()
 
@@ -76,7 +78,7 @@ const purchaseCosmeticSchema = z.object({
   item_id: z.string().min(1),
 })
 
-shopRoutes.post('/purchase', authMiddleware, validate(purchaseCosmeticSchema), async (c) => {
+shopRoutes.post('/purchase', authMiddleware, purchaseLimiter, validate(purchaseCosmeticSchema), async (c) => {
   const { userId } = getAuthUser(c)
   const { item_id } = getParsedBody<z.infer<typeof purchaseCosmeticSchema>>(c)
 

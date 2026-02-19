@@ -5,6 +5,7 @@ import { serve } from '@hono/node-server'
 import { Server as SocketServer } from 'socket.io'
 import { connectDB } from './db'
 import { connectRedis } from './redis'
+import { apiLimiter } from './middleware/rate-limit'
 import { authRoutes } from './routes/auth'
 import { shopRoutes } from './routes/shop'
 import { botRoutes } from './routes/bots'
@@ -70,6 +71,9 @@ app.use('*', async (c, next) => {
 // Health check
 app.get('/', (c) => c.json({ status: 'ok', service: 'clawdarena-api', version: '0.2.0' }))
 app.get('/health', (c) => c.json({ status: 'ok' }))
+
+// Apply general rate limiter to all API routes
+app.use('/api/*', apiLimiter)
 
 // API routes
 app.route('/api/auth', authRoutes)
