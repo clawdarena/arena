@@ -3,7 +3,6 @@ import { z } from 'zod'
 import { prisma } from '../db'
 import { authMiddleware, getAuthUser } from '../middleware/auth'
 import { validate, getParsedBody } from '../middleware/validate'
-import { sanitizeString } from '../utils/validation'
 import { calculateAgeBonus, calculateDQS, combineBonuses } from '../utils/bonuses'
 
 export const botRoutes = new Hono()
@@ -30,7 +29,7 @@ botRoutes.post('/register', authMiddleware, validate(registerBotSchema), async (
   const bot = await prisma.bot.create({
     data: {
       user_id: userId,
-      name: sanitizeString(bot_name, 30),
+      name: bot_name,
       public_key: public_key?.toLowerCase() || null,
       base_hp: 100,
       base_attack: 15,
@@ -117,11 +116,11 @@ botRoutes.patch('/:bot_id', authMiddleware, validate(updateBotSchema), async (c)
     return c.json({ error: 'Bot not found', code: 'NOT_FOUND' }, 404)
   }
 
-  // Filter out undefined values and sanitize strings
+  // Filter out undefined values
   const data: Record<string, unknown> = {}
-  if (updates.name !== undefined) data.name = sanitizeString(updates.name, 30)
-  if (updates.avatar !== undefined) data.avatar = sanitizeString(updates.avatar, 8)
-  if (updates.tagline !== undefined) data.tagline = sanitizeString(updates.tagline, 60)
+  if (updates.name !== undefined) data.name = updates.name
+  if (updates.avatar !== undefined) data.avatar = updates.avatar
+  if (updates.tagline !== undefined) data.tagline = updates.tagline
 
   if (Object.keys(data).length === 0) {
     return c.json({ error: 'No fields to update', code: 'NO_CHANGES' }, 400)

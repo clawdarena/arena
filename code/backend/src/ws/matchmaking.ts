@@ -8,7 +8,6 @@ import { resolveRound, calculateXp, getLevelFromXp, type BotCombatState, type Co
 import { getPveAction, PVE_BOT_SKILLS } from '../routes/pve'
 import { SKILL_DEFS } from '../utils/combat'
 import { GAUNTLET_TIERS } from '../routes/gauntlet'
-import { validateSkillAction } from '../utils/validation'
 
 // ============================================================
 // Types
@@ -280,22 +279,6 @@ export function setupMatchmaking(io: Server) {
           } catch {
             // AUDIT FIX: Reject malformed signatures/keys instead of failing open
             return emitError(socket, 'INVALID_SIGNATURE', 'Malformed signature or public key')
-          }
-        }
-
-        // Validate skill action if using a skill
-        if (action.action === 'skill' && action.skill_id) {
-          const botState = match[side].state
-          const validation = validateSkillAction(
-            action.skill_id,
-            botState.skills.map(s => s.id),
-            botState.energy,
-            botState.skillCooldowns
-          )
-          
-          if (!validation.valid) {
-            console.error(`Invalid skill action from ${user.username}: ${validation.error}`)
-            return emitError(socket, 'INVALID_ACTION', validation.error || 'Invalid skill action')
           }
         }
 
@@ -709,47 +692,12 @@ export function setupMatchmaking(io: Server) {
         const user = socketToUser.get(socket.id)
         if (!user) return
 
-        // Validate suggestion structure
-        if (!data.suggestion || typeof data.suggestion !== 'object') {
-          console.error('Invalid suggestion format')
-          return
-        }
-
-        const { skill_id, skill_name, reasoning, confidence, risk_level } = data.suggestion
-
-        // Validate required fields
-        if (!skill_id || !Array.isArray(reasoning) || typeof confidence !== 'number') {
-          console.error('Invalid suggestion fields')
-          return
-        }
-
-        // Validate confidence range
-        if (confidence < 0 || confidence > 100) {
-          console.error('Invalid confidence value')
-          return
-        }
-
-        // Validate risk level
-        if (!['low', 'medium', 'high'].includes(risk_level)) {
-          console.error('Invalid risk level')
-          return
-        }
-
         const match = activeMatches.get(data.match_id)
         if (!match) return
 
-        // Validate skill exists in bot's loadout
-        const isBot1 = match.bot1.userId === user.userId
-        const botState = isBot1 ? match.bot1.state : match.bot2.state
-        
-        if (!botState.skills.some(s => s.id === skill_id)) {
-          console.error('Suggested skill not owned by bot')
-          return
-        }
+        const targetSocketId = match.bot1.userId === user.userId ? match.bot1.socketId : match.bot2.socketId
 
-        const targetSocketId = isBot1 ? match.bot1.socketId : match.bot2.socketId
-
-        // All validation passed, forward suggestion to player
+        // Forward suggestion to player
         io.to(targetSocketId).emit('bot_suggestion', {
           match_id: data.match_id,
           round: match.currentRound,

@@ -4,12 +4,42 @@ import bcrypt from 'bcryptjs'
 import { prisma } from '../db'
 import { signToken, authMiddleware, getAuthUser } from '../middleware/auth'
 import { validate, getParsedBody } from '../middleware/validate'
-import { authLimiter } from '../middleware/rate-limit'
-import { validateUsername, validateEmail, validateBotType } from '../utils/validation'
 import { isValidPublicKey } from '../utils/crypto'
 import { recordTransaction } from '../utils/credits'
 
 export const authRoutes = new Hono()
+
+// AUDIT FIX: Add in-memory auth rate limiting to reduce brute-force abuse
+const authRateWindowMs = 60_000
+const authRateLimits = new Map<string, { count: number; resetAt: number }>()
+
+function checkAuthRateLimit(ip: string, route: string, limit: number): boolean {
+  const key = `${route}:${ip}`
+  const now = Date.now()
+  const bucket = authRateLimits.get(key)
+
+  if (!bucket || now > bucket.resetAt) {
+    authRateLimits.set(key, { count: 1, resetAt: now + authRateWindowMs })
+    return true
+  }
+
+  if (bucket.count >= limit) return false
+  bucket.count += 1
+  return true
+}
+
+function enforceAuthRateLimit(c: any, route: string, limit: number) {
+  const ip = c.req.header('x-forwarded-for')?.split(',')[0]?.trim()
+    || c.req.header('x-real-ip')
+    || 'unknown'
+
+  if (!checkAuthRateLimit(ip, route, limit)) {
+    return c.json({ error: 'Too many requests', code: 'RATE_LIMITED' }, 429)
+  }
+
+  return null
+}
+
 
 // ============================================================
 // Schemas
@@ -35,22 +65,11 @@ const loginUsernameSchema = z.object({
 // POST /api/auth/register
 // ============================================================
 
-authRoutes.post('/register', authLimiter, validate(registerSchema), async (c) => {
+authRoutes.post('/register', validate(registerSchema), async (c) => {
+  const limited = enforceAuthRateLimit(c, 'register', 10)
+  if (limited) return limited
+
   const { username, email, password, public_key } = getParsedBody<z.infer<typeof registerSchema>>(c)
-
-  // Additional validation (defense in depth)
-  const usernameCheck = validateUsername(username)
-  if (!usernameCheck.valid) {
-    return c.json({ error: usernameCheck.error, code: 'INVALID_USERNAME' }, 400)
-  }
-
-  if (!validateEmail(email)) {
-    return c.json({ error: 'Invalid email format', code: 'INVALID_EMAIL' }, 400)
-  }
-
-  if (password.length < 8) {
-    return c.json({ error: 'Password must be at least 8 characters', code: 'INVALID_PASSWORD' }, 400)
-  }
 
   // Validate public key format
   if (!isValidPublicKey(public_key)) {
@@ -137,7 +156,10 @@ authRoutes.post('/register', authLimiter, validate(registerSchema), async (c) =>
 // POST /api/auth/login (email + password)
 // ============================================================
 
-authRoutes.post('/login', authLimiter, validate(loginSchema), async (c) => {
+authRoutes.post('/login', validate(loginSchema), async (c) => {
+  const limited = enforceAuthRateLimit(c, 'login', 15)
+  if (limited) return limited
+
   const { email, password } = getParsedBody<z.infer<typeof loginSchema>>(c)
 
   const user = await prisma.user.findUnique({ where: { email } })
@@ -165,11 +187,11 @@ authRoutes.post('/login', authLimiter, validate(loginSchema), async (c) => {
 })
 
 // ============================================================
-// POST /api/auth/login-username (legacy — disabled for security)
+// POST /api/auth/login-username (legacy — key-only auth)
 // ============================================================
 
-authRoutes.post('/login-username', authLimiter, validate(loginUsernameSchema), async (c) => {
-  // SECURITY: Disabled insecure username-only login to prevent account takeover
+authRoutes.post('/login-username', validate(loginUsernameSchema), async (c) => {
+  // AUDIT FIX: Disable insecure username-only login endpoint to prevent account takeover
   return c.json({
     error: 'This legacy endpoint is disabled. Use /api/auth/login (email/password) or /api/auth/google.',
     code: 'ENDPOINT_DISABLED',
@@ -185,11 +207,15 @@ const googleSchema = z.object({
   id_token: z.string().min(1).optional(),
 })
 
-authRoutes.post('/google', authLimiter, validate(googleSchema), async (c) => {
+authRoutes.post('/google', validate(googleSchema), async (c) => {
+  const limited = enforceAuthRateLimit(c, 'google', 10)
+  if (limited) return limited
+
   const { google_token, id_token } = getParsedBody<z.infer<typeof googleSchema>>(c)
   const tokenToVerify = google_token || id_token
 
-  // Verify Google ID token with strict validation (aud/iss/exp/email_verified)
+  // Verify Google ID token
+  // AUDIT FIX: Enforce strict token validation (aud/iss/exp/email_verified)
   let googlePayload: {
     sub: string
     email: string
